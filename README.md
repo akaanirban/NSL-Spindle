@@ -65,6 +65,7 @@ paths to serialized functions in remote storage such as ZK).
 - Replace cloud sink with program to log output 
     - Write to file?
     - Write to database?
+- Modify Query manager to read from database
 
 ### (Some) Database Options
 
