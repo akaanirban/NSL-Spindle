@@ -52,4 +52,9 @@ Spindle softare running on vehicles.
 
 ## Simulator
 
-TODO
+Time-stamped SQLite database of environment information (location, speed, indicators)
+and reference to Kafka Streams functions to activate. 
+
+Daemon to read and run SQLite-specified streams programs for each "cluster".
+Daemon process to relay data between "Vehicles" and "Cluster Head."
+Daemon process to sink data "to Cloud."
