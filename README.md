@@ -52,22 +52,19 @@ Spindle softare running on vehicles.
 
 ## Simulator
 
-Time-stamped database of environment information (location, speed, indicators)
-and reference to Kafka Streams functions to activate. 
-
-- Daemon to read and run database-specified streams programs for each "cluster".
-    - Daemon process to relay data between "Vehicles" and "Cluster Head"
-        - Will need access to current system state
-        - Will need ability to drop messages
-            - QUESTION: is this needed for Jan/Feb deadline?
-    - Daemon process to sink data "to Cloud"
-- Process to produce data for each simulated vehicle
-    - Will need access to current system state
-
-### Basic Layout
-
-- One simulator running per vehicle
-- One simulator running per vehicle cluster
+- Time-stamped database of environment information (location, speed, indicators)
+and reference to active map/reduce operations to carry out (i.e. function ID's or 
+paths to serialized functions in remote storage such as ZK).
+- All programs run fully connected
+    - All cluster head streams visible/accessible
+    - Can be run on one Kafka cluster
+- Replace Cluster source and sink with test program
+    - Read state from database
+    - Select cluster head
+    - Write to cluster head stream or drop message
+- Replace cloud sink with program to log output 
+    - Write to file?
+    - Write to database?
 
 ### (Some) Database Options
 
