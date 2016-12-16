@@ -2,7 +2,7 @@
 
 Spindle softare running on vehicles.
 
-## Desigin Decisions
+## Design Decisions
 
 - Send messages ever `delta/k` times
     - `delta` is Spark Streaming window time
@@ -55,7 +55,25 @@ Spindle softare running on vehicles.
 Time-stamped database of environment information (location, speed, indicators)
 and reference to Kafka Streams functions to activate. 
 
-- Daemon to read and run SQLite-specified streams programs for each "cluster".
-    - Daemon process to relay data between "Vehicles" and "Cluster Head."
-    - Daemon process to sink data "to Cloud."
-    - Process to produce data for each simulated vehicle
+- Daemon to read and run database-specified streams programs for each "cluster".
+    - Daemon process to relay data between "Vehicles" and "Cluster Head"
+        - Will need access to current system state
+        - Will need ability to drop messages
+            - QUESTION: is this needed for Jan/Feb deadline?
+    - Daemon process to sink data "to Cloud"
+- Process to produce data for each simulated vehicle
+    - Will need access to current system state
+
+### Basic Layout
+
+- One simulator running per vehicle
+- One simulator running per vehicle cluster
+
+### (Some) Database Options
+
+- Kafka Streams table
+    - fewer technologies overall, but possibly more difficult to debug with
+- MongoDB
+    - Easy to use, controversial
+- Postgres
+    - Less flexible, excellent system
