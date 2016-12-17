@@ -43,6 +43,8 @@ Spindle softare running on vehicles.
 - Data reducer: performs single derived reduce operation on incoming data
 - Cloud sink: uploads reduce outputs to cloud middleware
 
+- Aggregations for reductions should run in window that is `delta / k`
+
 ### Streams
 
 - One stream per active mapper
@@ -59,12 +61,13 @@ paths to serialized functions in remote storage such as ZK).
     - All cluster head streams visible/accessible
     - Can be run on one Kafka cluster
 - Replace Cluster source and sink with test program
+    - Simulating tens to hundreds of clusters
     - Read state from database
     - Select cluster head
     - Write to cluster head stream or drop message
 - Replace cloud sink with program to log output 
-    - Write to file?
-    - Write to database?
+    - Similar design to cluster source/sink simulator
+    - Add delay for cluster head to cloud
 - Modify Query manager to read from database
 
 ### (Some) Database Options
