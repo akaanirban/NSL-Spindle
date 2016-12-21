@@ -4,3 +4,6 @@
 [submodule "NSL-Spindle-Spark"]
 	path = NSL-Spindle-Spark
 	url = git@github.com:wkronmiller/NSL-Spindle-Spark.git
+[submodule "NSL-Spindle-CSV-Parser"]
+	path = NSL-Spindle-CSV-Parser
+	url = git@github.com:wkronmiller/NSL-Loader-CPP.git
