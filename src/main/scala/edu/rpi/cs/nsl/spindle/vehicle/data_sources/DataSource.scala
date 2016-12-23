@@ -5,6 +5,6 @@ package edu.rpi.cs.nsl.spindle.vehicle.data_sources
  */
 abstract class DataSource[T](name: String) { // TODO: generate name from type
   def send(reading: T) = {
-    
+    //TODO
   }
 }
