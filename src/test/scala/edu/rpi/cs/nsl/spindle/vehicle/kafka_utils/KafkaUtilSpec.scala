@@ -13,6 +13,8 @@ import com.spotify.docker.client.messages.Container
 
 import edu.rpi.cs.nsl.spindle.DockerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.NSLSpec
+import edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import org.slf4j.LoggerFactory
 
 //TODO: move into spindle docker util suite
 private[this] object DockerHelper {
@@ -27,7 +29,7 @@ private[this] object DockerHelper {
   private val KAFKA_PORT = 9092
 
   private def runKafkaCommand(command: String) = {
-    assert(Process(command, new File(KAFKA_DOCKER_DIR)).! == 0)
+    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> Configuration.hostname).! == 0)
   }
 
   def startCluster = runKafkaCommand(START_KAFKA_COMMAND)
@@ -41,11 +43,11 @@ private[this] object DockerHelper {
 
   def getAddrs = {
     getContainers(KAFKA_TYPE)
-    .map(_.id)
-    .map(dockerClient.inspectContainer)  
-    .map(_.networkSettings.networks.values.last.ipAddress)
+      .map(_.id)
+      .map(dockerClient.inspectContainer)
+      .map(_.networkSettings.networks.values.last.ipAddress)
   }
-  
+
   def getPorts: KafkaClusterPorts = {
     def getPublicPort(privatePort: Int) = {
       (container: Container) => container.ports.toList.filter(_.getPrivatePort == privatePort).map(_.getPublicPort).last
@@ -62,19 +64,20 @@ private[this] object DockerHelper {
 class TestObj(val testVal: String) extends Serializable
 
 class KafkaUtilSpec extends NSLSpec {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   protected def kafkaConfig: KafkaConfig = {
     val servers = DockerHelper.getPorts.kafkaPorts
-      .map(a => s"localhost:$a")
+      .map(a => s"${Configuration.hostname}:$a")
       .reduce((a, b) => s"$a,$b")
     KafkaConfig().withDefaults.withServers(servers)
   }
   before {
-    //DockerHelper.stopCluster //TODO
+    DockerHelper.stopCluster
     DockerHelper.startCluster
   }
-  //TODO: test SerDe
 
-  ignore should "create a producer" in {
+  it should "create a producer" in {
     val producer = new Producer[Array[Byte], Array[Byte]](kafkaConfig)
     producer.close
   }
@@ -84,16 +87,19 @@ class KafkaUtilSpec extends NSLSpec {
     val value = new TestObj("test value")
 
     val producer = new Producer[TestObj, TestObj](kafkaConfig)
-    System.err.println("Sending test message")
-    Await.result(producer.send("test topic", key, value), 30 seconds)
-    System.err.println("Message sent")
+    logger.info("Sending test message")
+    logger.debug(s"${Await.result(producer.send("test-topic", key, value), 30 seconds)}")
+    logger.info("Message sent")
+    producer.close
   }
-  
+
+  //TODO: test de-serialization
+
   ignore should "get container addresses" in {
     System.err.println(DockerHelper.getAddrs)
   }
 
   after {
-    //DockerHelper.stopCluster //TODO
+    DockerHelper.stopCluster
   }
 }

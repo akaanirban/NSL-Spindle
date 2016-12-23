@@ -1,6 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
 import java.util.Properties
+import scala.collection.JavaConversions._
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import scala.util.Success
@@ -9,6 +10,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.blocking
 import scala.concurrent.Future
 import org.apache.kafka.clients.producer.RecordMetadata
+import org.slf4j.LoggerFactory
 
 /**
  * Wrapper for Kafka producer config
@@ -40,6 +42,7 @@ case class KafkaConfig(properties: Properties = new Properties()) {
 
   def withDefaults: KafkaConfig = {
     this.withByteSerDe
+      .copyWithChange(_.put("auto.create.topics.enable", "true"))
   }
   //TODO: acks, retries, batch size, etc...
 }
@@ -49,9 +52,13 @@ case class KafkaConfig(properties: Properties = new Properties()) {
  */
 class Producer[K, V](config: KafkaConfig) {
   type ByteArray = Array[Byte]
+  
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val kafkaProducer = new KafkaProducer[ByteArray, ByteArray](config.properties)
   private implicit val executionContext = ExecutionContext.global
 
+  logger.debug(s"Created producer with config ${config.properties}")
+  
   def send(topic: String, key: K, value: V): Future[RecordMetadata] = {
     val serKey: ByteArray = ObjectSerializer.serialize(key)
     val serVal: ByteArray = ObjectSerializer.serialize(value)
