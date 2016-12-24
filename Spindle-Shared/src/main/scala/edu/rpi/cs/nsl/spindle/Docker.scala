@@ -34,8 +34,13 @@ class ContainerRef(private val id: String, private val docker: DockerClient) {
    * Get the host port mapped to the specified container port
    */
   def getPortMap(port: String) = {
+    // Currently "works on my Mac"(TM) and should also work on Linux
     docker.inspectContainer(id).networkSettings.ports.get(port).last.hostPort
   }
+}
+
+object DockerFactory {
+  def getDocker = new DefaultDockerClient("unix:///var/run/docker.sock")
 }
 
 /**
@@ -43,8 +48,7 @@ class ContainerRef(private val id: String, private val docker: DockerClient) {
  */
 class DockerFixture(imageName: String) {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  // Currently "works on my Mac"(TM) and should also work on Linux
-  protected val docker = new DefaultDockerClient("unix:///var/run/docker.sock")
+  protected val docker = DockerFactory.getDocker
 
   logger.debug(s"Downloading docker image: $imageName")
   docker.pull(imageName)

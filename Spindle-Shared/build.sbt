@@ -1,8 +1,8 @@
 organization := "edu.rpi.cs.nsl.spindle"
 scalaVersion := "2.11.8"
 
-version := "1.1.0"
-name := "docker"
+version := "1.3.0"
+name := "shared-lib"
 
 resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven"
 
