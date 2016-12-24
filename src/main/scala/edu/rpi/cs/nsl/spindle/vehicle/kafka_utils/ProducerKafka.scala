@@ -1,16 +1,17 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
 import java.util.Properties
+
 import scala.collection.JavaConversions._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.blocking
+
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
-import scala.util.Success
-import scala.concurrent.forkjoin.ForkJoinPool
-import scala.concurrent.ExecutionContext
-import scala.concurrent.blocking
-import scala.concurrent.Future
-import org.apache.kafka.clients.producer.RecordMetadata
 import org.slf4j.LoggerFactory
+import javassist.bytecode.ByteArray
+import scala.reflect.ClassTag
 
 /**
  * Wrapper for Kafka producer config
@@ -40,33 +41,52 @@ case class KafkaConfig(properties: Properties = new Properties()) {
       .copyWithChange(_.put("value.serializer", byteSer))
   }
 
+  def withAutoTopics: KafkaConfig = {
+    this.copyWithChange(_.put("auto.create.topics.enable", "true"))
+  }
+
   def withDefaults: KafkaConfig = {
     this.withByteSerDe
-      .copyWithChange(_.put("auto.create.topics.enable", "true"))
+      .withAutoTopics
   }
   //TODO: acks, retries, batch size, etc...
+}
+
+case class SendResult(succeeded: Boolean, error: String = "")
+
+/**
+ * Abstract class for data stream producer
+ */
+abstract class Producer[K, V] {
+  type ByteArray = Array[Byte]
+  def send(streamName: String, key: K, value: V): Future[SendResult]
 }
 
 /**
  * Kafka producer
  */
-class Producer[K, V](config: KafkaConfig) {
-  type ByteArray = Array[Byte]
-  
+class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
+
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val kafkaProducer = new KafkaProducer[ByteArray, ByteArray](config.properties)
   private implicit val executionContext = ExecutionContext.global
 
   logger.debug(s"Created producer with config ${config.properties}")
-  
-  def send(topic: String, key: K, value: V): Future[RecordMetadata] = {
+
+  override def send(topic: String, key: K, value: V): Future[SendResult] = {
     val serKey: ByteArray = ObjectSerializer.serialize(key)
     val serVal: ByteArray = ObjectSerializer.serialize(value)
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)
     val jFuture = kafkaProducer.send(producerRecord)
     Future {
       blocking {
-        jFuture.get
+        try {
+          jFuture.get
+          SendResult(true)
+        } catch {
+          case e: Exception => SendResult(false, e.getMessage)
+        }
+
       }
     }
   }

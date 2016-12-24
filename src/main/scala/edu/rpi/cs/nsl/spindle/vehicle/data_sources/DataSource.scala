@@ -1,10 +1,21 @@
 package edu.rpi.cs.nsl.spindle.vehicle.data_sources
 
+import edu.rpi.cs.nsl.spindle.vehicle.kafka_utils.KafkaConfig
+import edu.rpi.cs.nsl.spindle.vehicle.kafka_utils.ProducerKafka
+
+
+case class DataSourceKey() extends Serializable //TODO: routing/partitioning info
+
+class DataProducer[V](servers: String) extends ProducerKafka[DataSourceKey, V](KafkaConfig().withDefaults.withServers(servers))
+
 /**
  * Pushes sensor data onto Kafka
  */
-abstract class DataSource[T](name: String) { // TODO: generate name from type
+class DataSource[T](name: String, producer: DataProducer[T]) {
+  private val topic = s"data-source-$name"
+  private val key = DataSourceKey() //TODO
+
   def send(reading: T) = {
-    //TODO
+    producer.send(topic, key, reading)
   }
 }
