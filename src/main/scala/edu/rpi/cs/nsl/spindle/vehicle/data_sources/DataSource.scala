@@ -3,7 +3,6 @@ package edu.rpi.cs.nsl.spindle.vehicle.data_sources
 import edu.rpi.cs.nsl.spindle.vehicle.kafka_utils.KafkaConfig
 import edu.rpi.cs.nsl.spindle.vehicle.kafka_utils.ProducerKafka
 
-
 case class DataSourceKey() extends Serializable //TODO: routing/partitioning info
 
 class DataProducer[V](servers: String) extends ProducerKafka[DataSourceKey, V](KafkaConfig().withDefaults.withServers(servers))

@@ -22,8 +22,9 @@ abstract class Vehicle(id: String, config: Configuration) {
    * Produce data for a particular epoch
    */
   def mkReadings(epoch: String) {
-    sources.foreach { case ((key, dataSource)) =>
-      dataSource.send(getReading(key))
+    sources.foreach {
+      case ((key, dataSource)) =>
+        dataSource.send(getReading(key))
     }
   }
 }

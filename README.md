@@ -76,5 +76,5 @@ paths to serialized functions in remote storage such as ZK).
     - fewer technologies overall, but possibly more difficult to debug with
 - MongoDB
     - Easy to use, controversial
-- Postgres
+- Postgres <--
     - Less flexible, excellent system
