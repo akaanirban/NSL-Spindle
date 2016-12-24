@@ -70,6 +70,7 @@ class KafkaUtilSpec extends NSLSpec {
   }
 
   override def beforeAll {
+    logger.info("Resetting kafka cluster")
     DockerHelper.stopCluster
     DockerHelper.startCluster
     logger.info(s"Waiting $KAFKA_WAIT_MS ms for kafka to converge")
@@ -94,12 +95,13 @@ class KafkaUtilSpec extends NSLSpec {
   }
 
   //TODO: test de-serialization
-  
+
   it should "produce data from a data source" in {
     //TODO
   }
 
   override def afterAll {
+    logger.info("Shutting down kafka cluster")
     DockerHelper.stopCluster
   }
 }
