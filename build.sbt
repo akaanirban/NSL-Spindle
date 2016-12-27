@@ -17,3 +17,6 @@ libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.21"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 // Docker
 libraryDependencies += "edu.rpi.cs.nsl.spindle" %% "shared-lib" % "1.3.0"
+
+// Disable parallel testing
+parallelExecution in Test := false

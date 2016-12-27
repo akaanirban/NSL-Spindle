@@ -3,7 +3,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 import java.util.Properties
 
 /**
- * Wrapper for Kafka producer config
+ * Wrapper for Kafka producer and consumer configs
  *
  * @see [[http://kafka.apache.org/0101/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html Kafka Producer Javadocs]]
  */
@@ -26,17 +26,34 @@ case class KafkaConfig(properties: Properties = new Properties()) {
    */
   def withByteSerDe: KafkaConfig = {
     val byteSer = "org.apache.kafka.common.serialization.ByteArraySerializer"
-    copyWithChange(_.put("key.serializer", byteSer))
-      .copyWithChange(_.put("value.serializer", byteSer))
+    val byteDe = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
+    val serializerSet = List("key.serializer", "value.serializer")
+      .foldLeft(this) { (config, key) => config.copyWithChange(_.put(key, byteSer)) }
+    List("key.deserializer", "value.deserializer")
+      .foldLeft(serializerSet) { (config, key) => config.copyWithChange(_.put(key, byteDe)) }
   }
 
   def withAutoTopics: KafkaConfig = {
     this.copyWithChange(_.put("auto.create.topics.enable", "true"))
   }
+  
+  def withAutoOffset: KafkaConfig = {
+    this.copyWithChange(_.put("enable.auto.commit", "true"))
+  }
 
   def withDefaults: KafkaConfig = {
     this.withByteSerDe
       .withAutoTopics
+      .withAutoOffset
   }
   //TODO: acks, retries, batch size, etc...
+
+  /**
+   * Consumer Information
+   */
+
+  // Consumer group Id
+  def withConsumerGroup(groupId: String): KafkaConfig = {
+    this.copyWithChange(_.put("group.id", groupId))
+  }
 }

@@ -5,4 +5,6 @@ package edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub
  */
 trait PubSubClient[K, V] {
   type ByteArray = Array[Byte]
+  
+  def close
 }

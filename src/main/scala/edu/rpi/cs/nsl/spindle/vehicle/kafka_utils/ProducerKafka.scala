@@ -29,14 +29,17 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
     Future {
       blocking {
         try {
-          jFuture.get
-          SendResult(true)
+          SendResult(true, metadata=Some(jFuture.get))
         } catch {
           case e: Exception => SendResult(false, e.getMessage)
         }
 
       }
     }
+  }
+  
+  def flush {
+    kafkaProducer.flush
   }
 
   def close {
