@@ -26,31 +26,35 @@ case class KafkaConfig(properties: Properties = new Properties()) {
    */
   def withByteSerDe: KafkaConfig = {
     val byteSer = "org.apache.kafka.common.serialization.ByteArraySerializer"
-    val byteDe = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
-    val serializerSet = List("key.serializer", "value.serializer")
+    List("key.serializer", "value.serializer")
       .foldLeft(this) { (config, key) => config.copyWithChange(_.put(key, byteSer)) }
-    List("key.deserializer", "value.deserializer")
-      .foldLeft(serializerSet) { (config, key) => config.copyWithChange(_.put(key, byteDe)) }
   }
 
-  def withAutoTopics: KafkaConfig = {
-    this.copyWithChange(_.put("auto.create.topics.enable", "true"))
+  def withByteDeser: KafkaConfig = {
+    val byteDe = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
+    List("key.deserializer", "value.deserializer")
+      .foldLeft(this) { (config, key) => config.copyWithChange(_.put(key, byteDe)) }
   }
-  
+
+  def withNoAutoTopics: KafkaConfig = {
+    this.copyWithChange(_.put("auto.create.topics.enable", "false"))
+  }
+
   def withAutoOffset: KafkaConfig = {
     this.copyWithChange(_.put("enable.auto.commit", "true"))
   }
 
-  def withDefaults: KafkaConfig = {
+  def withProducerDefaults: KafkaConfig = {
     this.withByteSerDe
-      .withAutoTopics
-      .withAutoOffset
+      .withNoAutoTopics
   }
-  //TODO: acks, retries, batch size, etc...
 
-  /**
-   * Consumer Information
-   */
+  def withConsumerDefaults: KafkaConfig = {
+    this.withAutoOffset
+      .withByteDeser
+  }
+
+  //TODO: acks, retries, batch size, etc...
 
   // Consumer group Id
   def withConsumerGroup(groupId: String): KafkaConfig = {

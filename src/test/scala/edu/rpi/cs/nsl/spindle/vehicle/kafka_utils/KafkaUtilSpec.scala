@@ -3,9 +3,15 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 import java.io.File
 
 import scala.collection.JavaConversions._
-import scala.sys.process._
 import scala.concurrent.Await
+import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.sys.process._
+
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.DoNotDiscover
+import org.scalatest.FlatSpec
+import org.slf4j.LoggerFactory
 
 import com.spotify.docker.client.DefaultDockerClient
 import com.spotify.docker.client.DockerClient.ListContainersParam
@@ -13,10 +19,10 @@ import com.spotify.docker.client.messages.Container
 
 import edu.rpi.cs.nsl.spindle.DockerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
-import org.slf4j.LoggerFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.FlatSpec
-import org.scalatest.DoNotDiscover
+
+import java.util.concurrent.Executors
+import scala.concurrent.ExecutionContext
+import scala.concurrent.blocking
 
 //TODO: move into spindle docker util suite
 @DoNotDiscover
@@ -60,38 +66,67 @@ private[this] object DockerHelper {
 @DoNotDiscover
 class TestObj(val testVal: String) extends Serializable
 
-class KafkaUtilSpec extends FlatSpec {
+class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val KAFKA_WAIT_MS = 10000
 
+  private val admin = new KafkaAdmin(s"${Configuration.hostname}:2181")
+
   protected def kafkaConfig: KafkaConfig = {
     val servers = DockerHelper.getPorts.kafkaPorts
       .map(a => s"${Configuration.hostname}:$a")
-      .reduce((a, b) => s"$a,$b")
+      .reduceOption((a, b) => s"$a,$b") match {
+        case Some(servers) => servers
+        case None          => throw new RuntimeException("No kafka servers found")
+      }
     KafkaConfig()
-      .withDefaults
       .withServers(servers)
-      .withConsumerGroup(java.util.UUID.randomUUID.toString)
+  }
+
+  protected def producerConfig = {
+    kafkaConfig.withProducerDefaults
+  }
+
+  protected def consumerConfig = {
+    kafkaConfig.withConsumerDefaults.withConsumerGroup(java.util.UUID.randomUUID.toString)
   }
 
   protected def mkTopic: String = {
     s"test-topic-${java.util.UUID.randomUUID.toString}"
   }
 
-  /* override def beforeAll {
-     * logger.info("Resetting kafka cluster")
-     * DockerHelper.stopCluster
-     * DockerHelper.startCluster
-     * logger.info(s"Waiting $KAFKA_WAIT_MS ms for kafka to converge")
-     * Thread.sleep(KAFKA_WAIT_MS)
-     * logger.info("Done waiting")
-    //TODO: restore
-  }*/
+  override def beforeAll {
+    logger.info("Resetting kafka cluster")
+    //DockerHelper.stopCluster
+    DockerHelper.startCluster
+    logger.info(s"Waiting $KAFKA_WAIT_MS ms for kafka to converge")
+    //Thread.sleep(KAFKA_WAIT_MS)
+    logger.info("Done waiting")
+    //TODO: restore cleanup
+  }
 
   it should "create a producer" in {
-    val producer = new ProducerKafka[Array[Byte], Array[Byte]](kafkaConfig)
+    val producer = new ProducerKafka[Array[Byte], Array[Byte]](producerConfig)
     producer.close
+  }
+
+  private def waitMessage[K, V](consumer: ConsumerKafka[K, V]): Future[(K, V)] = {
+    val executor = Executors.newSingleThreadExecutor()
+    implicit val executionContext = ExecutionContext.fromExecutorService(executor)
+    def pollMessages: (K, V) = {
+      val messages = consumer.getMessages
+      if (messages.size > 0) {
+        return messages.last
+      }
+      Thread.sleep(100)
+      pollMessages
+    }
+    Future {
+      blocking {
+        pollMessages
+      }
+    }
   }
 
   it should "send an object without crashing" in {
@@ -99,31 +134,39 @@ class KafkaUtilSpec extends FlatSpec {
     val key = new TestObj("test key")
     val value = new TestObj("test value")
 
-    val producer = new ProducerKafka[TestObj, TestObj](kafkaConfig)
-    val consumer = new ConsumerKafka[TestObj, TestObj](kafkaConfig)
+    logger.debug(s"Creating topic $testTopic")
+    admin.mkTopic(testTopic)
+    logger.info("Waiting for topic to propagate")
+    Thread.sleep(KAFKA_WAIT_MS)
+
+    val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
+    val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
+    // Consume
+    consumer.subscribe(testTopic)
+    val messageFuture = waitMessage(consumer)
+    Thread.sleep(KAFKA_WAIT_MS)
     // Produce
-    logger.info("Sending test message")
+    logger.info(s"Sending test message to $testTopic")
     val sendResult = Await.result(producer.send(testTopic, key, value), 30 seconds)
     assert(sendResult.succeeded, sendResult.error)
+    logger.debug(s"Send metadata ${sendResult.metadata}")
+    producer.flush
     logger.info("Message sent")
     producer.close
-    // Consume
-    Await.result(consumer.subscribeWithFuture(testTopic), 20 seconds)
-    logger.info("Retrieving test message")
-    consumer.seekToBeginning
-    logger.debug(s"Consumer info ${consumer.kafkaConsumer.assignment.toList}")
-    assert(consumer.getMessages.size > 0)
+    // Wait for consumer to get message
+    logger.info(s"Waiting for topic $testTopic")
+    val (keyRecvd, valueRecvd) = Await.result(messageFuture, 30 seconds)
+    assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
+    assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
     consumer.close
   }
-
-  //TODO: test de-serialization
 
   ignore should "produce data from a data source" in {
     //TODO
   }
 
-  /*override def afterAll {
+  override def afterAll {
     logger.info("Shutting down kafka cluster")
-    //DockerHelper.stopCluster //TODO
-  }*/
+    //DockerHelper.stopCluster
+  }
 }
