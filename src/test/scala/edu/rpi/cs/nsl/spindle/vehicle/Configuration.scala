@@ -4,5 +4,5 @@ import org.scalatest.DoNotDiscover
 
 @DoNotDiscover
 object Configuration {
-  val hostname = "heffner-wl-142.dynamic.rpi.edu"
+  val hostname = "butterfly-68.dynamic2.rpi.edu"
 }

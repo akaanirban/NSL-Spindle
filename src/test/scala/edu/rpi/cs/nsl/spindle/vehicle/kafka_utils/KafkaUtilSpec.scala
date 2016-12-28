@@ -69,9 +69,9 @@ class TestObj(val testVal: String) extends Serializable
 class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private val KAFKA_WAIT_MS = 10000
+  private val KAFKA_WAIT_MS = 30000
 
-  private val admin = new KafkaAdmin(s"${Configuration.hostname}:2181")
+  private lazy val kafkaAdmin = new KafkaAdmin(s"${Configuration.hostname}:2181")
 
   protected def kafkaConfig: KafkaConfig = {
     val servers = DockerHelper.getPorts.kafkaPorts
@@ -98,12 +98,12 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
   override def beforeAll {
     logger.info("Resetting kafka cluster")
-    //DockerHelper.stopCluster
+    DockerHelper.stopCluster
     DockerHelper.startCluster
-    logger.info(s"Waiting $KAFKA_WAIT_MS ms for kafka to converge")
-    //Thread.sleep(KAFKA_WAIT_MS)
+    val convergeWait = KAFKA_WAIT_MS * 3
+    logger.info(s"Waiting ${convergeWait} ms for kafka to converge")
+    Thread.sleep(convergeWait)
     logger.info("Done waiting")
-    //TODO: restore cleanup
   }
 
   it should "create a producer" in {
@@ -135,7 +135,7 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
     val value = new TestObj("test value")
 
     logger.debug(s"Creating topic $testTopic")
-    admin.mkTopic(testTopic)
+    kafkaAdmin.mkTopic(testTopic)
     logger.info("Waiting for topic to propagate")
     Thread.sleep(KAFKA_WAIT_MS)
 
@@ -166,7 +166,8 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   }
 
   override def afterAll {
+    kafkaAdmin.close
     logger.info("Shutting down kafka cluster")
-    //DockerHelper.stopCluster
+    DockerHelper.stopCluster
   }
 }
