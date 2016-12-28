@@ -1,10 +1,13 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
 import java.io.File
+import java.util.concurrent.Executors
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
+import scala.concurrent.blocking
 import scala.concurrent.duration._
 import scala.sys.process._
 
@@ -20,10 +23,6 @@ import com.spotify.docker.client.messages.Container
 import edu.rpi.cs.nsl.spindle.DockerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 
-import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
-import scala.concurrent.blocking
-
 //TODO: move into spindle docker util suite
 @DoNotDiscover
 private[this] object DockerHelper {
@@ -36,9 +35,10 @@ private[this] object DockerHelper {
   private val STOP_KAFKA_COMMAND = s"./stop.sh"
   private val ZK_PORT = 2181
   private val KAFKA_PORT = 9092
+  val NUM_KAFKA_BROKERS = 10 //TODO: get from start script or pass as param to start script
 
   private def runKafkaCommand(command: String) = {
-    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> Configuration.hostname).! == 0)
+    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> Configuration.hostname).! == 0, s"Command returned non-zero: $command")
   }
 
   def startCluster = runKafkaCommand(START_KAFKA_COMMAND)
@@ -69,7 +69,7 @@ class TestObj(val testVal: String) extends Serializable
 class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private val KAFKA_WAIT_MS = 30000
+  private val KAFKA_WAIT_TIME = 120 seconds
 
   private lazy val kafkaAdmin = new KafkaAdmin(s"${Configuration.hostname}:2181")
 
@@ -98,11 +98,11 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
   override def beforeAll {
     logger.info("Resetting kafka cluster")
-    DockerHelper.stopCluster
+    //DockerHelper.stopCluster
     DockerHelper.startCluster
-    val convergeWait = KAFKA_WAIT_MS * 3
-    logger.info(s"Waiting ${convergeWait} ms for kafka to converge")
-    Thread.sleep(convergeWait)
+    //Thread.sleep((9 seconds).toMillis) // Wait for docker containers to fire up //TODO
+    logger.info(s"Waiting for kafka to converge")
+    Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
     logger.info("Done waiting")
   }
 
@@ -135,27 +135,27 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
     val value = new TestObj("test value")
 
     logger.debug(s"Creating topic $testTopic")
-    kafkaAdmin.mkTopic(testTopic)
-    logger.info("Waiting for topic to propagate")
-    Thread.sleep(KAFKA_WAIT_MS)
+    Await.ready(kafkaAdmin.mkTopic(testTopic), KAFKA_WAIT_TIME)
 
     val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
     val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
     // Consume
     consumer.subscribe(testTopic)
     val messageFuture = waitMessage(consumer)
-    Thread.sleep(KAFKA_WAIT_MS)
+
+    Thread.sleep((5 seconds).toMillis) //TODO wait for partition assignment
+
     // Produce
     logger.info(s"Sending test message to $testTopic")
-    val sendResult = Await.result(producer.send(testTopic, key, value), 30 seconds)
-    assert(sendResult.succeeded, sendResult.error)
-    logger.debug(s"Send metadata ${sendResult.metadata}")
+    while (Await.result(producer.send(testTopic, key, value), KAFKA_WAIT_TIME).succeeded == false) {
+      logger.debug("Message send failed")
+    }
     producer.flush
     logger.info("Message sent")
     producer.close
     // Wait for consumer to get message
     logger.info(s"Waiting for topic $testTopic")
-    val (keyRecvd, valueRecvd) = Await.result(messageFuture, 30 seconds)
+    val (keyRecvd, valueRecvd) = Await.result(messageFuture, KAFKA_WAIT_TIME)
     assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
     assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
     consumer.close
@@ -163,11 +163,12 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
   ignore should "produce data from a data source" in {
     //TODO
+    fail("Not implemented")
   }
 
   override def afterAll {
     kafkaAdmin.close
     logger.info("Shutting down kafka cluster")
-    DockerHelper.stopCluster
+    //DockerHelper.stopCluster //TODO
   }
 }

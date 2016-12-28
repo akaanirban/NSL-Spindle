@@ -1,9 +1,13 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.JavaConversions._
+import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.blocking
+import scala.concurrent.duration._
 
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -11,7 +15,7 @@ import org.slf4j.LoggerFactory
 
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Producer
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.SendResult
-import java.util.concurrent.TimeUnit
+import kafka.common.UnknownTopicOrPartitionException
 
 /**
  * Kafka producer
@@ -28,6 +32,7 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
     val serVal: ByteArray = ObjectSerializer.serialize(value)
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)
     val jFuture = kafkaProducer.send(producerRecord)
+    System.err.println(s"Topic replicas: ${kafkaProducer.partitionsFor(topic).toList.map(_.inSyncReplicas.toList)}")
     Future {
       blocking {
         try {

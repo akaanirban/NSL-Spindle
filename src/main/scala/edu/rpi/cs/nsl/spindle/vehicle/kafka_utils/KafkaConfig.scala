@@ -24,7 +24,7 @@ case class KafkaConfig(properties: Properties = new Properties()) {
   /**
    * Use byte array serialization
    */
-  def withByteSerDe: KafkaConfig = {
+  def withByteSer: KafkaConfig = {
     val byteSer = "org.apache.kafka.common.serialization.ByteArraySerializer"
     List("key.serializer", "value.serializer")
       .foldLeft(this) { (config, key) => config.copyWithChange(_.put(key, byteSer)) }
@@ -36,8 +36,12 @@ case class KafkaConfig(properties: Properties = new Properties()) {
       .foldLeft(this) { (config, key) => config.copyWithChange(_.put(key, byteDe)) }
   }
 
-  def withNoAutoTopics: KafkaConfig = {
-    this.copyWithChange(_.put("auto.create.topics.enable", "false"))
+  def withRetries(retries: Int = 0): KafkaConfig = {
+    this.copyWithChange(_.put("retries", retries.toString))
+  }
+
+  def withAcks(acks: String = "all"): KafkaConfig = {
+    this.copyWithChange(_.put("acks", acks))
   }
 
   def withAutoOffset: KafkaConfig = {
@@ -45,8 +49,9 @@ case class KafkaConfig(properties: Properties = new Properties()) {
   }
 
   def withProducerDefaults: KafkaConfig = {
-    this.withByteSerDe
-      .withNoAutoTopics
+    this.withByteSer
+      .withRetries()
+      .withAcks()
   }
 
   def withConsumerDefaults: KafkaConfig = {
@@ -54,7 +59,7 @@ case class KafkaConfig(properties: Properties = new Properties()) {
       .withByteDeser
   }
 
-  //TODO: acks, retries, batch size, etc...
+  //TODO: batch size, etc...
 
   // Consumer group Id
   def withConsumerGroup(groupId: String): KafkaConfig = {
