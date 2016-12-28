@@ -7,30 +7,31 @@ import java.util.Properties
 import scala.collection.JavaConversions._
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener
 import org.apache.kafka.common.TopicPartition
-import scala.concurrent.Promise
+import scala.concurrent.blocking
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.Executors
+import scala.concurrent.Promise
 
-class ConsumerBalanceMonitor extends ConsumerRebalanceListener {
+class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerRebalanceListener {
   type PartitionCollection = java.util.Collection[TopicPartition]
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  
+
   logger.debug("Consumer balance monitor created")
 
   def onPartitionsRevoked(partitions: PartitionCollection) {
-    logger.debug(s"Revoked partitions $partitions")
+    logger.debug(s"Revoked partitions $partitions for consumer ${consumer.kafkaConsumer.assignment()}")
   }
   def onPartitionsAssigned(partitions: PartitionCollection) {
-    logger.debug(s"Assigned partitions $partitions")
+    logger.debug(s"Assigned partitions $partitions for consumer ${consumer.kafkaConsumer.assignment()}")
   }
 }
 
-class PartitionAddWatcher(addPromise: Promise[Iterable[TopicPartition]]) extends ConsumerBalanceMonitor {
+class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerBalanceMonitor[K, V](consumer) {
   override def onPartitionsAssigned(partitions: PartitionCollection) {
     super.onPartitionsAssigned(partitions)
-    addPromise.success(partitions)
+    consumer.seekToBeginning
   }
 }
 
@@ -40,27 +41,20 @@ class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
 
   val POLL_WAIT_MS = 1000
 
-  def subscribe(topic: String) {
-    kafkaConsumer.subscribe(List(topic))
+  private def subscribeWithMonitor(topic: String, monitor: ConsumerBalanceMonitor[K, V]) {
+    logger.debug(s"Subscribing to $topic")
+    kafkaConsumer.subscribe(List(topic), monitor)
   }
 
-  def subscribeWithFuture(topic: String): Future[Iterable[String]] = {
-    logger.debug(s"Subscribing with future $topic")
-    val promise = Promise[Iterable[TopicPartition]]()
-    val listener = new PartitionAddWatcher(promise)
-    implicit val ec = new ExecutionContext {
-      val thread = Executors.newSingleThreadExecutor
-      def execute(runnable: Runnable) {
-        logger.debug(s"Executing runnable ${runnable.getClass}")
-        thread.submit(runnable)
-      }
-      def reportFailure(throwable: Throwable) {
-        System.err.println(throwable)
-      }
-    }
-    // Subscribe
-    kafkaConsumer.subscribe(List(topic), listener)
-    promise.future.map(_.map(_.topic))
+  def subscribe(topic: String) {
+    subscribeWithMonitor(topic, new ConsumerBalanceMonitor[K, V](this))
+  }
+
+  /**
+   * Subscribe and start from beginning if reassigned
+   */
+  def subscribeAtLeastOnce(topic: String) {
+    subscribeWithMonitor(topic, new AtLeastOnceBalanceMonitor[K, V](this))
   }
 
   /**

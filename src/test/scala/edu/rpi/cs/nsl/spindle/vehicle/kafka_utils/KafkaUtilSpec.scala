@@ -98,9 +98,8 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
   override def beforeAll {
     logger.info("Resetting kafka cluster")
-    //DockerHelper.stopCluster
+    DockerHelper.stopCluster
     DockerHelper.startCluster
-    //Thread.sleep((9 seconds).toMillis) // Wait for docker containers to fire up //TODO
     logger.info(s"Waiting for kafka to converge")
     Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
     logger.info("Done waiting")
@@ -139,11 +138,10 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
     val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
     val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
-    // Consume
-    consumer.subscribe(testTopic)
-    val messageFuture = waitMessage(consumer)
 
-    Thread.sleep((5 seconds).toMillis) //TODO wait for partition assignment
+    // Consume
+    consumer.subscribeAtLeastOnce(testTopic)
+    val messageFuture = waitMessage(consumer)
 
     // Produce
     logger.info(s"Sending test message to $testTopic")
@@ -153,6 +151,7 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
     producer.flush
     logger.info("Message sent")
     producer.close
+
     // Wait for consumer to get message
     logger.info(s"Waiting for topic $testTopic")
     val (keyRecvd, valueRecvd) = Await.result(messageFuture, KAFKA_WAIT_TIME)
@@ -169,6 +168,6 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   override def afterAll {
     kafkaAdmin.close
     logger.info("Shutting down kafka cluster")
-    //DockerHelper.stopCluster //TODO
+    DockerHelper.stopCluster
   }
 }
