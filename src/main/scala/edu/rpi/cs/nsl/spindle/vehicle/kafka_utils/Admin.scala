@@ -58,22 +58,24 @@ class KafkaAdmin(zkString: String) {
   def mkTopic(topic: String, partitions: Int = 1, replicationFactor: Int = 1, topicConfig: Properties = new Properties()): Future[Unit] = {
     createTopic(zkUtils, topic, partitions, replicationFactor, topicConfig)
     assert(topicExists(zkUtils, topic), s"Failed to create topic $topic")
+
     def getMetadata = AdminUtils
       .fetchTopicMetadataFromZk(topic, zkUtils)
       .partitionMetadata
       .toList
+
     def getPartitionErrors = getMetadata
       .map(_.error.code)
       .filterNot(_ == KAFKA_PARTITION_NO_ERROR_CODE)
-    def getPartitionLeaders = getMetadata.map(_.leader)
+
     def checkPartitionLeaders {
       if (getPartitionErrors.isEmpty) {
-        System.err.println(s"Admin leaders $getPartitionLeaders")
         return
       }
       Thread.sleep(THREAD_SLEEP_MS)
       checkPartitionLeaders
     }
+
     implicit val ec = global
     Future {
       blocking {
