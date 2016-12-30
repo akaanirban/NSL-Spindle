@@ -18,6 +18,14 @@ case class KafkaConfig(properties: Properties = new Properties()) {
     f(propsNext)
     KafkaConfig(propsNext)
   }
+
+  private implicit def bool2String(bool: Boolean): String = {
+    bool match {
+      case false => "false"
+      case true  => "true"
+    }
+  }
+
   def withServers(servers: String): KafkaConfig = {
     copyWithChange(_.put("bootstrap.servers", servers))
   }
@@ -44,18 +52,23 @@ case class KafkaConfig(properties: Properties = new Properties()) {
     this.copyWithChange(_.put("acks", acks))
   }
 
-  def withAutoOffset: KafkaConfig = {
-    this.copyWithChange(_.put("enable.auto.commit", "true"))
+  def withBlockingOnFull(block: Boolean = true): KafkaConfig = {
+    this.copyWithChange(_.put("block.on.buffer.full", block: String))
+  }
+
+  def withAutoOffset(autoCommit: Boolean = true): KafkaConfig = {
+    this.copyWithChange(_.put("enable.auto.commit", autoCommit: String))
   }
 
   def withProducerDefaults: KafkaConfig = {
     this.withByteSer
       .withRetries()
       .withAcks()
+      .withBlockingOnFull()
   }
 
   def withConsumerDefaults: KafkaConfig = {
-    this.withAutoOffset
+    this.withAutoOffset()
       .withByteDeser
   }
 

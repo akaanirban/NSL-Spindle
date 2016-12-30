@@ -10,6 +10,7 @@ import scala.concurrent.Future
 import scala.concurrent.blocking
 import scala.concurrent.duration._
 import scala.sys.process._
+import scala.util.{ Try, Success, Failure }
 
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.DoNotDiscover
@@ -89,7 +90,10 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   }
 
   protected def consumerConfig = {
-    kafkaConfig.withConsumerDefaults.withConsumerGroup(java.util.UUID.randomUUID.toString)
+    kafkaConfig
+      .withConsumerDefaults
+      .withConsumerGroup(java.util.UUID.randomUUID.toString)
+      .withAutoOffset(false) //TODO: document why auto offset is disabled
   }
 
   protected def mkTopic: String = {
@@ -102,6 +106,7 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
     DockerHelper.startCluster
     logger.info(s"Waiting for kafka to converge")
     Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
+    Thread.sleep((2 minutes).toMillis) //TODO: clean up
     logger.info("Done waiting")
   }
 
@@ -129,35 +134,48 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   }
 
   it should "send an object without crashing" in {
-    val testTopic = mkTopic
-    val key = new TestObj("test key")
-    val value = new TestObj("test value")
+    def testSendRecv {
+      val testTopic = mkTopic
+      val key = new TestObj("test key")
+      val value = new TestObj("test value")
 
-    logger.debug(s"Creating topic $testTopic")
-    Await.ready(kafkaAdmin.mkTopic(testTopic), KAFKA_WAIT_TIME)
+      logger.debug(s"Creating topic $testTopic")
+      Await.ready(kafkaAdmin.mkTopic(testTopic), KAFKA_WAIT_TIME)
+      Thread.sleep((10 seconds).toMillis) //TODO
 
-    val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
-    val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
+      val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
+      val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
 
-    // Consume
-    consumer.subscribeAtLeastOnce(testTopic)
-    val messageFuture = waitMessage(consumer)
+      // Consume
+      consumer.subscribeAtLeastOnce(testTopic)
+      val messageFuture = waitMessage(consumer)
 
-    // Produce
-    logger.info(s"Sending test message to $testTopic")
-    while (Await.result(producer.send(testTopic, key, value), KAFKA_WAIT_TIME).succeeded == false) {
-      logger.debug("Message send failed")
+      // Produce
+      logger.info(s"Sending test message to $testTopic")
+      while (Await.result(producer.send(testTopic, key, value), KAFKA_WAIT_TIME).succeeded == false) {
+        logger.debug("Message send failed")
+      }
+      producer.flush
+      logger.info("Message sent")
+      producer.close
+
+      // Wait for consumer to get message
+      logger.info(s"Waiting for topic $testTopic")
+      val (keyRecvd, valueRecvd) = Await.result(messageFuture, KAFKA_WAIT_TIME)
+      assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
+      assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
+      consumer.close
     }
-    producer.flush
-    logger.info("Message sent")
-    producer.close
-
-    // Wait for consumer to get message
-    logger.info(s"Waiting for topic $testTopic")
-    val (keyRecvd, valueRecvd) = Await.result(messageFuture, KAFKA_WAIT_TIME)
-    assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
-    assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
-    consumer.close
+    val failures = (0 to 100).toList.par
+      .map(_ => {
+        try {
+          Success(testSendRecv)
+        } catch {
+          case e: Exception => Failure(e)
+        }
+      })
+      .filter(_.isFailure)
+    assert(failures.isEmpty, s"${failures.length} failures: $failures")
   }
 
   ignore should "produce data from a data source" in {
@@ -168,6 +186,6 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
   override def afterAll {
     kafkaAdmin.close
     logger.info("Shutting down kafka cluster")
-    DockerHelper.stopCluster
+    //DockerHelper.stopCluster //TODO
   }
 }
