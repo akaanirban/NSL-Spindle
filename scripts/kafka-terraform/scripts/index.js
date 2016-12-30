@@ -2,6 +2,8 @@
 const fs = require('fs');
 const spawn = require('child_process').spawn;
 
+console.log('Args', process.argv);
+
 const command = process.argv[2];
 const args = (() => {
     if(process.argv.length == 3) {
