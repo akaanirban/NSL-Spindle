@@ -18,12 +18,24 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 // Logging
 libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.21"
 // Unit Testing Library
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0"
 // Docker
 //libraryDependencies += "edu.rpi.cs.nsl.spindle" %% "shared-lib" % "1.4.0"
+
 lazy val sharedLib = RootProject(file("../Shared"))
-val main = Project(id = "NSL-Spark", base = file(".")).dependsOn(sharedLib)
+lazy val CloudTest = config("cloud") extend(Test)
+val main = Project(id = "NSL-Spark", base = file("."))
+    .settings(inConfig(CloudTest)(Defaults.testTasks): _*)
+    .dependsOn(sharedLib)
+    .configs(CloudTest)
 
 
 // Disable parallel testing
 //parallelExecution in Test := false
+
+
+def cloudFilter(name: String): Boolean = name endsWith "Cloud"
+def unitFilter(name: String): Boolean = cloudFilter(name) == false
+
+testOptions in Test := Seq(Tests.Filter(unitFilter))
+testOptions in CloudTest := Seq(Tests.Filter(cloudFilter))

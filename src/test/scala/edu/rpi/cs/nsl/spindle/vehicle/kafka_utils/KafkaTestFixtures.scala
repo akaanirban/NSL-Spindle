@@ -1,7 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
 import java.io.File
-import java.util.concurrent.Executors
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Await
@@ -9,8 +8,6 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.blocking
 import scala.concurrent.duration._
-import scala.sys.process._
-import scala.util.{ Try, Success, Failure }
 
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.DoNotDiscover
@@ -23,15 +20,17 @@ import com.spotify.docker.client.messages.Container
 
 import edu.rpi.cs.nsl.spindle.DockerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import edu.rpi.cs.nsl.spindle.vehicle.Scripts
+
+import scala.sys.process.Process
 
 //TODO: move into spindle docker util suite
 @DoNotDiscover
-private[this] object DockerHelper {
+private[kafka_utils] object DockerHelper {
   private val dockerClient = DockerFactory.getDocker
   private val KAFKA_TYPE = "Kafka"
   private val ZK_TYPE = "Zookeeper"
-  private val SCRIPTS_DIR = "scripts"
-  private val KAFKA_DOCKER_DIR = s"$SCRIPTS_DIR/kafka-docker"
+  private val KAFKA_DOCKER_DIR = s"${Scripts.SCRIPTS_DIR}/kafka-docker"
   private val START_KAFKA_COMMAND = s"./start.sh"
   private val STOP_KAFKA_COMMAND = s"./stop.sh"
   private val ZK_PORT = 2181
@@ -67,57 +66,40 @@ private[this] object DockerHelper {
 @DoNotDiscover
 class TestObj(val testVal: String) extends Serializable
 
-class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
+private[kafka_utils] object Constants {
+  val KAFKA_WAIT_TIME = 5 minutes
+  val KAFKA_DEFAULT_PORT = 9092
+}
+
+@DoNotDiscover
+class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
+  import Constants._
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private val KAFKA_WAIT_TIME = 120 seconds
-
-  private lazy val kafkaAdmin = new KafkaAdmin(s"${Configuration.hostname}:2181")
-
-  protected def kafkaConfig: KafkaConfig = {
-    val servers = DockerHelper.getPorts.kafkaPorts
-      .map(a => s"${Configuration.hostname}:$a")
-      .reduceOption((a, b) => s"$a,$b") match {
-        case Some(servers) => servers
-        case None          => throw new RuntimeException("No kafka servers found")
-      }
-    KafkaConfig()
-      .withServers(servers)
-  }
-
   protected def producerConfig = {
-    kafkaConfig.withProducerDefaults
+    baseConfig.withProducerDefaults
   }
 
   protected def consumerConfig = {
-    kafkaConfig
+    baseConfig
       .withConsumerDefaults
       .withConsumerGroup(java.util.UUID.randomUUID.toString)
       .withAutoOffset(false) //TODO: document why auto offset is disabled
   }
 
-  protected def mkTopic: String = {
-    s"test-topic-${java.util.UUID.randomUUID.toString}"
-  }
-
-  override def beforeAll {
-    logger.info("Resetting kafka cluster")
-    DockerHelper.stopCluster
-    DockerHelper.startCluster
-    logger.info(s"Waiting for kafka to converge")
-    Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
-    Thread.sleep((2 minutes).toMillis) //TODO: clean up
-    logger.info("Done waiting")
-  }
-
-  it should "create a producer" in {
+  /**
+   * Construct a producer
+   */
+  def mkProducer {
     val producer = new ProducerKafka[Array[Byte], Array[Byte]](producerConfig)
     producer.close
   }
 
+  /**
+   * Wait for a consumer to get a message, then return it
+   */
   private def waitMessage[K, V](consumer: ConsumerKafka[K, V]): Future[(K, V)] = {
-    val executor = Executors.newSingleThreadExecutor()
-    implicit val executionContext = ExecutionContext.fromExecutorService(executor)
+    implicit val ec = ExecutionContext.global
     def pollMessages: (K, V) = {
       val messages = consumer.getMessages
       if (messages.size > 0) {
@@ -133,7 +115,14 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
     }
   }
 
-  it should "send an object without crashing" in {
+  /**
+   * Explicitly create a new topic whose name is a UUID
+   */
+  protected def mkTopic: String = {
+    s"test-topic-${java.util.UUID.randomUUID.toString}"
+  }
+
+  def testSendRecv {
     def testSendRecv {
       val testTopic = mkTopic
       val key = new TestObj("test key")
@@ -141,7 +130,7 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
       logger.debug(s"Creating topic $testTopic")
       Await.ready(kafkaAdmin.mkTopic(testTopic), KAFKA_WAIT_TIME)
-      Thread.sleep((10 seconds).toMillis) //TODO
+      //Thread.sleep((10 seconds).toMillis) //TODO
 
       val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
       val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
@@ -152,8 +141,8 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
       // Produce
       logger.info(s"Sending test message to $testTopic")
-      while (Await.result(producer.send(testTopic, key, value), KAFKA_WAIT_TIME).succeeded == false) {
-        logger.debug("Message send failed")
+      while (Await.result(producer.send(testTopic, key, value), 1 seconds).succeeded == false) {
+        logger.warn(s"Message send failed: $testTopic")
       }
       producer.flush
       logger.info("Message sent")
@@ -161,31 +150,15 @@ class KafkaUtilSpec extends FlatSpec with BeforeAndAfterAll {
 
       // Wait for consumer to get message
       logger.info(s"Waiting for topic $testTopic")
-      val (keyRecvd, valueRecvd) = Await.result(messageFuture, KAFKA_WAIT_TIME)
+      val (keyRecvd, valueRecvd) = Await.result(messageFuture, 2 minutes)
       assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
       assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
       consumer.close
     }
-    val failures = (0 to 100).toList.par
-      .map(_ => {
-        try {
-          Success(testSendRecv)
-        } catch {
-          case e: Exception => Failure(e)
-        }
-      })
-      .filter(_.isFailure)
-    assert(failures.isEmpty, s"${failures.length} failures: $failures")
-  }
-
-  ignore should "produce data from a data source" in {
-    //TODO
-    fail("Not implemented")
-  }
-
-  override def afterAll {
-    kafkaAdmin.close
-    logger.info("Shutting down kafka cluster")
-    //DockerHelper.stopCluster //TODO
+    // Run test 500 times (with some tests running in parallel)
+    (0 to 500).toList.par
+      .foreach { _ =>
+        testSendRecv
+      }
   }
 }
