@@ -11,26 +11,26 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   import Constants._
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val kafkaAdmin = new KafkaAdmin(s"${Configuration.hostname}:2181")
+  private lazy val kafkaAdmin = new KafkaAdmin(s"${Configuration.dockerHost}:2181")
 
-  protected val kafkaConfig: KafkaConfig = {
+  protected lazy val kafkaConfig: KafkaConfig = {
     val servers = DockerHelper.getPorts.kafkaPorts
-      .map(a => s"${Configuration.hostname}:$a")
+      .map(a => s"${Configuration.dockerHost}:$a")
       .reduceOption((a, b) => s"$a,$b") match {
         case Some(servers) => servers
-        case None          => throw new RuntimeException("No kafka servers found")
+        case None          => throw new RuntimeException(s"No kafka servers found on host ${Configuration.dockerHost}")
       }
     KafkaConfig()
       .withServers(servers)
   }
 
   override def beforeAll {
-    logger.info("Resetting kafka cluster")
+    logger.info("Resetting kafka cluster") //TODO
     DockerHelper.stopCluster
     DockerHelper.startCluster
     logger.info(s"Waiting for kafka to converge")
     Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
-    Thread.sleep((1 minutes).toMillis) //TODO: clean up
+    //Thread.sleep((1 minutes).toMillis) //TODO: clean up
     logger.info("Done waiting")
   }
 
@@ -41,7 +41,9 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   }
 
   it should "send an object without crashing" in {
+    logger.info("Testing send/recv")
     sharedTests.testSendRecv
+    logger.info("Done testing send/recv")
   }
 
   ignore should "produce data from a data source" in {
@@ -52,6 +54,6 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   override def afterAll {
     kafkaAdmin.close
     logger.info("Shutting down kafka cluster")
-    //DockerHelper.stopCluster //TODO
+    DockerHelper.stopCluster
   }
 }
