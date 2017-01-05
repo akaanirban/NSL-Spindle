@@ -11,6 +11,8 @@ import org.scalatest.DoNotDiscover
 
 @DoNotDiscover
 object KafkaTestFactory {
+  val NUM_KAFKA_BROKERS = 3 //TODO: get from terraform
+  private val logger = LoggerFactory.getLogger(this.getClass)
   import Constants._
   def mkTester(serverList: ServerList): KafkaSharedTests = {
     val kafkaAdmin = new KafkaAdmin(s"${serverList.zookeeper}:2181")
@@ -18,6 +20,8 @@ object KafkaTestFactory {
       val servers = serverList.brokers.map(a => s"$a:$KAFKA_DEFAULT_PORT").mkString(",")
       KafkaConfig().withServers(servers)
     }
+    logger.info("Sleeping to ensure kafka cluster is ready")
+    Await.ready(kafkaAdmin.waitBrokers(NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
     new KafkaSharedTests(kafkaConfig, kafkaAdmin)
   }
 }
@@ -27,8 +31,8 @@ class TerraformUtilSpecCloud extends FlatSpec with BeforeAndAfterAll {
   val CLOUD_WAIT_TIME = 10 minutes
 
   override def beforeAll {
-    logger.info("Destroying kafka cluster if one exists")
-    Await.result(TerraformUtils.destroy, CLOUD_WAIT_TIME)
+    //logger.info("Destroying kafka cluster if one exists")
+    //Await.result(TerraformUtils.destroy, CLOUD_WAIT_TIME) //TODO: restore?
     TerraformUtils.printPlan
     logger.info("Running terraform apply")
     Await.result(TerraformUtils.apply, CLOUD_WAIT_TIME)
@@ -49,6 +53,7 @@ class TerraformUtilSpecCloud extends FlatSpec with BeforeAndAfterAll {
 
   override def afterAll {
     logger.info("Destroying kafka cluster")
-    Await.result(TerraformUtils.destroy, CLOUD_WAIT_TIME)
+    //Await.result(TerraformUtils.destroy, CLOUD_WAIT_TIME) //TODO: RESTORE
+    System.err.println("WARNING: MUST MANUALLY DESTROY TERRAFORM CLUSTER")
   }
 }
