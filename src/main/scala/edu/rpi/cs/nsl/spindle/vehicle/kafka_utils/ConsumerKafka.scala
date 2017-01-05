@@ -1,17 +1,19 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
-import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Consumer
-import org.slf4j.LoggerFactory
-import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.util.Properties
+
 import scala.collection.JavaConversions._
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener
-import org.apache.kafka.common.TopicPartition
 import scala.concurrent.blocking
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
-import java.util.concurrent.Executors
-import scala.concurrent.Promise
+
+import scala.language.postfixOps
+
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.common.TopicPartition
+import org.slf4j.LoggerFactory
+
+import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Consumer
+import scala.concurrent.duration._
 
 class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerRebalanceListener {
   type PartitionCollection = java.util.Collection[TopicPartition]
@@ -31,6 +33,7 @@ class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends Consum
 class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerBalanceMonitor[K, V](consumer) {
   override def onPartitionsAssigned(partitions: PartitionCollection) {
     super.onPartitionsAssigned(partitions)
+    Thread.sleep((10 seconds).toMillis) //TODO: debug
     consumer.seekToBeginning
   }
 }
@@ -41,8 +44,11 @@ class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
 
   val POLL_WAIT_MS = 1000
 
+  private var topic: String = _
+
   private def subscribeWithMonitor(topic: String, monitor: ConsumerBalanceMonitor[K, V]) {
     logger.debug(s"Subscribing to $topic")
+    this.topic = topic
     kafkaConsumer.subscribe(List(topic), monitor)
   }
 
@@ -57,11 +63,13 @@ class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
     subscribeWithMonitor(topic, new AtLeastOnceBalanceMonitor[K, V](this))
   }
 
+  //TODO: manually look up partitions for kafka topic, then manually assign to consumer
+
   /**
    * Read and de-serialize messages in buffer
    */
   def getMessages: Iterable[(K, V)] = {
-    logger.debug("Getting messages")
+    logger.trace(s"Getting messages for $topic")
     val records = kafkaConsumer.poll(POLL_WAIT_MS)
     val rawData: List[(ByteArray, ByteArray)] = records.partitions
       .map(records.records)
