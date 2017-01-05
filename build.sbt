@@ -29,6 +29,9 @@ val main = Project(id = "NSL-Spark", base = file("."))
     .dependsOn(sharedLib)
     .configs(CloudTest)
 
+// Enable scala experimental compiler flags
+scalacOptions ++= Seq("-Xexperimental")
+
 
 // Disable parallel testing
 //parallelExecution in Test := false
