@@ -11,7 +11,8 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   import Constants._
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val kafkaAdmin = new KafkaAdmin(s"${Configuration.dockerHost}:2181")
+  private lazy val zkString = s"${Configuration.dockerHost}:2181"
+  private lazy val kafkaAdmin = new KafkaAdmin(zkString)
 
   protected lazy val kafkaConfig: KafkaConfig = {
     val servers = DockerHelper.getPorts.kafkaPorts
@@ -34,7 +35,7 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
     logger.info("Done waiting")
   }
 
-  private lazy val sharedTests = new KafkaSharedTests(kafkaConfig, kafkaAdmin)
+  private lazy val sharedTests = new KafkaStreamsTestFixtures(kafkaConfig, kafkaAdmin, zkString)
 
   it should "create a producer" in {
     sharedTests.mkProducer
@@ -51,9 +52,13 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
     fail("Not implemented")
   }
 
+  it should "perform map operations" in {
+    sharedTests.testStreamMapper
+  }
+
   override def afterAll {
     kafkaAdmin.close
-    logger.info("Shutting down kafka cluster")
-    DockerHelper.stopCluster
+    //logger.info("Shutting down kafka cluster")
+    //DockerHelper.stopCluster
   }
 }

@@ -26,6 +26,11 @@ import scala.sys.process.Process
 import java.util.concurrent.TimeoutException
 import scala.util.Failure
 import scala.util.Success
+import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
+import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamMapper
+import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamsConfigBuilder
+import java.util.concurrent.TimeUnit
 
 //TODO: move into spindle docker util suite
 @DoNotDiscover
@@ -147,15 +152,29 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
     sendMessage(producer, topic, key, value)
   }
 
-  private def subscribeAtLeastOnce[K, V](topic: String, consumer: ConsumerKafka[K, V]) = {
+  protected def subscribeAtLeastOnce[K, V](topic: String, consumer: ConsumerKafka[K, V]) = {
     consumer.subscribeAtLeastOnce(topic)
     waitMessage(consumer)
   }
 
-  private def mkTopicSync(topic: String) = {
+  protected def mkTopicSync(topic: String) = {
     logger.debug(s"Creating topic $topic")
     Await.ready(kafkaAdmin.mkTopic(topic), KAFKA_WAIT_TIME)
     Thread.sleep((10 seconds).toMillis) // Wait for kafka to converge
+  }
+
+  protected def mkProducerConsumer[K, V] = {
+    val producer = new ProducerKafka[K, V](producerConfig)
+    val consumer = new ConsumerKafka[K, V](consumerConfig)
+    (producer, consumer)
+  }
+
+  protected def compareKV(k1: TestObj, k2: TestObj, v1: TestObj, v2: TestObj) {
+    def compare(a: TestObj, b: TestObj) {
+      assert(a.testVal == b.testVal, s"${a.testVal} != ${b.testVal}")
+    }
+    compare(k1, k2)
+    compare(v1, v2)
   }
 
   def testSendRecv {
@@ -167,8 +186,7 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
 
       mkTopicSync(testTopic)
 
-      val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
-      val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
+      val (producer, consumer) = mkProducerConsumer[TestObj, TestObj]
 
       // Consume
       val messageFuture = subscribeAtLeastOnce(testTopic, consumer)
@@ -182,8 +200,7 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
       logger.info(s"[$index] Waiting for topic $testTopic")
       try {
         val (keyRecvd, valueRecvd) = Await.result(messageFuture, KAFKA_WAIT_TIME)
-        assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
-        assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
+        this.compareKV(key, keyRecvd, value, valueRecvd)
       } catch {
         case e: Exception => {
           logger.error(s"$index failed: ${e.getMessage}")
@@ -209,8 +226,80 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
     assert(failures.length == 0, s"Failures: ${failures.length}\t$failures")
     logger.info("Done testing send/recv")
   }
+}
+
+class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, zkString: String) extends KafkaSharedTests(baseConfig, kafkaAdmin) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val SEND_SLEEP_TIME = 2 second
+  private def getPool: ExecutorService = { Executors.newCachedThreadPool }
+
+  private def getStreamsConfig(id: String) = StreamsConfigBuilder()
+    .withId(id)
+    .withServers(baseConfig.properties.getProperty("bootstrap.servers"))
+    .withZk(zkString)
+    .build
+
+  private def sendContinuously[K, V](topic: String, key: K, value: V, producer: ProducerKafka[K, V])(implicit pool: ExecutorService) {
+    pool.execute(new Runnable {
+      def run {
+        logger.info(s"Starting continuous producer for $topic")
+        var running = true
+        while (running) {
+          producer.send(topic, key, value)
+          try {
+            Thread.sleep(SEND_SLEEP_TIME.toMillis)
+          } catch {
+            case e: InterruptedException => {
+              logger.info(s"Stopping producer for $topic")
+              running = false
+              producer.close
+            }
+          }
+        }
+      }
+    })
+  }
+
+  private object MapperFuncs {
+    def prependText(k: TestObj, v: TestObj): (TestObj, TestObj) = {
+      val newKey = new TestObj(s"mapped-${k.testVal}")
+      val newVal = new TestObj(s"mapped-${v.testVal}")
+      (newKey, newVal)
+    }
+  }
 
   def testStreamMapper {
-    //TODO
+    val inTopic = mkTopicName("stream-mapper-in")
+    val outTopic = mkTopicName("stream-mapper-out")
+    val key = new TestObj("key")
+    val value = new TestObj("val-one")
+
+    mkTopicSync(inTopic)
+    mkTopicSync(outTopic)
+
+    val (producer, consumer) = mkProducerConsumer[TestObj, TestObj]
+
+    implicit val pool = getPool
+
+    // Start producing
+    sendContinuously(inTopic, key, value, producer)
+
+    // Start mapper
+    val mapper = new StreamMapper(inTopic, outTopic, MapperFuncs.prependText, streamsConfig = getStreamsConfig("testMapper"))
+    pool.execute(mapper)
+
+    val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer)
+
+    logger.info("waiting for mapper output")
+    val (recvdKey, recvdValue) = Await.result(outMessageFuture, 1 minutes) //TODO: use constant
+    logger.info(s"Got message")
+    consumer.close
+    pool.shutdown
+
+    val (expectedKey, expectedValue) = MapperFuncs.prependText(key, value)
+    compareKV(expectedKey, recvdKey, expectedValue, recvdValue)
+
+    logger.debug("Waiting for pool shutdown")
+    pool.awaitTermination(10, TimeUnit.SECONDS)
   }
 }
