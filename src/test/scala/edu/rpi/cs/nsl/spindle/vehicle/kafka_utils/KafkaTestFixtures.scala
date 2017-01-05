@@ -23,6 +23,9 @@ import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.Scripts
 
 import scala.sys.process.Process
+import java.util.concurrent.TimeoutException
+import scala.util.Failure
+import scala.util.Success
 
 //TODO: move into spindle docker util suite
 @DoNotDiscover
@@ -38,7 +41,7 @@ private[kafka_utils] object DockerHelper {
   val NUM_KAFKA_BROKERS = 10 //TODO: get from start script or pass as param to start script
 
   private def runKafkaCommand(command: String) = {
-    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> Configuration.hostname).! == 0, s"Command returned non-zero: $command")
+    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> Configuration.dockerHost).! == 0, s"Command returned non-zero: $command")
   }
 
   def startCluster = runKafkaCommand(START_KAFKA_COMMAND)
@@ -67,7 +70,7 @@ private[kafka_utils] object DockerHelper {
 class TestObj(val testVal: String) extends Serializable
 
 private[kafka_utils] object Constants {
-  val KAFKA_WAIT_TIME = 5 minutes
+  val KAFKA_WAIT_TIME = 10 minutes
   val KAFKA_DEFAULT_PORT = 9092
 }
 
@@ -118,19 +121,20 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
   /**
    * Explicitly create a new topic whose name is a UUID
    */
-  protected def mkTopic: String = {
-    s"test-topic-${java.util.UUID.randomUUID.toString}"
+  protected def mkTopic(id: String = ""): String = {
+    s"test-topic-$id-${java.util.UUID.randomUUID.toString}"
   }
 
   def testSendRecv {
-    def testSendRecv {
-      val testTopic = mkTopic
+    def testSendRecvInner(index: Int) {
+      logger.info(s"$index - test send/recv")
+      val testTopic = mkTopic(s"$index")
       val key = new TestObj("test key")
       val value = new TestObj("test value")
 
-      logger.debug(s"Creating topic $testTopic")
+      logger.debug(s"[$index] Creating topic $testTopic")
       Await.ready(kafkaAdmin.mkTopic(testTopic), KAFKA_WAIT_TIME)
-      //Thread.sleep((10 seconds).toMillis) //TODO
+      Thread.sleep((10 seconds).toMillis) // Wait for kafka to converge
 
       val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
       val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
@@ -140,25 +144,58 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
       val messageFuture = waitMessage(consumer)
 
       // Produce
-      logger.info(s"Sending test message to $testTopic")
-      while (Await.result(producer.send(testTopic, key, value), 1 seconds).succeeded == false) {
-        logger.warn(s"Message send failed: $testTopic")
+      logger.info(s"[$index] Sending test message to $testTopic")
+      def sendMessage {
+        var done = true
+        try {
+          done = Await.result(producer.send(testTopic, key, value), 2 minutes).succeeded
+        } catch {
+          case timeout: TimeoutException => {
+            logger.warn(s"[$index] Send timeout")
+            done = false
+          }
+        }
+        if (done == true) {
+          return
+        }
+        logger.warn(s"[$index] Sending failed for topic $testTopic")
+        sendMessage
       }
+      sendMessage
+
       producer.flush
-      logger.info("Message sent")
+      logger.info(s"[$index] Message sent")
       producer.close
 
       // Wait for consumer to get message
-      logger.info(s"Waiting for topic $testTopic")
-      val (keyRecvd, valueRecvd) = Await.result(messageFuture, 2 minutes)
-      assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
-      assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
+      logger.info(s"[$index] Waiting for topic $testTopic")
+      try {
+        val (keyRecvd, valueRecvd) = Await.result(messageFuture, KAFKA_WAIT_TIME)
+        assert(keyRecvd.testVal == key.testVal, s"$keyRecvd != $key")
+        assert(valueRecvd.testVal == value.testVal, s"$valueRecvd != $value")
+      } catch {
+        case e: Exception => {
+          logger.error(s"$index failed: ${e.getMessage}")
+          throw e
+        }
+      }
       consumer.close
     }
     // Run test 500 times (with some tests running in parallel)
-    (0 to 500).toList.par
-      .foreach { _ =>
-        testSendRecv
+    val failures = (0 to 100).toList.par
+      .map { i =>
+        try {
+          Success(testSendRecvInner(i))
+        } catch {
+          case e: Exception => Failure(e)
+        }
       }
+      .filter(_.isFailure)
+      .toList
+
+    // Throw errors
+    failures.foreach { _.get }
+    assert(failures.length == 0, s"Failures: ${failures.length}\t$failures")
+    logger.info("Done testing send/recv")
   }
 }
