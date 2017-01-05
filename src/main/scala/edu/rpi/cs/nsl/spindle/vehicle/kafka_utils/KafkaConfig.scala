@@ -1,6 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
 import java.util.Properties
+import scala.language.implicitConversions
 
 /**
  * Wrapper for Kafka producer and consumer configs
