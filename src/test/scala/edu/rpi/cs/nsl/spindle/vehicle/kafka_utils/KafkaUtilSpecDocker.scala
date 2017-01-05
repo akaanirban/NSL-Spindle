@@ -26,12 +26,11 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   }
 
   override def beforeAll {
-    logger.info("Resetting kafka cluster") //TODO
+    logger.info("Resetting kafka cluster")
     DockerHelper.stopCluster
     DockerHelper.startCluster
     logger.info(s"Waiting for kafka to converge")
     Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
-    //Thread.sleep((1 minutes).toMillis) //TODO: clean up
     logger.info("Done waiting")
   }
 
@@ -58,7 +57,7 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
 
   override def afterAll {
     kafkaAdmin.close
-    //logger.info("Shutting down kafka cluster")
-    //DockerHelper.stopCluster
+    logger.info("Shutting down kafka cluster")
+    DockerHelper.stopCluster
   }
 }
