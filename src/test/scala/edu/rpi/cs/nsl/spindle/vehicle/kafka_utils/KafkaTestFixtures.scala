@@ -121,50 +121,61 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
   /**
    * Explicitly create a new topic whose name is a UUID
    */
-  protected def mkTopic(id: String = ""): String = {
+  protected def mkTopicName(id: String = ""): String = {
     s"test-topic-$id-${java.util.UUID.randomUUID.toString}"
+  }
+
+  /**
+   * Try to send message at least once
+   */
+  private def sendMessage[K, V](producer: ProducerKafka[K, V], topic: String, key: K, value: V) {
+    var done = true
+    try {
+      done = Await.result(producer.send(topic, key, value), 2 minutes).succeeded
+    } catch {
+      case timeout: TimeoutException => {
+        logger.warn(s"Send timeout")
+        done = false
+      }
+    }
+    if (done == true) {
+      producer.flush
+      logger.info(s"Message sent on $topic")
+      return
+    }
+    logger.warn(s"Sending failed for topic $topic")
+    sendMessage(producer, topic, key, value)
+  }
+
+  private def subscribeAtLeastOnce[K, V](topic: String, consumer: ConsumerKafka[K, V]) = {
+    consumer.subscribeAtLeastOnce(topic)
+    waitMessage(consumer)
+  }
+
+  private def mkTopicSync(topic: String) = {
+    logger.debug(s"Creating topic $topic")
+    Await.ready(kafkaAdmin.mkTopic(topic), KAFKA_WAIT_TIME)
+    Thread.sleep((10 seconds).toMillis) // Wait for kafka to converge
   }
 
   def testSendRecv {
     def testSendRecvInner(index: Int) {
       logger.info(s"$index - test send/recv")
-      val testTopic = mkTopic(s"$index")
+      val testTopic = mkTopicName(s"$index")
       val key = new TestObj("test key")
       val value = new TestObj("test value")
 
-      logger.debug(s"[$index] Creating topic $testTopic")
-      Await.ready(kafkaAdmin.mkTopic(testTopic), KAFKA_WAIT_TIME)
-      Thread.sleep((10 seconds).toMillis) // Wait for kafka to converge
+      mkTopicSync(testTopic)
 
       val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
       val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
 
       // Consume
-      consumer.subscribeAtLeastOnce(testTopic)
-      val messageFuture = waitMessage(consumer)
+      val messageFuture = subscribeAtLeastOnce(testTopic, consumer)
 
       // Produce
       logger.info(s"[$index] Sending test message to $testTopic")
-      def sendMessage {
-        var done = true
-        try {
-          done = Await.result(producer.send(testTopic, key, value), 2 minutes).succeeded
-        } catch {
-          case timeout: TimeoutException => {
-            logger.warn(s"[$index] Send timeout")
-            done = false
-          }
-        }
-        if (done == true) {
-          return
-        }
-        logger.warn(s"[$index] Sending failed for topic $testTopic")
-        sendMessage
-      }
-      sendMessage
-
-      producer.flush
-      logger.info(s"[$index] Message sent")
+      sendMessage(producer, testTopic, key, value)
       producer.close
 
       // Wait for consumer to get message
@@ -197,5 +208,9 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
     failures.foreach { _.get }
     assert(failures.length == 0, s"Failures: ${failures.length}\t$failures")
     logger.info("Done testing send/recv")
+  }
+
+  def testStreamMapper {
+    //TODO
   }
 }
