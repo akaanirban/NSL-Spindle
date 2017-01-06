@@ -13,5 +13,5 @@ object Configuration {
     InetAddress.getByName(ipAddr).getAddress
     ipAddr
   }
-  
+
 }

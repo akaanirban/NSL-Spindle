@@ -28,10 +28,10 @@ object ObjectSerializer {
    * @note Should be moved to shared codebase as it is identical to Serialization.load in Spindle Spark
    */
   def deserialize[T](data: Array[Byte]): T = {
-      val in = new ObjectInputStream(new ByteArrayInputStream(data))
-      val t = in.readObject.asInstanceOf[T]
-      in.close
-      t
+    val in = new ObjectInputStream(new ByteArrayInputStream(data))
+    val t = in.readObject.asInstanceOf[T]
+    in.close
+    t
   }
 }
 
@@ -49,7 +49,7 @@ class KafkaSerializer[T] extends Serializer[T] with SerDeNop {
 
 class KafkaDeserializer[T >: Null] extends Deserializer[T] with SerDeNop {
   def deserialize(topic: String, data: Array[Byte]): T = {
-    if(data == null){
+    if (data == null) {
       null
     } else {
       ObjectSerializer.deserialize[T](data)

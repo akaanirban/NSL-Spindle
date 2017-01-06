@@ -12,6 +12,6 @@ trait Producer[K, V] extends PubSubClient[K, V] {
    * Publish a reading
    */
   def send(streamName: String, key: K, value: V): Future[SendResult]
-  
+
   def flush
 }

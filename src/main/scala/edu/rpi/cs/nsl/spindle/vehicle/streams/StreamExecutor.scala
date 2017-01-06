@@ -41,7 +41,7 @@ abstract class StreamExecutor extends Runnable {
   }
 }
 
-abstract class TypedStreamExecutor[K >: Null,V >: Null] extends StreamExecutor {
+abstract class TypedStreamExecutor[K >: Null, V >: Null] extends StreamExecutor {
   protected val keySerde = new KafkaSerde[K]
   protected val valueSerde = new KafkaSerde[V]
 }
