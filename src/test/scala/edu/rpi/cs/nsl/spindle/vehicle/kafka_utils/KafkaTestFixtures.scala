@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService
 import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamMapper
 import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamsConfigBuilder
 import java.util.concurrent.TimeUnit
+import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamKVReducer
 
 //TODO: move into spindle docker util suite
 @DoNotDiscover
@@ -268,11 +269,16 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     }
   }
 
+  private def mkTopics(prefix: String) = {
+    Seq(s"$prefix-in", s"$prefix-out").map(mkTopicName)
+  }
+
+  private def mkObject(value: String) = new TestObj(value)
+
   def testStreamMapper {
-    val inTopic = mkTopicName("stream-mapper-in")
-    val outTopic = mkTopicName("stream-mapper-out")
-    val key = new TestObj("key")
-    val value = new TestObj("val-one")
+    val Seq(inTopic, outTopic) = mkTopics("mapper")
+    val key = mkObject("key")
+    val value = mkObject("val-one")
 
     mkTopicSync(inTopic)
     mkTopicSync(outTopic)
@@ -285,7 +291,7 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     sendContinuously(inTopic, key, value, producer)
 
     // Start mapper
-    val mapper = new StreamMapper(inTopic, outTopic, MapperFuncs.prependText, streamsConfig = getStreamsConfig("testMapper"))
+    val mapper = new StreamMapper(inTopic, outTopic, MapperFuncs.prependText, config = getStreamsConfig("testMapper"))
     pool.execute(mapper)
 
     val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer)
@@ -300,6 +306,50 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     compareKV(expectedKey, recvdKey, expectedValue, recvdValue)
 
     logger.debug("Waiting for pool shutdown")
+    pool.awaitTermination(10, TimeUnit.SECONDS)
+  }
+
+  def testKVReducer {
+    logger.info("Testing KV reducer")
+    val Seq(inTopic, outTopic) = mkTopics("kv-reducer").map { topic =>
+      mkTopicSync(topic)
+      topic
+    }
+
+    implicit val pool = getPool
+    def launchProducer(objValue: String) = {
+      val key = mkObject(objValue)
+      val value = mkObject(objValue)
+      val producer = new ProducerKafka[TestObj, TestObj](producerConfig)
+      sendContinuously(inTopic, key, value, producer)
+    }
+
+    // Start producing 
+    Seq("kv1", "kv2").foreach(launchProducer)
+
+    def reducerFunc(a: TestObj, b: TestObj): TestObj = {
+      new TestObj(a.testVal + b.testVal)
+    }
+
+    val reducer = new StreamKVReducer(inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testKVReducer"))
+    pool.execute(reducer)
+
+    val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
+    val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer)
+
+    val (recvdKey, recvdValue) = Await.result(outMessageFuture, 1 minutes)
+
+    logger.info(s"Got message ${recvdValue.testVal}")
+
+    for (i <- (0 to 100)) {
+      consumer.getMessages
+        .map { case (k, v) => s"${k.testVal} -> ${v.testVal}" }
+        .foreach(println)
+      Thread.sleep(1000)
+    }
+    consumer.close
+    pool.shutdown
+
     pool.awaitTermination(10, TimeUnit.SECONDS)
   }
 }
