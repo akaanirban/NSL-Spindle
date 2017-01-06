@@ -341,12 +341,15 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
 
     logger.info(s"Got message ${recvdValue.testVal}")
 
-    for (i <- (0 to 100)) {
+    for (i <- (0 to 10)) {
       consumer.getMessages
         .map { case (k, v) => s"${k.testVal} -> ${v.testVal}" }
         .foreach(println)
       Thread.sleep(1000)
     }
+    //TODO: more sophisticated tests
+    //TODO: full reduce
+    //TODO: specify window
     consumer.close
     pool.shutdown
 

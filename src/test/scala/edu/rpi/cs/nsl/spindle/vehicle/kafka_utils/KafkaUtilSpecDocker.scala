@@ -27,7 +27,7 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
 
   override def beforeAll {
     logger.info("Resetting kafka cluster")
-    //DockerHelper.stopCluster//TODO
+    DockerHelper.stopCluster
     DockerHelper.startCluster
     logger.info(s"Waiting for kafka to converge")
     Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), KAFKA_WAIT_TIME)
@@ -40,7 +40,7 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
     sharedTests.mkProducer
   }
 
-  ignore should "send an object without crashing" in {//TODO
+  it should "send an object without crashing" in {
     logger.info("Testing send/recv")
     sharedTests.testSendRecv
     logger.info("Done testing send/recv")
@@ -51,7 +51,7 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
     fail("Not implemented")
   }
 
-  ignore should "perform map operations" in {//TODO
+  it should "perform map operations" in {
     sharedTests.testStreamMapper
   }
 
@@ -62,6 +62,6 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   override def afterAll {
     kafkaAdmin.close
     logger.info("Shutting down kafka cluster")
-    //DockerHelper.stopCluster//TODO
+    DockerHelper.stopCluster
   }
 }
