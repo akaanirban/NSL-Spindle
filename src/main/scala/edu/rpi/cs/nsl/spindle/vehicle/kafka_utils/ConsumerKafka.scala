@@ -33,7 +33,7 @@ class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends Consum
 class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerBalanceMonitor[K, V](consumer) {
   override def onPartitionsAssigned(partitions: PartitionCollection) {
     super.onPartitionsAssigned(partitions)
-    Thread.sleep((10 seconds).toMillis) //TODO: debug
+    Thread.sleep((10 seconds).toMillis) //WONTFIX: debug
     consumer.seekToBeginning
   }
 }

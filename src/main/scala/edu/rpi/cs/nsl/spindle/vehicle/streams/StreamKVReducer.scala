@@ -14,22 +14,21 @@ import org.apache.kafka.streams.kstream.KGroupedStream
  * Perform ReduceByKey on stream
  */
 class StreamKVReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig) extends TypedStreamExecutor[K, V] {
-  import scala.collection.JavaConverters._
   private val logger = LoggerFactory.getLogger(this.getClass)
-  val config = {
+  protected val config = {
     logger.debug("Setting default serde")
     val configMap = intermediateConfig.originals
     configMap.put(StreamsConfig.KEY_SERDE_CLASS_CONFIG, keySerde.getClass.getName)
     configMap.put(StreamsConfig.VALUE_SERDE_CLASS_CONFIG, valueSerde.getClass.getName)
-    System.err.println("Using map", configMap.asScala)
     new StreamsConfig(configMap)
   }
-  private val reducer = new Reducer[V]() {
+  protected val reducer = new Reducer[V]() {
     def apply(value1: V, value2: V): V = {
       reduceFunc(value1, value2)
     }
   }
-  private val reduceTableName = java.util.UUID.randomUUID.toString
+  protected def mkRandTopic = java.util.UUID.randomUUID.toString
+  protected val reduceTableName = mkRandTopic
   protected val builder = {
     logger.debug(s"Creating ReduceByKey builder for $inTopic to $outTopic")
     val builder = new KStreamBuilder
@@ -39,7 +38,7 @@ class StreamKVReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, r
       .groupByKey
       .reduce(reducer, reduceTableName)
       .toStream
-    val serializedStream: ByteStream = serialize(reducedStream) //TODO: fix
+    val serializedStream: ByteStream = serialize(reducedStream)
     writeOut(serializedStream, outTopic)
     builder
   }

@@ -12,7 +12,7 @@ class DataProducer[V](servers: String) extends ProducerKafka[DataSourceKey, V](K
  */
 class DataSource[T](name: String, producer: DataProducer[T]) {
   private val topic = s"data-source-$name"
-  private val key = DataSourceKey() //TODO
+  private val key = DataSourceKey() //TODO: finish implementing DataSource
 
   def send(reading: T) = {
     producer.send(topic, key, reading)

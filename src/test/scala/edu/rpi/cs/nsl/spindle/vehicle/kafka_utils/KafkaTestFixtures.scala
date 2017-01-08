@@ -32,6 +32,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamMapper
 import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamsConfigBuilder
 import java.util.concurrent.TimeUnit
 import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamKVReducer
+import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamReducer
 
 //TODO: move into spindle docker util suite
 @DoNotDiscover
@@ -93,7 +94,7 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
     baseConfig
       .withConsumerDefaults
       .withConsumerGroup(java.util.UUID.randomUUID.toString)
-      .withAutoOffset(false) //TODO: document why auto offset is disabled
+      .withAutoOffset(false) //TODO: document why auto offset is disabled (broken offset tracking in Kafka)
   }
 
   /**
@@ -309,9 +310,17 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     pool.awaitTermination(10, TimeUnit.SECONDS)
   }
 
-  def testKVReducer {
-    logger.info("Testing KV reducer")
-    val Seq(inTopic, outTopic) = mkTopics("kv-reducer").map { topic =>
+  private object ReducerType extends Enumeration {
+    val KV, Full = Value
+    def getName(reducerType: Value) = reducerType match {
+      case KV   => "kv"
+      case Full => "full"
+    }
+  }
+
+  private def testReducer(reducerType: ReducerType.Value) = {
+    val reducerName = ReducerType.getName(reducerType)
+    val Seq(inTopic, outTopic) = mkTopics(s"$reducerName-reducer").map { topic =>
       mkTopicSync(topic)
       topic
     }
@@ -331,7 +340,12 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
       new TestObj(a.testVal + b.testVal)
     }
 
-    val reducer = new StreamKVReducer(inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testKVReducer"))
+    val reducer = reducerType match {
+      case ReducerType.KV   => new StreamKVReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testKVReducer"))
+      case ReducerType.Full => new StreamReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testFullReducer"))
+      case _                => throw new RuntimeException(s"Unrecognized reducer type $reducerName")
+    }
+
     pool.execute(reducer)
 
     val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
@@ -341,18 +355,43 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
 
     logger.info(s"Got message ${recvdValue.testVal}")
 
+    (pool, consumer)
+  }
+
+  private def printMessages(consumer: ConsumerKafka[TestObj, TestObj]) {
     for (i <- (0 to 10)) {
       consumer.getMessages
         .map { case (k, v) => s"${k.testVal} -> ${v.testVal}" }
         .foreach(println)
       Thread.sleep(1000)
     }
-    //TODO: more sophisticated tests
-    //TODO: full reduce
+  }
+
+  private def shutdownPool(pool: ExecutorService) {
+    pool.shutdown
+    pool.awaitTermination(10, TimeUnit.SECONDS)
+  }
+
+  def testKVReducer {
+    logger.info("Testing KV reducer")
+
+    val (pool, consumer) = testReducer(ReducerType.KV)
+
+    printMessages(consumer)
+    //TODO: more sophisticated reduce tests (validate outputs)
     //TODO: specify window
     consumer.close
-    pool.shutdown
+    shutdownPool(pool)
+  }
 
-    pool.awaitTermination(10, TimeUnit.SECONDS)
+  def testFullReducer {
+    logger.info("Testing full reducer")
+
+    val (pool, consumer) = testReducer(ReducerType.Full)
+    printMessages(consumer)
+
+    consumer.close
+    shutdownPool(pool)
+
   }
 }

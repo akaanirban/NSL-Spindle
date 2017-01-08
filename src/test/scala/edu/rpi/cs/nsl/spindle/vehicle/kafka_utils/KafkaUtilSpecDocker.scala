@@ -59,6 +59,10 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
     sharedTests.testKVReducer
   }
 
+  it should "perform a simple reduce operation" in {
+    sharedTests.testFullReducer
+  }
+
   override def afterAll {
     kafkaAdmin.close
     logger.info("Shutting down kafka cluster")
