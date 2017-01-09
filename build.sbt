@@ -21,6 +21,8 @@ libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.21"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0"
 // Postgres
 libraryDependencies += "org.postgresql" % "postgresql" % "9.4.1212.jre7"
+// Scalaz Extensions
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.8"
 // Akka
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.16"
 libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.4.16"
