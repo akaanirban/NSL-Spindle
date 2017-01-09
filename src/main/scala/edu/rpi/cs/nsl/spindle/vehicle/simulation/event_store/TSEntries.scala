@@ -10,8 +10,7 @@ case class TSEntry(timestamp: Double, x: Double, y: Double, speed: Double) {
   def toPosition = Position(x, y, speed)
 }
 
-class TimeSeriesIterator(resultSet: ResultSet) extends Iterator[TSEntry] {
-  def hasNext = resultSet.next
+class TimeSeriesIterator(resultSet: ResultSet) extends QueryIterator[TSEntry](resultSet) {
   def next = {
     TSEntry(resultSet.getDouble("timestamp"),
       resultSet.getDouble("x"),
@@ -23,7 +22,7 @@ class TimeSeriesIterator(resultSet: ResultSet) extends Iterator[TSEntry] {
 class TimeSeriesQuery(connection: Connection) extends {
   val EVENTS_PER_SECOND = 1
   //NOTE: we mod timestamp by 1 to get data only once per second
-  val statement = s"""SELECT 
+  private val statement = s"""SELECT 
       x.timestamp as timestamp, 
       x.reading as x, 
       y.reading as y, 
@@ -36,8 +35,7 @@ class TimeSeriesQuery(connection: Connection) extends {
     ORDER BY x.timestamp"""
 } with JdbcQuery(connection, statement) {
   def loadReadings(nodeId: Int) = {
-    val resultSet = getForNode(nodeId)
-    new TimeSeriesIterator(resultSet)
-      .toStream
+    setNode(nodeId)
+    new TimeSeriesIterator(executeQuery).toStream
   }
 }

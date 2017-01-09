@@ -9,6 +9,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntry
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TimeSeriesQuery
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.MetadataQuery
 
 object PgDefaults {
   val port = 5432
@@ -42,4 +43,7 @@ class PgClient(config: PgConfig = PgDefaults.config) extends EventStore {
 
   private lazy val readingQuery = new TimeSeriesQuery(connection)
   def getReadings(nodeId: Int): Stream[TSEntry] = readingQuery.loadReadings(nodeId)
+
+  private lazy val metadataQuery = new MetadataQuery(connection)
+  def getNodes = metadataQuery.loadNodeIds
 }
