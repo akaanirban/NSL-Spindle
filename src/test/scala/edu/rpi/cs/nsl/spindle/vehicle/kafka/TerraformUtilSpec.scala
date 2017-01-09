@@ -39,8 +39,6 @@ class TerraformUtilSpecCloud extends FlatSpec with BeforeAndAfterAll {
   val CLOUD_WAIT_TIME = 10 minutes
 
   override def beforeAll {
-    //logger.info("Destroying kafka cluster if one exists")
-    //Await.result(TerraformUtils.destroy, CLOUD_WAIT_TIME) //TODO: restore?
     TerraformUtils.printPlan
     logger.info("Running terraform apply")
     Await.result(TerraformUtils.apply, CLOUD_WAIT_TIME)
