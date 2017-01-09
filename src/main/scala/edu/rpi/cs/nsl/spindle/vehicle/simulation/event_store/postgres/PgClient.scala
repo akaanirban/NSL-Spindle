@@ -39,7 +39,7 @@ class PgClient(config: PgConfig = PgDefaults.config) extends EventStore {
   private lazy val connection = DriverManager.getConnection(uri, config.getProps)
   def close = connection.close
   def isReadOnly = connection.isReadOnly
-  
+
   private lazy val readingQuery = new TimeSeriesQuery(connection)
   def getReadings(nodeId: Int): Stream[TSEntry] = readingQuery.loadReadings(nodeId)
 }

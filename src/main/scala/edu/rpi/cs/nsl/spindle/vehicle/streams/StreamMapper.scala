@@ -32,5 +32,4 @@ class StreamMapper[K, V, K1, V1](inTopic: String, outTopic: String, mapFunc: (K,
   }
 }
 
-
 //TODO: note - for a vanilla reduce, give everything the same key
