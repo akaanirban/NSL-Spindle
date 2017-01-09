@@ -21,8 +21,9 @@ libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.21"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0"
 // Postgres
 libraryDependencies += "org.postgresql" % "postgresql" % "9.4.1212.jre7"
-// ReactiveX
-libraryDependencies += "io.reactivex" %% "rxscala" % "0.26.5"
+// Akka
+libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.16"
+libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.4.16"
 
 // Docker
 //libraryDependencies += "edu.rpi.cs.nsl.spindle" %% "shared-lib" % "1.4.0"
@@ -39,8 +40,8 @@ val main = Project(id = "NSL-Spark", base = file("."))
 scalacOptions ++= Seq("-Xexperimental")
 
 
-// Disable parallel testing
-//parallelExecution in Test := false
+// Enable parallel testing
+parallelExecution in Test := true
 
 
 def cloudFilter(name: String): Boolean = name endsWith "Cloud"

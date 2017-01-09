@@ -47,4 +47,11 @@ class PgClientSpec extends FlatSpec {
       }
     client.close
   }
+
+  it should "load a stream of node ids" in new ConnectedClient {
+    val nodeStream = client.getNodes
+    assert(nodeStream.size > 0)
+    assert(nodeStream.hasDefiniteSize)
+    client.close
+  }
 }

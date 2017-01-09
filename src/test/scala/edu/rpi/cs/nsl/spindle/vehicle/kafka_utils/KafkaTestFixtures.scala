@@ -34,41 +34,7 @@ import java.util.concurrent.TimeUnit
 import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamKVReducer
 import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamReducer
 
-//TODO: move into spindle docker util suite
-@DoNotDiscover
-private[kafka_utils] object DockerHelper {
-  private val dockerClient = DockerFactory.getDocker
-  private val KAFKA_TYPE = "Kafka"
-  private val ZK_TYPE = "Zookeeper"
-  private val KAFKA_DOCKER_DIR = s"${Scripts.SCRIPTS_DIR}/kafka-docker"
-  private val START_KAFKA_COMMAND = s"./start.sh"
-  private val STOP_KAFKA_COMMAND = s"./stop.sh"
-  private val ZK_PORT = 2181
-  private val KAFKA_PORT = 9092
-  val NUM_KAFKA_BROKERS = 10 //TODO: get from start script or pass as param to start script
 
-  private def runKafkaCommand(command: String) = {
-    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> TestingConfiguration.dockerHost).! == 0, s"Command returned non-zero: $command")
-  }
-
-  def startCluster = runKafkaCommand(START_KAFKA_COMMAND)
-  def stopCluster = runKafkaCommand(STOP_KAFKA_COMMAND)
-
-  private def getContainers(nslType: String): List[Container] = {
-    dockerClient.listContainers(ListContainersParam.withLabel("edu.rpi.cs.nsl.type", nslType)).toList
-  }
-
-  case class KafkaClusterPorts(kafkaPorts: List[Int], zkPorts: List[Int])
-
-  def getPorts: KafkaClusterPorts = {
-    def getPublicPort(privatePort: Int) = {
-      (container: Container) => container.ports.toList.filter(_.getPrivatePort == privatePort).map(_.getPublicPort).last
-    }
-    val kafkaPorts = getContainers(KAFKA_TYPE).map(getPublicPort(KAFKA_PORT))
-    val zkPorts = getContainers(ZK_TYPE).map(getPublicPort(ZK_PORT))
-    KafkaClusterPorts(kafkaPorts, zkPorts)
-  }
-}
 
 /**
  * Serialization test class

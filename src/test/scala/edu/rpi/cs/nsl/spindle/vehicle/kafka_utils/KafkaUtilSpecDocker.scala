@@ -1,11 +1,13 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
 import scala.concurrent.Await
+
 import org.scalatest.BeforeAndAfterAll
-import edu.rpi.cs.nsl.spindle.vehicle.TestingConfiguration
 import org.scalatest.FlatSpec
 import org.slf4j.LoggerFactory
-import scala.concurrent.duration._
+
+import edu.rpi.cs.nsl.spindle.vehicle.TestingConfiguration
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.DockerHelper
 
 class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   import Constants._
