@@ -2,7 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
 
 import scala.concurrent.Await
 import org.scalatest.BeforeAndAfterAll
-import edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import edu.rpi.cs.nsl.spindle.vehicle.TestingConfiguration
 import org.scalatest.FlatSpec
 import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
@@ -11,15 +11,15 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   import Constants._
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val zkString = s"${Configuration.dockerHost}:2181"
+  private lazy val zkString = s"${TestingConfiguration.dockerHost}:2181"
   private lazy val kafkaAdmin = new KafkaAdmin(zkString)
 
   protected lazy val kafkaConfig: KafkaConfig = {
     val servers = DockerHelper.getPorts.kafkaPorts
-      .map(a => s"${Configuration.dockerHost}:$a")
+      .map(a => s"${TestingConfiguration.dockerHost}:$a")
       .reduceOption((a, b) => s"$a,$b") match {
         case Some(servers) => servers
-        case None          => throw new RuntimeException(s"No kafka servers found on host ${Configuration.dockerHost}")
+        case None          => throw new RuntimeException(s"No kafka servers found on host ${TestingConfiguration.dockerHost}")
       }
     KafkaConfig()
       .withServers(servers)

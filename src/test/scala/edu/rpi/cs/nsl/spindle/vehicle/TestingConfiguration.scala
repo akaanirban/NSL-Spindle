@@ -3,9 +3,14 @@ package edu.rpi.cs.nsl.spindle.vehicle
 import org.scalatest.DoNotDiscover
 import scala.sys.process._
 import java.net.InetAddress
+import com.typesafe.config.ConfigFactory
+import com.typesafe.config.Config
+import scala.collection.JavaConversions._
+import com.typesafe.config.ConfigObject
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.ConfigurationSingleton
 
 @DoNotDiscover
-object Configuration {
+object TestingConfiguration extends ConfigurationSingleton {
   //val hostname = "butterfly-68.dynamic2.rpi.edu"
   lazy val dockerHost = {
     val ipAddr = "scripts/kafka-docker/get-ip.sh".!!.trim
@@ -13,5 +18,4 @@ object Configuration {
     InetAddress.getByName(ipAddr).getAddress
     ipAddr
   }
-
 }

@@ -19,7 +19,7 @@ import com.spotify.docker.client.DockerClient.ListContainersParam
 import com.spotify.docker.client.messages.Container
 
 import edu.rpi.cs.nsl.spindle.DockerFactory
-import edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import edu.rpi.cs.nsl.spindle.vehicle.TestingConfiguration
 import edu.rpi.cs.nsl.spindle.vehicle.Scripts
 
 import scala.sys.process.Process
@@ -48,7 +48,7 @@ private[kafka_utils] object DockerHelper {
   val NUM_KAFKA_BROKERS = 10 //TODO: get from start script or pass as param to start script
 
   private def runKafkaCommand(command: String) = {
-    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> Configuration.dockerHost).! == 0, s"Command returned non-zero: $command")
+    assert(Process(command, new File(KAFKA_DOCKER_DIR), "HOSTNAME" -> TestingConfiguration.dockerHost).! == 0, s"Command returned non-zero: $command")
   }
 
   def startCluster = runKafkaCommand(START_KAFKA_COMMAND)

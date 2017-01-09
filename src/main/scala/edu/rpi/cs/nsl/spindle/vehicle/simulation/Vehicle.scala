@@ -7,13 +7,12 @@ import scala.reflect.runtime.universe._
 /**
  * Simulates an individual vehicle
  */
-abstract class Vehicle(id: String, config: Configuration) {
+abstract class Vehicle(id: String) {
   protected val sources: Map[String, DataSource[_]] = {
-    val factory = new SourceFactory(config)
     def mkName(name: String) = s"simulator-$id-$name"
-    Map("mph" -> factory.mkSource[VehicleTypes.MPH](mkName("mph")),
-      "lat" -> factory.mkSource[VehicleTypes.Lat](mkName("lat")),
-      "lon" -> factory.mkSource[VehicleTypes.Lon](mkName("lon")))
+    Map("mph" -> SourceFactory.mkSource[VehicleTypes.MPH](mkName("mph")),
+      "lat" -> SourceFactory.mkSource[VehicleTypes.Lat](mkName("lat")),
+      "lon" -> SourceFactory.mkSource[VehicleTypes.Lon](mkName("lon")))
   }
 
   protected def getReading[T](name: String): T
