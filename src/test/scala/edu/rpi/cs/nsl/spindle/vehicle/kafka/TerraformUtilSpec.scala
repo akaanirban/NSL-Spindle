@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
+package edu.rpi.cs.nsl.spindle.vehicle.kafka
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -6,14 +6,22 @@ import scala.concurrent.duration._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.FlatSpec
 import org.slf4j.LoggerFactory
+
 import java.net.InetAddress
+
 import org.scalatest.DoNotDiscover
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TerraformUtils
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ServerList
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
 
 @DoNotDiscover
 object KafkaTestFactory {
   val NUM_KAFKA_BROKERS = 3 //TODO: get from terraform
   private val logger = LoggerFactory.getLogger(this.getClass)
-  import Constants._
+
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin;
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TerraformUtils;
+import Constants._
   def mkTester(serverList: ServerList): KafkaSharedTests = {
     val kafkaAdmin = new KafkaAdmin(s"${serverList.zookeeper}:2181")
     val kafkaConfig: KafkaConfig = {

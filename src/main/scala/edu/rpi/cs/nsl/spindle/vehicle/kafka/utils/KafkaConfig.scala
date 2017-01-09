@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
+package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
 import java.util.Properties
 import scala.language.implicitConversions

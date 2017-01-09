@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.simulation
+package edu.rpi.cs.nsl.spindle.vehicle.kafka
 
 import java.io.File
 import org.scalatest.DoNotDiscover

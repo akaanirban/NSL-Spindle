@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
+package edu.rpi.cs.nsl.spindle.vehicle.kafka
 
 import java.io.File
 
@@ -28,11 +28,15 @@ import scala.util.Failure
 import scala.util.Success
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
-import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamMapper
-import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamsConfigBuilder
 import java.util.concurrent.TimeUnit
-import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamKVReducer
-import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamReducer
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamKVReducer
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamMapper
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamsConfigBuilder
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamReducer
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ProducerKafka
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ConsumerKafka
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
 
 
 
@@ -42,7 +46,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.streams.StreamReducer
 @DoNotDiscover
 class TestObj(val testVal: String) extends Serializable
 
-private[kafka_utils] object Constants {
+private[kafka] object Constants {
   val KAFKA_WAIT_TIME = 10 minutes
   val KAFKA_DEFAULT_PORT = 9092
 }

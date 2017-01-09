@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
+package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
 import java.util.Properties
 
@@ -40,7 +40,7 @@ class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends Con
 
 class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private[kafka_utils] val kafkaConsumer = new KafkaConsumer[ByteArray, ByteArray](config.properties)
+  private[utils] val kafkaConsumer = new KafkaConsumer[ByteArray, ByteArray](config.properties)
 
   val POLL_WAIT_MS = 1000
 

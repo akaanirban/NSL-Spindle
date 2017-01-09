@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.streams
+package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
 import java.util.Properties
 import org.apache.kafka.streams.StreamsConfig

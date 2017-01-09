@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.kafka_utils
+package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
 import edu.rpi.cs.nsl.spindle.vehicle.cloud.TerraformManager
 import edu.rpi.cs.nsl.spindle.vehicle.Scripts

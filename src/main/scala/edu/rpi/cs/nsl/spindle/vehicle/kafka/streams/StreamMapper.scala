@@ -1,10 +1,10 @@
-package edu.rpi.cs.nsl.spindle.vehicle.streams
+package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
 import org.apache.kafka.streams.StreamsConfig
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.kstream.KStreamBuilder
 import org.slf4j.LoggerFactory
-import edu.rpi.cs.nsl.spindle.vehicle.kafka_utils.ObjectSerializer
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.kstream.Reducer
 import org.apache.kafka.streams.kstream.KTable
