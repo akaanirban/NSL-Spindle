@@ -2,11 +2,14 @@ package edu.rpi.cs.nsl.spindle.vehicle
 
 import org.scalatest.FlatSpec
 
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgConfig
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgDefaults
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
+import org.slf4j.LoggerFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PositionCache
 
 class PgClientSpec extends FlatSpec {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   it should "load test config" in {
     assert(PgDefaults.config.isInstanceOf[PgConfig])
   }
@@ -25,9 +28,23 @@ class PgClientSpec extends FlatSpec {
   }
 
   it should "load readings through PgClient" in new ConnectedClient {
-    val nodeId = 0
-    assert(client.getXPositions(nodeId).size > 0)
-    assert(client.getYPositions(nodeId).size > 0)
-    assert(client.getSpeeds(nodeId).size > 0)
+    (0 to 5) map { nodeId =>
+      logger.debug(s"PgClient loading for $nodeId")
+      val readings = client.getReadings(nodeId)
+      assert(readings.size > 0)
+    }
+    client.close
+  }
+
+  it should "cache position information" in new ConnectedClient {
+    (0 to 5)
+      .map { nodeId =>
+        logger.debug(s"Position cache generating for $nodeId")
+        new PositionCache(nodeId, client)
+      }
+      .foreach { cache =>
+        assert(cache.getTimestamps.size > 0)
+      }
+    client.close
   }
 }

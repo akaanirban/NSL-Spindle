@@ -7,9 +7,8 @@ import java.util.Properties
 import edu.rpi.cs.nsl.spindle.vehicle.PropUtils._
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PosXQuery
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PosYQuery
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.SpeedQuery
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntry
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TimeSeriesQuery
 
 object PgDefaults {
   val port = 5432
@@ -41,11 +40,6 @@ class PgClient(config: PgConfig = PgDefaults.config) extends EventStore {
   def close = connection.close
   def isReadOnly = connection.isReadOnly
   
-  private lazy val xQuery =  new PosXQuery(connection)
-  private lazy val yQuery = new PosYQuery(connection)
-  private lazy val speedQuery = new SpeedQuery(connection)
-
-  def getXPositions(nodeId: Int) = xQuery.loadReadings(nodeId)
-  def getYPositions(nodeId: Int) = yQuery.loadReadings(nodeId)
-  def getSpeeds(nodeId: Int) = speedQuery.loadReadings(nodeId)
+  private lazy val readingQuery = new TimeSeriesQuery(connection)
+  def getReadings(nodeId: Int): Stream[TSEntry] = readingQuery.loadReadings(nodeId)
 }
