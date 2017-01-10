@@ -38,8 +38,6 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ProducerKafka
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ConsumerKafka
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
 
-
-
 /**
  * Serialization test class
  */

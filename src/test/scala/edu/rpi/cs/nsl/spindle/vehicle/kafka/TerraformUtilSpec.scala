@@ -19,9 +19,9 @@ object KafkaTestFactory {
   val NUM_KAFKA_BROKERS = 3 //TODO: get from terraform
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin;
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TerraformUtils;
-import Constants._
+  import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin;
+  import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TerraformUtils;
+  import Constants._
   def mkTester(serverList: ServerList): KafkaSharedTests = {
     val kafkaAdmin = new KafkaAdmin(s"${serverList.zookeeper}:2181")
     val kafkaConfig: KafkaConfig = {
