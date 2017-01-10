@@ -18,4 +18,6 @@ object TestingConfiguration extends ConfigurationSingleton {
     InetAddress.getByName(ipAddr).getAddress
     ipAddr
   }
+  
+  val shutdownDockerWhenDone = false
 }

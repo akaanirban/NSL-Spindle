@@ -203,11 +203,11 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
   private val SEND_SLEEP_TIME = 2 second
   private def getPool: ExecutorService = { Executors.newCachedThreadPool }
 
-  private def getStreamsConfig(id: String) = StreamsConfigBuilder()
+  def getStreamsConfig(id: String) = StreamsConfigBuilder()
     .withId(id)
     .withServers(baseConfig.properties.getProperty("bootstrap.servers"))
     .withZk(zkString)
-    .build
+    
 
   private def sendContinuously[K, V](topic: String, key: K, value: V, producer: ProducerKafka[K, V])(implicit pool: ExecutorService) {
     pool.execute(new Runnable {
@@ -260,7 +260,7 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     sendContinuously(inTopic, key, value, producer)
 
     // Start mapper
-    val mapper = new StreamMapper(inTopic, outTopic, MapperFuncs.prependText, config = getStreamsConfig("testMapper"))
+    val mapper = new StreamMapper(inTopic, outTopic, MapperFuncs.prependText, config = getStreamsConfig("testMapper").build)
     pool.execute(mapper)
 
     val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer)
@@ -309,8 +309,8 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     }
 
     val reducer = reducerType match {
-      case ReducerType.KV   => new StreamKVReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testKVReducer"))
-      case ReducerType.Full => new StreamReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testFullReducer"))
+      case ReducerType.KV   => new StreamKVReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testKVReducer").build)
+      case ReducerType.Full => new StreamReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testFullReducer").build)
       case _                => throw new RuntimeException(s"Unrecognized reducer type $reducerName")
     }
 

@@ -11,6 +11,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.Scripts
 import edu.rpi.cs.nsl.spindle.vehicle.TestingConfiguration
 import java.util.concurrent.atomic.AtomicInteger
 import org.slf4j.LoggerFactory
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
 
 //TODO: move into spindle docker util suite
 @DoNotDiscover
@@ -36,7 +37,7 @@ private[vehicle] object DockerHelper {
     runKafkaCommand(START_KAFKA_COMMAND)
   }
   def stopCluster = {
-    if (numClients.decrementAndGet == 0) {
+    if (numClients.decrementAndGet == 0 && TestingConfiguration.shutdownDockerWhenDone) {
       runKafkaCommand(STOP_KAFKA_COMMAND)
     }
   }
@@ -55,4 +56,17 @@ private[vehicle] object DockerHelper {
     val zkPorts = getContainers(ZK_TYPE).map(getPublicPort(ZK_PORT))
     KafkaClusterPorts(kafkaPorts, zkPorts)
   }
+  
+  def getKafkaConfig = {
+    val servers = getPorts.kafkaPorts
+      .map(a => s"${TestingConfiguration.dockerHost}:$a")
+      .reduceOption((a, b) => s"$a,$b") match {
+        case Some(servers) => servers
+        case None          => throw new RuntimeException(s"No kafka servers found on host ${TestingConfiguration.dockerHost}")
+      }
+    KafkaConfig()
+      .withServers(servers)
+  }
+  
+  def getZkString = s"${TestingConfiguration.dockerHost}:2181"
 }

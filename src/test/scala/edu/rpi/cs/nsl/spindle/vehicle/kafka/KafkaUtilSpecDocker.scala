@@ -13,19 +13,10 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   import Constants._
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val zkString = s"${TestingConfiguration.dockerHost}:2181"
+  private lazy val zkString = DockerHelper.getZkString
   private lazy val kafkaAdmin = new KafkaAdmin(zkString)
 
-  protected lazy val kafkaConfig: KafkaConfig = {
-    val servers = DockerHelper.getPorts.kafkaPorts
-      .map(a => s"${TestingConfiguration.dockerHost}:$a")
-      .reduceOption((a, b) => s"$a,$b") match {
-        case Some(servers) => servers
-        case None          => throw new RuntimeException(s"No kafka servers found on host ${TestingConfiguration.dockerHost}")
-      }
-    KafkaConfig()
-      .withServers(servers)
-  }
+  protected lazy val kafkaConfig: KafkaConfig = DockerHelper.getKafkaConfig
 
   override def beforeAll {
     logger.info("Requesting kafka cluster from docker")

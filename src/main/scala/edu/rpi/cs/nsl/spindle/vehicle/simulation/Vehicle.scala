@@ -11,6 +11,9 @@ import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
 import scala.reflect.runtime.universe._
+import scala.concurrent.Future
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 /**
  * Wraps a value to prevent type erasure
@@ -53,12 +56,21 @@ trait VehicleMessageFactory {
 }
 object VehicleMessageFactory extends VehicleMessageFactory {}
 
+case class TimingConfig(timestamps: Seq[Timestamp], startTime: Future[Double])
+
 /**
  * Simulates an individual vehicle
  */
-class Vehicle(nodeId: NodeId, clientFactory: ClientFactory, positions: PositionCache, mockSensors: Set[MockSensor[Any]], properties: Set[TypedValue[Any]]) extends Runnable { //TODO: starting time, kafka references
+class Vehicle(nodeId: NodeId,
+              clientFactory: ClientFactory,
+              timing: TimingConfig,
+              positions: PositionCache,
+              mockSensors: Set[MockSensor[Any]],
+              properties: Set[TypedValue[Any]])
+    extends Runnable { //TODO: starting time, kafka references
   private val logger = LoggerFactory.getLogger(s"${this.getClass.getName}-$nodeId")
-  private val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++ Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
+  private lazy val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
+    Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
   private[simulation] def generateMessage(timestamp: Timestamp): VehicleMessage = {
     import VehicleTypes._
     val readings: Seq[TypedValue[Any]] = ({
@@ -68,11 +80,22 @@ class Vehicle(nodeId: NodeId, clientFactory: ClientFactory, positions: PositionC
       val lon = TypedValue[Lon](position.y)
       mockSensors.toSeq.map(_.getReading(timestamp)) ++ Seq[TypedValue[_]](mph, lat, lon)
     }).asInstanceOf[Seq[TypedValue[Any]]]
-
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
   }
+  private[simulation] def mkTimings(startTime: Double): Seq[Double] = {
+    import timing.timestamps
+    val zeroTime = timestamps.min
+    val offsets = timestamps.map(_ - zeroTime)
+    val absoluteTimes = offsets.map(_ + startTime)
+    // Ensure ascending order
+    absoluteTimes.sorted.reverse
+  }
   def run {
-    logger.info(s"$nodeId starting")
+    logger.info(s"$nodeId starting and waiting for startTime")
+    val startTime = Await.result(timing.startTime, Duration.Inf)
+    logger.info(s"$nodeId will start at epoch $startTime")
+    val timings = mkTimings(startTime)
+    logger.trace(s"$nodeId generated timings $timings")
     //TODO
     throw new RuntimeException("Not implemented")
   }
