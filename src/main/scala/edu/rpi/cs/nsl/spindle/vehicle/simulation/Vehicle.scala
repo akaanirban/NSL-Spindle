@@ -28,6 +28,8 @@ object ReflectionUtils {
 
 /**
  * Use reflection to generate a Vehicle message
+ *
+ * @note - this breaks encapsulation, but Scala's support for multiple constructors isn't great
  */
 trait VehicleMessageFactory {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -41,7 +43,12 @@ trait VehicleMessageFactory {
   }
   def mkVehicle(readings: Iterable[TypedValue[Any]], properties: Iterable[TypedValue[Any]]): VehicleMessage = {
     import VehicleTypes._
-    throw new RuntimeException("Not implemented") //TODO: extract to constructor args for vehicle
+    val id = getValueOfType[VehicleId](properties)
+    val lat = getValueOfType[Lat](readings)
+    val lon = getValueOfType[Lon](readings)
+    val mph = getValueOfType[MPH](readings)
+    val color = getValueOfType[VehicleColors.Value](properties)
+    VehicleMessage(id, lat, lon, mph, color)
   }
 }
 object VehicleMessageFactory extends VehicleMessageFactory {}
@@ -52,7 +59,7 @@ object VehicleMessageFactory extends VehicleMessageFactory {}
 class Vehicle(nodeId: NodeId, clientFactory: ClientFactory, positions: PositionCache, mockSensors: Set[MockSensor[Any]], properties: Set[TypedValue[Any]]) extends Runnable { //TODO: starting time, kafka references
   private val logger = LoggerFactory.getLogger(s"${this.getClass.getName}-$nodeId")
   private val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++ Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
-  private def generateMessage(timestamp: Timestamp): VehicleMessage = {
+  private[simulation] def generateMessage(timestamp: Timestamp): VehicleMessage = {
     import VehicleTypes._
     val readings: Seq[TypedValue[Any]] = ({
       val position = positions.getPosition(timestamp)
