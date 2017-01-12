@@ -1,19 +1,22 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import scala.reflect.runtime.universe
+import scala.reflect.runtime.universe.typeTag
+
 import org.slf4j.LoggerFactory
 
+import akka.actor.Actor
+import akka.actor.ActorLogging
+import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
+import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PositionCache
-import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.MockSensor
-import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
-import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
-import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
 import scala.reflect.runtime.universe._
-import scala.concurrent.Future
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import akka.actor.Props
 
 /**
  * Wraps a value to prevent type erasure
@@ -56,18 +59,33 @@ trait VehicleMessageFactory {
 }
 object VehicleMessageFactory extends VehicleMessageFactory {}
 
-case class TimingConfig(timestamps: Seq[Timestamp], startTime: Future[Double])
+object Vehicle {
+  case class StartMessage(startTime: Double)
+  def props(nodeId: NodeId,
+            clientFactory: ClientFactory,
+            timestamps: Seq[Timestamp],
+            positions: PositionCache,
+            mockSensors: Set[MockSensor[Any]],
+            properties: Set[TypedValue[Any]]) = {
+    Props(new Vehicle(nodeId: NodeId,
+      clientFactory: ClientFactory,
+      timestamps: Seq[Timestamp],
+      positions: PositionCache,
+      mockSensors: Set[MockSensor[Any]],
+      properties: Set[TypedValue[Any]]))
+  }
+}
 
 /**
  * Simulates an individual vehicle
  */
 class Vehicle(nodeId: NodeId,
               clientFactory: ClientFactory,
-              timing: TimingConfig,
+              timestamps: Seq[Timestamp],
               positions: PositionCache,
               mockSensors: Set[MockSensor[Any]],
               properties: Set[TypedValue[Any]])
-    extends Runnable { //TODO: starting time, kafka references
+    extends Actor with ActorLogging { //TODO: kafka references
   private val logger = LoggerFactory.getLogger(s"${this.getClass.getName}-$nodeId")
   private lazy val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
     Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
@@ -83,22 +101,24 @@ class Vehicle(nodeId: NodeId,
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
   }
   private[simulation] def mkTimings(startTime: Double): Seq[Double] = {
-    import timing.timestamps
     val zeroTime = timestamps.min
     val offsets = timestamps.map(_ - zeroTime)
     val absoluteTimes = offsets.map(_ + startTime)
     // Ensure ascending order
     absoluteTimes.sorted.reverse
   }
-  def run {
-    logger.info(s"$nodeId starting and waiting for startTime")
-    val startTime = Await.result(timing.startTime, Duration.Inf)
+  private def startSimulation(startTime: Double) {
     logger.info(s"$nodeId will start at epoch $startTime")
     val timings = mkTimings(startTime)
     logger.trace(s"$nodeId generated timings $timings")
     //TODO
     throw new RuntimeException("Not implemented")
   }
+
+  def receive = {
+    case Vehicle.StartMessage(startTime) => startSimulation(startTime)
+  }
+
 }
 
 //TODO: static vehicle (one cluster per vehicle)
