@@ -5,6 +5,9 @@ import org.slf4j.LoggerFactory
 import scala.util.Random
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import scala.concurrent.Future
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 trait VehicleExecutorFixtures {
   private val random = new Random()
@@ -30,6 +33,42 @@ class VehicleExecutorSpec extends FlatSpec {
     val timings = vExec.mkTimings(startTime)
     assert(timings.min == startTime)
     assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
+  }
+  
+  val NUM_THREADS = 4000
+  it should "be able to spawn child threads" in {
+    val RUN_MS = 10000
+    val pool = Executors.newFixedThreadPool(NUM_THREADS)
+    val parentThreads = (0 to 4000).map(nodeId => new Thread(){
+      override def run {
+        val innerPool = Executors.newCachedThreadPool()
+        logger.debug(s"Test thread $nodeId starting")
+        val innerThreads = (0 to 100).map(taskId => new Thread(){
+          override def run {
+            logger.debug(s"Task $taskId thread $nodeId started")
+            def loop {
+              val looping: Boolean = 
+              try {
+                Thread.sleep(500)
+                true
+              } catch {
+                case e: InterruptedException => false
+              }
+              if(looping && Thread.interrupted() == false){
+                loop
+              }
+            }
+          }
+        })
+        innerThreads.foreach(innerPool.execute)
+        Thread.sleep(RUN_MS)
+        innerThreads.foreach(_.interrupt)
+        innerPool.shutdown()
+        innerPool.awaitTermination(10, TimeUnit.SECONDS)
+      }
+    })
+    parentThreads.foreach(pool.execute)
+    pool.awaitTermination(RUN_MS, TimeUnit.MILLISECONDS)
   }
   
   //TODO: create, run vehicle, ensure it generates expected outputs
