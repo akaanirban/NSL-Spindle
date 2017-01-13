@@ -1,15 +1,17 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import scala.concurrent.duration.DurationInt
 import scala.util.Random
 
-import org.scalatest.FlatSpec
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.WordSpecLike
 import org.slf4j.LoggerFactory
 
 import akka.actor.ActorSystem
-import akka.testkit.TestKit
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.WordSpecLike
+import akka.actor.actorRef2Scala
+import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
+import akka.testkit.TestKit
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = Seq[edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp]
@@ -28,7 +30,7 @@ trait VehicleExecutorFixtures {
   }
 }
 
-class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with WordSpecLike with BeforeAndAfterAll {
+class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
   override def afterAll {
     shutdown()
@@ -36,10 +38,23 @@ class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with Wor
   "A Vehicle actor" should {
     "correctly generate timings" in new VehicleExecutorFixtures {
       val vExec = TestActorRef(new Vehicle(0, null, randomTimings, null, null, null)).underlyingActor
-      //val vExec = system.actorOf(Vehicle.props(0, null, randomTimings, null, null, null))
       val timings = vExec.mkTimings(startTime)
       assert(timings.min == startTime)
       assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
+    }
+    "spawn multiple copies" in new VehicleExecutorFixtures {
+      val NUM_COPIES = 50000
+      (0 to NUM_COPIES)
+      .map{nodeId => 
+        system.actorOf(Vehicle.props(nodeId, null, randomTimings, null, null, null))
+      }
+      .foreach{actor =>
+        logger.info(s"Sending test message to $actor")
+        within(100 milliseconds) {
+          actor ! Ping()
+          expectMsg(Ping())
+        }
+      }
     }
   }
 

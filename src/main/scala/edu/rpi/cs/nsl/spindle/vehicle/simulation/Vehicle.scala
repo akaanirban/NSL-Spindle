@@ -5,8 +5,8 @@ import scala.reflect.runtime.universe.typeTag
 
 import org.slf4j.LoggerFactory
 
-import akka.actor.Actor
-import akka.actor.ActorLogging
+import akka.actor._
+import akka.actor.Actor._
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
@@ -17,6 +17,10 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PositionCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.MockSensor
 import scala.reflect.runtime.universe._
 import akka.actor.Props
+import akka.event.Logging
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
+import akka.dispatch.RequiresMessageQueue
+import akka.dispatch.BoundedMessageQueueSemantics
 
 /**
  * Wraps a value to prevent type erasure
@@ -59,8 +63,13 @@ trait VehicleMessageFactory {
 }
 object VehicleMessageFactory extends VehicleMessageFactory {}
 
+case class Ping()
+
 object Vehicle {
   case class StartMessage(startTime: Double)
+  case class ReadyMessage(nodeId: NodeId)
+  // Sent by world
+  case class CheckReadyMessage()
   def props(nodeId: NodeId,
             clientFactory: ClientFactory,
             timestamps: Seq[Timestamp],
@@ -85,9 +94,11 @@ class Vehicle(nodeId: NodeId,
               positions: PositionCache,
               mockSensors: Set[MockSensor[Any]],
               properties: Set[TypedValue[Any]])
-    extends Actor with ActorLogging { //TODO: kafka references
-  private val logger = LoggerFactory.getLogger(s"${this.getClass.getName}-$nodeId")
-  private lazy val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
+    extends Actor with ActorLogging 
+    with RequiresMessageQueue[BoundedMessageQueueSemantics] { //TODO: kafka references
+  //private val logger = LoggerFactory.getLogger(s"${this.getClass.getName}-$nodeId")
+  private val logger = Logging(context.system, this)
+  private val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
     Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
   private[simulation] def generateMessage(timestamp: Timestamp): VehicleMessage = {
     import VehicleTypes._
@@ -110,15 +121,24 @@ class Vehicle(nodeId: NodeId,
   private def startSimulation(startTime: Double) {
     logger.info(s"$nodeId will start at epoch $startTime")
     val timings = mkTimings(startTime)
-    logger.trace(s"$nodeId generated timings $timings")
+    logger.debug(s"$nodeId generated timings $timings")
     //TODO
     throw new RuntimeException("Not implemented")
   }
 
+  //TODO: fix this 
+
   def receive = {
     case Vehicle.StartMessage(startTime) => startSimulation(startTime)
+    case Ping() => {
+      logger.debug("Replying to ping")
+      sender ! Ping()
+    }
+    case Vehicle.CheckReadyMessage() => {
+      logger.debug("Got checkReady")
+      sender ! Vehicle.ReadyMessage(nodeId)
+    }
   }
-
 }
 
 //TODO: static vehicle (one cluster per vehicle)
