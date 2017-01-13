@@ -16,7 +16,7 @@ trait PropertyFactory {
  * Get properties that are explicitly defined
  * in the Vehicle case class (to be renamed VehicleStatus)
  */
-class BasicPropertyFactory extends PropertyFactory{
+class BasicPropertyFactory extends PropertyFactory {
   import edu.rpi.cs.nsl.spindle.datatypes._
   private val rand = new Random()
   private lazy val colors = VehicleColors.values.toArray

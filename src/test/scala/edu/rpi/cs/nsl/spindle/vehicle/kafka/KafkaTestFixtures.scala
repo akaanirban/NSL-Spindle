@@ -207,7 +207,6 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     .withId(id)
     .withServers(baseConfig.properties.getProperty("bootstrap.servers"))
     .withZk(zkString)
-    
 
   private def sendContinuously[K, V](topic: String, key: K, value: V, producer: ProducerKafka[K, V])(implicit pool: ExecutorService) {
     pool.execute(new Runnable {

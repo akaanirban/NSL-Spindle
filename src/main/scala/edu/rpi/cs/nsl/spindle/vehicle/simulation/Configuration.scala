@@ -38,7 +38,7 @@ object Configuration extends ConfigurationSingleton {
     val ssl = conf.getOpt[Boolean]("postgres.ssl").getOrElse(PgDefaults.ssl)
     val readOnly = conf.getOpt[Boolean]("postgres.readOnly").getOrElse(PgDefaults.readOnly)
   }
-  
+
   val simStartOffsetMs = 5000
 
   object Vehicles {

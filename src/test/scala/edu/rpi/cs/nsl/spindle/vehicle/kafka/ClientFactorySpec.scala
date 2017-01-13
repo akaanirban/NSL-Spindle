@@ -23,7 +23,7 @@ private[vehicle] object ClientFactoryDockerFixtures {
 
 class ClientFactorySpecDocker extends FlatSpec with BeforeAndAfterAll {
   import ClientFactoryDockerFixtures._
-  
+
   override def beforeAll {
     waitReady
   }

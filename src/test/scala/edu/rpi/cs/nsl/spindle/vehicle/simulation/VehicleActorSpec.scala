@@ -45,16 +45,16 @@ class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with Imp
     "spawn multiple copies" in new VehicleExecutorFixtures {
       val NUM_COPIES = 50000
       (0 to NUM_COPIES)
-      .map{nodeId => 
-        system.actorOf(Vehicle.props(nodeId, null, randomTimings, null, null, null))
-      }
-      .foreach{actor =>
-        logger.info(s"Sending test message to $actor")
-        within(100 milliseconds) {
-          actor ! Ping()
-          expectMsg(Ping())
+        .map { nodeId =>
+          system.actorOf(Vehicle.props(nodeId, null, randomTimings, null, null, null))
         }
-      }
+        .foreach { actor =>
+          logger.info(s"Sending test message to $actor")
+          within(100 milliseconds) {
+            actor ! Ping()
+            expectMsg(Ping())
+          }
+        }
     }
   }
 
