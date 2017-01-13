@@ -4,6 +4,11 @@ import edu.rpi.cs.nsl.spindle.vehicle.Types._
 
 case class Position(x: Double, y: Double, speed: Double)
 
+object CacheTypes extends Enumeration {
+  val PositionCache = Value
+}
+import CacheTypes._
+
 class TSCache[T](readings: Iterable[TSEntry], mapper: (TSEntry) => T) {
   private val cache: Map[Timestamp, T] = readings
     .map { reading =>
@@ -13,18 +18,4 @@ class TSCache[T](readings: Iterable[TSEntry], mapper: (TSEntry) => T) {
 
   def getReading(timestamp: Timestamp): T = cache(timestamp)
   def getTimestamps: Iterable[Timestamp] = cache.keys
-}
-
-object CacheTypes extends Enumeration {
-  val PositionCache = Value
-}
-import CacheTypes._
-
-class CacheFactory(store: EventStore) {
-  def mkCaches(nodeId: Int) = {
-    val entries = store.getReadings(nodeId).force.toList
-    val timestamps = entries.map(_.timestamp)
-    val positionCache = new TSCache[Position](entries, _.toPosition)
-    (timestamps, Map(PositionCache -> positionCache))
-  }
 }
