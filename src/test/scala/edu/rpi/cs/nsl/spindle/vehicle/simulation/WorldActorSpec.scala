@@ -14,6 +14,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.DockerHelper
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryDockerFixtures
 import org.slf4j.LoggerFactory
 
+import edu.rpi.cs.nsl.spindle.vehicle.TestingConfiguration.numVehicles
+
 class WorldActorFixtures()(implicit system: ActorSystem) {
   import ClientFactoryDockerFixtures._
   private val propertyFactory = new BasicPropertyFactory()
@@ -29,7 +31,7 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec")) with I
   }
   "A world actor" should {
     "respond to a ping" in new WorldActorFixtures {
-      within(50 milliseconds){
+      within(50 milliseconds) {
         world ! Ping
         logger.debug("Sent ping")
         expectMsg(Ping)
@@ -37,13 +39,13 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec")) with I
       }
     }
     "spawn vehicle actors on receiving init" in new WorldActorFixtures {
-       within(2 minutes){
-         world ! World.InitSimulation
-         logger.debug("Sent init message")
-         expectMsg(World.Starting)
-         logger.debug("Got starting message and waiting for ready message")
-         expectMsg(World.Ready)
-       }
+      within(World.VEHICLE_WAIT_TIME + (1 minutes)) {
+        world ! World.InitSimulation
+        logger.debug("Sent init message")
+        expectMsg(World.Starting)
+        logger.debug("Got starting message and waiting for ready message")
+        expectMsg(World.Ready(numVehicles))
+      }
     }
   }
 }

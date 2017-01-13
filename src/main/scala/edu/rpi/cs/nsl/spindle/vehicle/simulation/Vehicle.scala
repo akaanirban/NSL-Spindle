@@ -94,12 +94,11 @@ class Vehicle(nodeId: NodeId,
               positions: PositionCache,
               mockSensors: Set[MockSensor[Any]],
               properties: Set[TypedValue[Any]])
-    extends Actor with ActorLogging 
-    with RequiresMessageQueue[BoundedMessageQueueSemantics] { //TODO: kafka references
-  //private val logger = LoggerFactory.getLogger(s"${this.getClass.getName}-$nodeId")
-  private val logger = Logging(context.system, this)
-  private val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
+    extends Actor with ActorLogging { //TODO: kafka references
+  private lazy val logger = Logging(context.system, this)
+  private lazy val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
     Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
+
   private[simulation] def generateMessage(timestamp: Timestamp): VehicleMessage = {
     import VehicleTypes._
     val readings: Seq[TypedValue[Any]] = ({
@@ -126,7 +125,10 @@ class Vehicle(nodeId: NodeId,
     throw new RuntimeException("Not implemented")
   }
 
-  //TODO: fix this 
+  override def preStart {
+    // Force evaluation
+    val props = fullProperties
+  }
 
   def receive = {
     case Vehicle.StartMessage(startTime) => startSimulation(startTime)
@@ -134,10 +136,11 @@ class Vehicle(nodeId: NodeId,
       logger.debug("Replying to ping")
       sender ! Ping()
     }
-    case Vehicle.CheckReadyMessage() => {
-      logger.debug("Got checkReady")
+    case Vehicle.CheckReadyMessage => {
+      logger.info("Got checkReady")
       sender ! Vehicle.ReadyMessage(nodeId)
     }
+    case _ => throw new RuntimeException(s"Unknown message on $nodeId")
   }
 }
 

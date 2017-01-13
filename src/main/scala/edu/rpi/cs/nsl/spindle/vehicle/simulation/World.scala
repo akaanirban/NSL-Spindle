@@ -14,6 +14,13 @@ import scala.concurrent.duration._
 import akka.dispatch.RequiresMessageQueue
 import akka.dispatch.BoundedMessageQueueSemantics
 import akka.actor.Stash
+import akka.pattern.ask
+import akka.util.Timeout
+import scala.concurrent.Await
+import akka.actor.ActorRef
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
+import java.util.concurrent.TimeoutException
 
 /**
  * Manages vehicles
@@ -21,13 +28,14 @@ import akka.actor.Stash
 object World {
   case class InitSimulation()
   case class Starting()
-  case class Ready()
+  case class Ready(numVehicles: Int)
   def props(propertyFactory: PropertyFactory, clientFactory: ClientFactory) = {
     Props(new World(propertyFactory: PropertyFactory, clientFactory))
   }
+  val VEHICLE_WAIT_TIME = 5 minutes
 }
 
-class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory)
+class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxVehicles: Option[Int] = None)
     extends Actor with ActorLogging with RequiresMessageQueue[BoundedMessageQueueSemantics] {
   import World._
   import Vehicle.{ StartMessage, ReadyMessage }
@@ -35,7 +43,11 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory)
   private[simulation] lazy val vehicles = {
     logger.debug("Creating vehicle actors")
     val pgClient = new PgClient()
-    val vehicles = pgClient.getNodes.map { nodeId: NodeId =>
+    val nodeList = maxVehicles match {
+      case None      => pgClient.getNodes
+      case Some(max) => pgClient.getNodes.take(max)
+    }
+    val vehicles = nodeList.map { nodeId: NodeId =>
       val positions = new PositionCache(nodeId, pgClient)
       val timestamps = positions.getTimestamps.toList
       val mockSensors = SensorFactory.mkSensors(nodeId)
@@ -62,6 +74,41 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory)
     Configuration.simStartOffsetMs + System.currentTimeMillis()
   }
 
+  implicit val vehicleTimeout = Timeout(10 seconds)
+  private implicit val ec = context.dispatcher
+
+  private def tryCheck(actorRef: ActorRef): Future[_] = {
+    logger.debug(s"Checking $actorRef")
+    val checkFuture = actorRef ? Vehicle.CheckReadyMessage
+    checkFuture
+      .recover {
+        case err => {
+          logger.error(err, "Failed to send message to vehicle")
+          tryCheck(actorRef)
+        }
+      }
+  }
+
+  private def becomeStarted(supervisor: ActorRef) {
+    logger.info(s"All ${vehicles.size} vehicles ready")
+    supervisor ! Ready(vehicles.size)
+    context.become(started)
+  }
+
+  private def checkReady(supervisor: ActorRef) {
+    val replyFutures = Future.sequence {
+      vehicles
+        .map(_._2)
+        .map(tryCheck)
+    }
+    logger.debug(s"Checking on all vehicles")
+    replyFutures.onSuccess {
+      case _ => {
+        becomeStarted(supervisor)
+      }
+    }
+  }
+
   def initializing: Receive = {
     case Ping => {
       logger.info("Got ping")
@@ -73,27 +120,11 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory)
       val numVehicles = vehicles.size
       logger.info(s"Created $numVehicles vehicles")
       sender ! Starting
-      context.become(starting(Set()))
-      vehicles.foreach {
-        case (_, actorRef) =>
-          actorRef ! Vehicle.CheckReadyMessage
-      }
-      logger.debug("Sent checkReady to all vehicles")
+      checkReady(sender)
     }
-    case _ => throw new RuntimeException(s"Received unexpected message")
+    case _ => throw new RuntimeException(s"Received unexpected message (start mode)")
   }
-
-  def starting(readyVehicles: Set[NodeId]): Receive = {
-    case ReadyMessage(nodeId) => {
-      logger.debug(s"Got ready message from $nodeId")
-      val newReadySet = readyVehicles ++ Set(nodeId)
-      if (newReadySet.size == vehicles.length) {
-        logger.info(s"All ${vehicles.length} vehicles are online")
-        context.parent ! Ready
-      } else {
-        context.become(starting(newReadySet))
-      }
-    }
-    case badMsg: Any => throw new RuntimeException(s"Received unexpected message $badMsg")
+  def started: Receive = {
+    case _ => throw new RuntimeException(s"Received unexpected message (started mode)")
   }
 }

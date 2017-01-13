@@ -20,4 +20,6 @@ object TestingConfiguration extends ConfigurationSingleton {
   }
   
   val shutdownDockerWhenDone = false
+  
+  val numVehicles = 3340
 }
