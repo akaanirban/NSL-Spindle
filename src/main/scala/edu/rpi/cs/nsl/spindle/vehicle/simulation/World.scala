@@ -32,7 +32,7 @@ object World {
   def props(propertyFactory: PropertyFactory, clientFactory: ClientFactory) = {
     Props(new World(propertyFactory: PropertyFactory, clientFactory))
   }
-  val VEHICLE_WAIT_TIME = 5 minutes
+  val VEHICLE_WAIT_TIME = 10 seconds
 }
 
 class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxVehicles: Option[Int] = None)
@@ -74,7 +74,7 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxV
     Configuration.simStartOffsetMs + System.currentTimeMillis()
   }
 
-  implicit val vehicleTimeout = Timeout(10 seconds)
+  private implicit val vehicleTimeout = Timeout(VEHICLE_WAIT_TIME)
   private implicit val ec = context.dispatcher
 
   private def tryCheck(actorRef: ActorRef): Future[_] = {

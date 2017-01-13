@@ -51,7 +51,8 @@ trait VehicleMessageFactory {
     }
     matches.last.value.asInstanceOf[T]
   }
-  def mkVehicle(readings: Iterable[TypedValue[Any]], properties: Iterable[TypedValue[Any]]): VehicleMessage = {
+  def mkVehicle(readings: Iterable[TypedValue[Any]],
+                properties: Iterable[TypedValue[Any]]): VehicleMessage = {
     import VehicleTypes._
     val id = getValueOfType[VehicleId](properties)
     val lat = getValueOfType[Lat](readings)
