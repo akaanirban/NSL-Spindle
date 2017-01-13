@@ -10,10 +10,9 @@ import akka.actor.Actor._
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
-import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
+import edu.rpi.cs.nsl.spindle.vehicle.Types._
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PositionCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.MockSensor
 import scala.reflect.runtime.universe._
 import akka.actor.Props
@@ -21,6 +20,11 @@ import akka.event.Logging
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import akka.dispatch.RequiresMessageQueue
 import akka.dispatch.BoundedMessageQueueSemantics
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSCache
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
 
 /**
  * Wraps a value to prevent type erasure
@@ -73,14 +77,12 @@ object Vehicle {
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
             clientFactory: ClientFactory,
-            timestamps: Seq[Timestamp],
-            positions: PositionCache,
+            cacheFactory: CacheFactory,
             mockSensors: Set[MockSensor[Any]],
             properties: Set[TypedValue[Any]]) = {
     Props(new Vehicle(nodeId: NodeId,
       clientFactory: ClientFactory,
-      timestamps: Seq[Timestamp],
-      positions: PositionCache,
+      cacheFactory: CacheFactory,
       mockSensors: Set[MockSensor[Any]],
       properties: Set[TypedValue[Any]]))
   }
@@ -91,19 +93,22 @@ object Vehicle {
  */
 class Vehicle(nodeId: NodeId,
               clientFactory: ClientFactory,
-              timestamps: Seq[Timestamp],
-              positions: PositionCache,
+              cacheFactory: CacheFactory,
               mockSensors: Set[MockSensor[Any]],
               properties: Set[TypedValue[Any]])
     extends Actor with ActorLogging { //TODO: kafka references
   private lazy val logger = Logging(context.system, this)
   private lazy val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
     Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
+  private lazy val (timestamps, caches): (Seq[Timestamp], Map[CacheTypes.Value, TSCache[_]]) = cacheFactory.mkCaches(nodeId)
 
   private[simulation] def generateMessage(timestamp: Timestamp): VehicleMessage = {
     import VehicleTypes._
+    import CacheTypes._
     val readings: Seq[TypedValue[Any]] = ({
-      val position = positions.getPosition(timestamp)
+      val position: Position = caches(PositionCache)
+        .asInstanceOf[TSCache[Position]]
+        .getReading(timestamp)
       val mph = TypedValue[MPH](position.speed)
       val lat = TypedValue[Lat](position.x)
       val lon = TypedValue[Lon](position.y)

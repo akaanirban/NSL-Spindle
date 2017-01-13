@@ -6,7 +6,6 @@ import akka.actor.Actor
 import akka.event.Logging
 import akka.actor.Props
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PositionCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.SensorFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.properties.PropertyFactory
@@ -21,6 +20,7 @@ import akka.actor.ActorRef
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.TimeoutException
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 
 /**
  * Manages vehicles
@@ -48,14 +48,13 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxV
       case Some(max) => pgClient.getNodes.take(max)
     }
     val vehicles = nodeList.map { nodeId: NodeId =>
-      val positions = new PositionCache(nodeId, pgClient)
-      val timestamps = positions.getTimestamps.toList
+      val cacheFactory = new CacheFactory(pgClient)
+      //val positions = new PositionCache(nodeId, pgClient)
       val mockSensors = SensorFactory.mkSensors(nodeId)
       val properties = propertyFactory.getProperties(nodeId)
       val actor = context.actorOf(Vehicle.props(nodeId,
         clientFactory,
-        timestamps,
-        positions,
+        cacheFactory,
         mockSensors,
         properties))
       context.watch(actor)
