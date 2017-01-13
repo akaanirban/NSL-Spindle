@@ -54,7 +54,7 @@ class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with Imp
       assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
     }
     "spawn multiple copies" in new VehicleExecutorFixtures {
-      val NUM_COPIES = 10 //50000
+      val NUM_COPIES = 50000
       (0 to NUM_COPIES)
         .map { nodeId =>
           system.actorOf(mkVehicleProps)
