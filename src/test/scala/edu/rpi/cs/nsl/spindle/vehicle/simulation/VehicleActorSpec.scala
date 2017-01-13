@@ -6,21 +6,32 @@ import scala.util.Random
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.WordSpecLike
 import org.slf4j.LoggerFactory
+import edu.rpi.cs.nsl.spindle.vehicle.Types._
 
 import akka.actor.ActorSystem
 import akka.actor.actorRef2Scala
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 
 trait VehicleExecutorFixtures {
-  private type TimeSeq = Seq[edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp]
+  private type TimeSeq = List[Timestamp]
   private val random = new Random()
 
   val FIVE_SECONDS_MS: Double = 5 * 1000 toDouble
   val startTime: Double = System.currentTimeMillis() + FIVE_SECONDS_MS
-  val randomTimings: TimeSeq = 0 to 500 map (_ * random.nextGaussian())
-  //TODO
+  val randomTimings: TimeSeq = (0 to 500).map(_.toDouble * random.nextGaussian()).toList
+  val cacheFactory = new CacheFactory(new PgClient()) {
+    override def mkCaches(nodeId: NodeId) = {
+      val (_, caches) = super.mkCaches(nodeId)
+      (randomTimings, caches)
+    }
+  }
+  def mkVehicle = new Vehicle(0, null, cacheFactory, Set(), Set())
+  def mkVehicleProps = Vehicle.props(0, null, cacheFactory, Set(), Set())
+  //TODO: update for new interfaces
 
   implicit class ComparableDouble(double: Double) {
     val THRESHOLD = 1E-5
@@ -37,16 +48,16 @@ class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with Imp
   }
   "A Vehicle actor" should {
     "correctly generate timings" in new VehicleExecutorFixtures {
-      val vExec = TestActorRef(new Vehicle(0, null, randomTimings, null, null, null)).underlyingActor
+      val vExec = TestActorRef(mkVehicle).underlyingActor
       val timings = vExec.mkTimings(startTime)
       assert(timings.min == startTime)
       assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
     }
     "spawn multiple copies" in new VehicleExecutorFixtures {
-      val NUM_COPIES = 50000
+      val NUM_COPIES = 10 //50000
       (0 to NUM_COPIES)
         .map { nodeId =>
-          system.actorOf(Vehicle.props(nodeId, null, randomTimings, null, null, null))
+          system.actorOf(mkVehicleProps)
         }
         .foreach { actor =>
           logger.info(s"Sending test message to $actor")
