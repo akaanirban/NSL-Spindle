@@ -82,7 +82,7 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxV
     checkFuture
       .recover {
         case err => {
-          logger.error(err, "Failed to send message to vehicle")
+          logger.warning("Failed to send message to vehicle. Retrying.")
           tryCheck(actorRef)
         }
       }

@@ -15,6 +15,7 @@ import akka.testkit.TestActorRef
 import akka.testkit.TestKit
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryDockerFixtures
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -23,14 +24,15 @@ trait VehicleExecutorFixtures {
   val FIVE_SECONDS_MS: Double = 5 * 1000 toDouble
   val startTime: Double = System.currentTimeMillis() + FIVE_SECONDS_MS
   val randomTimings: TimeSeq = (0 to 500).map(_.toDouble * random.nextGaussian()).toList
+  val clientFactory = ClientFactoryDockerFixtures.getFactory
   val cacheFactory = new CacheFactory(new PgClient()) {
     override def mkCaches(nodeId: NodeId) = {
       val (_, caches) = super.mkCaches(nodeId)
       (randomTimings, caches)
     }
   }
-  def mkVehicle = new Vehicle(0, null, cacheFactory, Set(), Set())
-  def mkVehicleProps = Vehicle.props(0, null, cacheFactory, Set(), Set())
+  def mkVehicle = new Vehicle(0, clientFactory, cacheFactory, Set(), Set(), false)
+  def mkVehicleProps = Vehicle.props(0, clientFactory, cacheFactory, Set(), Set(), false)
   //TODO: update for new interfaces
 
   implicit class ComparableDouble(double: Double) {
@@ -41,7 +43,7 @@ trait VehicleExecutorFixtures {
   }
 }
 
-class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
+class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
   override def afterAll {
     shutdown()
@@ -54,14 +56,14 @@ class VehicleActorSpec extends TestKit(ActorSystem("VehicleActorSpec")) with Imp
       assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
     }
     "spawn multiple copies" in new VehicleExecutorFixtures {
-      val NUM_COPIES = 50000
+      val NUM_COPIES = 10000
       (0 to NUM_COPIES)
         .map { nodeId =>
           system.actorOf(mkVehicleProps)
         }
         .foreach { actor =>
           logger.info(s"Sending test message to $actor")
-          within(100 milliseconds) {
+          within(5 minutes) {
             actor ! Ping()
             expectMsg(Ping())
           }

@@ -6,6 +6,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamReducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamKVReducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamsConfigBuilder
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamMapper
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.SingleTopicProducerKakfa
 
 //import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleData }
 
@@ -19,7 +20,7 @@ class ClientFactory(kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsC
   /**
    * Make a simple Kafka producer
    */
-  def mkProducer[K, V] = new ProducerKafka[K, V](producerConfig)
+  def mkProducer[K, V](outTopic: String) = new SingleTopicProducerKakfa[K, V](outTopic, producerConfig)
   def mkReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String) = {
     new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId))
   }

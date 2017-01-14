@@ -33,7 +33,7 @@ class ClientFactorySpecDocker extends FlatSpec with BeforeAndAfterAll {
   }
 
   it should "make a producer" in {
-    val producer = getFactory.mkProducer
+    val producer = getFactory.mkProducer(getRandString)
     producer.close
   }
 

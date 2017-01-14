@@ -54,3 +54,10 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
     kafkaProducer.close(10, TimeUnit.SECONDS)
   }
 }
+
+/**
+ * Sends only to a single topic
+ */
+class SingleTopicProducerKakfa[K, V](topic: String, config: KafkaConfig) extends ProducerKafka[K, V](config) {
+  def send(key: K, value: V): Future[SendResult] = super.send(topic, key, value)
+}
