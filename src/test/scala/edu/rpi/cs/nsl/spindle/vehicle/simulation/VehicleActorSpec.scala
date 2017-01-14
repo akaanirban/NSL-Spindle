@@ -16,6 +16,7 @@ import akka.testkit.TestKit
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryDockerFixtures
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.DockerHelper
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -43,10 +44,16 @@ trait VehicleExecutorFixtures {
   }
 }
 
-class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
+class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
+    with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
+  override def beforeAll {
+    super.beforeAll
+    ClientFactoryDockerFixtures.waitReady
+  }
   override def afterAll {
     shutdown()
+    DockerHelper.stopCluster
   }
   "A Vehicle actor" should {
     "correctly generate timings" in new VehicleExecutorFixtures {
@@ -56,7 +63,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec")) wi
       assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
     }
     "spawn multiple copies" in new VehicleExecutorFixtures {
-      val NUM_COPIES = 10000
+      val NUM_COPIES = 50000
       (0 to NUM_COPIES)
         .map { nodeId =>
           system.actorOf(mkVehicleProps)

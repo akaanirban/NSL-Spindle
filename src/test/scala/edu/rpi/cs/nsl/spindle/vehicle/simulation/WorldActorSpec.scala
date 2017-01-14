@@ -29,6 +29,9 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec")) with I
     super.beforeAll
     ClientFactoryDockerFixtures.waitReady
   }
+  override def afterAll {
+    DockerHelper.stopCluster
+  }
   "A world actor" should {
     "respond to a ping" in new WorldActorFixtures {
       within(50 milliseconds) {
