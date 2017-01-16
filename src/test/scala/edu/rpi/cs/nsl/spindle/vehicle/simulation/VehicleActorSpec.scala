@@ -34,7 +34,6 @@ trait VehicleExecutorFixtures {
   }
   def mkVehicle = new Vehicle(0, clientFactory, cacheFactory, Set(), Set(), false)
   def mkVehicleProps = Vehicle.props(0, clientFactory, cacheFactory, Set(), Set(), false)
-  //TODO: update for new interfaces
 
   implicit class ComparableDouble(double: Double) {
     val THRESHOLD = 1E-5
@@ -63,7 +62,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
     }
     "spawn multiple copies" in new VehicleExecutorFixtures {
-      val NUM_COPIES = 50000
+      val NUM_COPIES = 5000
       (0 to NUM_COPIES)
         .map { nodeId =>
           system.actorOf(mkVehicleProps)
