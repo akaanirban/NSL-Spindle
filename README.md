@@ -78,3 +78,15 @@ paths to serialized functions in remote storage such as ZK).
     - Easy to use, controversial
 - Postgres <--
     - Less flexible, excellent system
+
+# Testing/Gotchas
+
+- Run the tests using the command `sbt test` or `sbt cloud:test` for the cloud tests
+    - MAKE SURE YOU SHUT DOWN the cloud resources afterwards. 
+    You should be able to do this by running `terraform destroy` from `scripts/kafka-terraform` but double-check when done.
+- The default test settings are for MacOs with Docker Machine. To run with a local docker instance, then `export LOCAL_DOCKER=true`
+    - To create the docker-machine `cd scripts/kafka-docker && ./create-machine.sh` and answer all prompts with `y`.`scripts/kafka-docker/create-machine.sh`
+- Running the full test suite can take about 10 minutes and will consume lots of RAM. It may be best to run 
+`sbt "testOnly edu.rpi.cs.nsl...TestClassName"` to run specific tests when developing.
+- Sometimes the tests will time-out while waiting for Docker-Machine, so if you have just created a new docker machine (scripts/kafka-docker/create-machine.sh)
+then you may need to re-run the tests if you are seeing a failure.
