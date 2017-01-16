@@ -26,6 +26,7 @@ libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.8"
 // Akka
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.16"
 libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.4.16"
+libraryDependencies += "com.typesafe.akka" %% "akka-remote" % "2.4.16"
 
 // Docker
 //libraryDependencies += "edu.rpi.cs.nsl.spindle" %% "shared-lib" % "1.4.0"
