@@ -7,3 +7,6 @@
 [submodule "NSL-Spindle-CSV-Parser"]
 	path = CSV-Parser
 	url = git@github.com:wkronmiller/NSL-Loader-CPP.git
+[submodule "scala-sbt"]
+	path = scala-sbt
+	url = git@github.com:wkronmiller/scala-sbt.git
