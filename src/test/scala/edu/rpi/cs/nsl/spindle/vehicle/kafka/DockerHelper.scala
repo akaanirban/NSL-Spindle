@@ -56,7 +56,7 @@ private[vehicle] object DockerHelper {
     val zkPorts = getContainers(ZK_TYPE).map(getPublicPort(ZK_PORT))
     KafkaClusterPorts(kafkaPorts, zkPorts)
   }
-  
+
   def getKafkaConfig = {
     val servers = getPorts.kafkaPorts
       .map(a => s"${TestingConfiguration.dockerHost}:$a")
@@ -67,6 +67,6 @@ private[vehicle] object DockerHelper {
     KafkaConfig()
       .withServers(servers)
   }
-  
+
   def getZkString = s"${TestingConfiguration.dockerHost}:2181"
 }

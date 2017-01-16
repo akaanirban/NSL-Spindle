@@ -6,7 +6,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgConfig
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgDefaults
 import org.slf4j.LoggerFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PositionCache
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSCache
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
 
 class PgClientSpec extends FlatSpec {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -40,7 +41,7 @@ class PgClientSpec extends FlatSpec {
     (0 to 5)
       .map { nodeId =>
         logger.debug(s"Position cache generating for $nodeId")
-        new PositionCache(nodeId, client)
+        new TSCache[Position](client.getReadings(nodeId), _.toPosition)
       }
       .foreach { cache =>
         assert(cache.getTimestamps.size > 0)

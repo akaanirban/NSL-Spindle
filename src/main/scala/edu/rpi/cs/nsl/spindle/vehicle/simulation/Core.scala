@@ -1,10 +1,14 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import akka.actor.ActorSystem
+
 /**
  * Driver for vehicle simulator
  */
 object Core {
+  private val actorSystem = ActorSystem("SpindleSimulator")
   def main(args: Array[String]) {
-    throw new RuntimeException("Not implemented")
+    //TODO
+    actorSystem.shutdown()
   }
 }

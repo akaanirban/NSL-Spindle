@@ -1,19 +1,29 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import scala.reflect.runtime.universe
+import scala.reflect.runtime.universe._
+import scala.reflect.runtime.universe.typeTag
+
 import org.slf4j.LoggerFactory
 
-import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PositionCache
-import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.MockSensor
-import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
-import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
+import akka.actor._
+import akka.actor.Actor._
+import akka.actor.Props
+import akka.dispatch.BoundedMessageQueueSemantics
+import akka.dispatch.RequiresMessageQueue
+import akka.event.Logging
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
-import scala.reflect.runtime.universe._
-import scala.concurrent.Future
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
+import edu.rpi.cs.nsl.spindle.vehicle.Types._
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSCache
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.MockSensor
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 
 /**
  * Wraps a value to prevent type erasure
@@ -44,7 +54,8 @@ trait VehicleMessageFactory {
     }
     matches.last.value.asInstanceOf[T]
   }
-  def mkVehicle(readings: Iterable[TypedValue[Any]], properties: Iterable[TypedValue[Any]]): VehicleMessage = {
+  def mkVehicle(readings: Iterable[TypedValue[Any]],
+                properties: Iterable[TypedValue[Any]]): VehicleMessage = {
     import VehicleTypes._
     val id = getValueOfType[VehicleId](properties)
     val lat = getValueOfType[Lat](readings)
@@ -56,25 +67,60 @@ trait VehicleMessageFactory {
 }
 object VehicleMessageFactory extends VehicleMessageFactory {}
 
-case class TimingConfig(timestamps: Seq[Timestamp], startTime: Future[Double])
+case class Ping()
+
+object Vehicle {
+  case class StartMessage(startTime: Double)
+  case class ReadyMessage(nodeId: NodeId)
+  // Sent by world
+  case class CheckReadyMessage()
+  def props(nodeId: NodeId,
+            clientFactory: ClientFactory,
+            cacheFactory: CacheFactory,
+            mockSensors: Set[MockSensor[Any]],
+            properties: Set[TypedValue[Any]],
+            warmCaches: Boolean = true) = {
+    Props(new Vehicle(nodeId: NodeId,
+      clientFactory: ClientFactory,
+      cacheFactory: CacheFactory,
+      mockSensors: Set[MockSensor[Any]],
+      properties: Set[TypedValue[Any]],
+      warmCaches))
+  }
+}
 
 /**
  * Simulates an individual vehicle
+ *
+ * @todo - Mappers, Reducers
  */
 class Vehicle(nodeId: NodeId,
               clientFactory: ClientFactory,
-              timing: TimingConfig,
-              positions: PositionCache,
+              cacheFactory: CacheFactory,
               mockSensors: Set[MockSensor[Any]],
-              properties: Set[TypedValue[Any]])
-    extends Runnable { //TODO: starting time, kafka references
-  private val logger = LoggerFactory.getLogger(s"${this.getClass.getName}-$nodeId")
+              properties: Set[TypedValue[Any]],
+              // Disable cache warming for faster tests
+              warmCaches: Boolean = true)
+    extends Actor with ActorLogging { //TODO: kafka references
+  private lazy val logger = Logging(context.system, this)
   private lazy val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
     Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
+  private lazy val (timestamps, caches): (Seq[Timestamp], Map[CacheTypes.Value, TSCache[_]]) = cacheFactory.mkCaches(nodeId)
+  private lazy val statusProducer = {
+    logger.debug("Creating status producer")
+    clientFactory.mkProducer[NodeId, VehicleMessage](TopicLookupService.getVehicleStatus(nodeId))
+  }
+
+  /**
+   * Create a Vehicle status message
+   */
   private[simulation] def generateMessage(timestamp: Timestamp): VehicleMessage = {
     import VehicleTypes._
+    import CacheTypes._
     val readings: Seq[TypedValue[Any]] = ({
-      val position = positions.getPosition(timestamp)
+      val position: Position = caches(PositionCache)
+        .asInstanceOf[TSCache[Position]]
+        .getReading(timestamp)
       val mph = TypedValue[MPH](position.speed)
       val lat = TypedValue[Lat](position.x)
       val lon = TypedValue[Lon](position.y)
@@ -82,22 +128,45 @@ class Vehicle(nodeId: NodeId,
     }).asInstanceOf[Seq[TypedValue[Any]]]
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
   }
+
+  /**
+   * Create mapping from simulator time to future epoch times based on startTime
+   */
   private[simulation] def mkTimings(startTime: Double): Seq[Double] = {
-    import timing.timestamps
     val zeroTime = timestamps.min
     val offsets = timestamps.map(_ - zeroTime)
     val absoluteTimes = offsets.map(_ + startTime)
     // Ensure ascending order
     absoluteTimes.sorted.reverse
   }
-  def run {
-    logger.info(s"$nodeId starting and waiting for startTime")
-    val startTime = Await.result(timing.startTime, Duration.Inf)
+  private def startSimulation(startTime: Double) {
     logger.info(s"$nodeId will start at epoch $startTime")
     val timings = mkTimings(startTime)
-    logger.trace(s"$nodeId generated timings $timings")
+    logger.debug(s"$nodeId generated timings $timings")
     //TODO
     throw new RuntimeException("Not implemented")
+  }
+
+  override def preStart {
+    if (warmCaches) {
+      // Force evaluation
+      val props = fullProperties
+      val cacheTypes = this.caches.keys
+      logger.debug(s"Cache types $cacheTypes")
+    }
+  }
+
+  def receive = {
+    case Vehicle.StartMessage(startTime) => startSimulation(startTime)
+    case Ping() => {
+      logger.debug("Replying to ping")
+      sender ! Ping()
+    }
+    case Vehicle.CheckReadyMessage => {
+      logger.info("Got checkReady")
+      sender ! Vehicle.ReadyMessage(nodeId)
+    }
+    case _ => throw new RuntimeException(s"Unknown message on $nodeId")
   }
 }
 
