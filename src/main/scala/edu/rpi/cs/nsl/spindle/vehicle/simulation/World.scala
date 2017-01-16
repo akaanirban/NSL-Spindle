@@ -83,6 +83,7 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxV
       .recover {
         case err => {
           logger.warning("Failed to send message to vehicle. Retrying.")
+          Thread.sleep((500.0 * Math.random).toLong) // Random wait to avoid livelock
           tryCheck(actorRef)
         }
       }
