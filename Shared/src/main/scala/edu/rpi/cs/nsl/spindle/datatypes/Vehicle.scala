@@ -20,6 +20,10 @@ object VehicleTypes {
 
 /**
  * Base Case Class for Vehicle Data
+ *
+ * @todo rename to VehicleStatus (not VehicleMessage)
+ *
+ * @todo add maps for misc readings and properties
  */
 case class Vehicle(id: VehicleId, lat: Lat,
                    lon: Lon, mph: MPH,

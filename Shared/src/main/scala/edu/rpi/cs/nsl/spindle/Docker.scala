@@ -40,7 +40,12 @@ class ContainerRef(private val id: String, private val docker: DockerClient) {
 }
 
 object DockerFactory {
-  def getDocker = new DefaultDockerClient("unix:///var/run/docker.sock")
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  def getDocker = {
+    val docker = DefaultDockerClient.fromEnv().build
+    logger.info(s"Got docker client ${docker.getHost}")
+    docker
+  }
 }
 
 /**
