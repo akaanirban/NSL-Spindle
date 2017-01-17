@@ -59,7 +59,8 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       val vExec = TestActorRef(mkVehicle).underlyingActor
       val timings = vExec.mkTimings(startTime)
       assert(timings.min == startTime)
-      assert(timings.max approxEquals (randomTimings.max + startTime), s"${timings.max} != ${randomTimings.max + startTime}")
+      assert(timings.max approxEquals (randomTimings.max + startTime),
+        s"${timings.max} != ${randomTimings.max + startTime}")
     }
     "spawn multiple copies" in new VehicleExecutorFixtures {
       val NUM_COPIES = 5000

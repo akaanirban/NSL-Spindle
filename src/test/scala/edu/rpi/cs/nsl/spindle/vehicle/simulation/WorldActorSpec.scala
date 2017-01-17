@@ -24,7 +24,7 @@ class WorldActorFixtures()(implicit system: ActorSystem) {
 }
 
 class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
-with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
+    with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
   override def beforeAll {
     super.beforeAll

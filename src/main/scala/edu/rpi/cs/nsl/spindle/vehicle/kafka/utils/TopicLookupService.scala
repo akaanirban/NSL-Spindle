@@ -16,7 +16,6 @@ trait TopicLookupService {
   //def getSensorOutput(node: NodeId, sensorId: String) = mkTopic(node, s"sensor-$sensorId")
   def getVehicleStatus(node: NodeId) = mkTopic(node, "vehicle-status")
 
-
   /**
    * Get topic for cluster head "received messages"
    */
