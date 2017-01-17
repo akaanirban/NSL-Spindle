@@ -39,7 +39,7 @@ object Configuration extends ConfigurationSingleton {
     val readOnly = conf.getOpt[Boolean]("postgres.readOnly").getOrElse(PgDefaults.readOnly)
   }
 
-  val simStartOffsetMs = 5000
+  val simStartOffsetMs = 50000 //50 seconds
 
   object Vehicles {
     object Sensors {
