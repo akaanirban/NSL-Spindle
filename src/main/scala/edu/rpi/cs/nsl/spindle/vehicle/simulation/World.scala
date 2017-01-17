@@ -147,6 +147,9 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, init
     case _ => throw new RuntimeException(s"Received unexpected message (start mode)")
   }
   def started(startTime: Double): Receive = {
-    case _ => throw new RuntimeException(s"Received unexpected message (started mode)")
+    case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
+    case m: Any => {
+      logger.error(s"Got unexpected message: $m")
+    }
   }
 }
