@@ -72,6 +72,7 @@ case class Ping()
 object Vehicle {
   case class StartMessage(startTime: Double)
   case class ReadyMessage(nodeId: NodeId)
+  case class StartingMessage(nodeId: NodeId, eventTime: Double = System.currentTimeMillis)
   // Sent by world
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
@@ -157,7 +158,10 @@ class Vehicle(nodeId: NodeId,
   }
 
   def receive = {
-    case Vehicle.StartMessage(startTime) => startSimulation(startTime)
+    case Vehicle.StartMessage(startTime) => {
+      sender ! Vehicle.StartingMessage(nodeId)
+      startSimulation(startTime)
+    }
     case Ping() => {
       logger.debug("Replying to ping")
       sender ! Ping()

@@ -20,10 +20,11 @@ class WorldActorFixtures()(implicit system: ActorSystem) {
   import ClientFactoryDockerFixtures._
   private val propertyFactory = new BasicPropertyFactory()
   private val clientFactory = getFactory
-  val world = system.actorOf(World.props(propertyFactory, clientFactory))
+  val world = system.actorOf(World.propsTest(propertyFactory, clientFactory, initOnly = true))
 }
 
-class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
+class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
+with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
   private val logger = LoggerFactory.getLogger(this.getClass)
   override def beforeAll {
     super.beforeAll
@@ -42,7 +43,7 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec")) with I
       }
     }
     "spawn vehicle actors on receiving init" in new WorldActorFixtures {
-      within(World.VEHICLE_WAIT_TIME + (1 minutes)) {
+      within(10 minutes) {
         world ! World.InitSimulation
         logger.debug("Sent init message")
         expectMsg(World.Starting)

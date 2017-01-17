@@ -21,6 +21,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.TimeoutException
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
+import akka.actor.Kill
 
 /**
  * Manages vehicles
@@ -32,81 +33,105 @@ object World {
   def props(propertyFactory: PropertyFactory, clientFactory: ClientFactory) = {
     Props(new World(propertyFactory: PropertyFactory, clientFactory))
   }
-  val VEHICLE_WAIT_TIME = 10 seconds
+  def propsTest(propertyFactory: PropertyFactory, clientFactory: ClientFactory, initOnly: Boolean = true) = {
+    Props(new World(propertyFactory: PropertyFactory, clientFactory, initOnly = initOnly))
+  }
+  val VEHICLE_WAIT_TIME = 3 seconds
 }
 
-class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxVehicles: Option[Int] = None)
+class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, initOnly: Boolean = false, maxVehicles: Option[Int] = None)
     extends Actor with ActorLogging with RequiresMessageQueue[BoundedMessageQueueSemantics] {
   import World._
   import Vehicle.{ StartMessage, ReadyMessage }
   private val logger = Logging(context.system, this)
-  private[simulation] lazy val vehicles = {
-    logger.debug("Creating vehicle actors")
-    val pgClient = new PgClient()
-    val nodeList = maxVehicles match {
-      case None      => pgClient.getNodes
-      case Some(max) => pgClient.getNodes.take(max)
-    }
-    val vehicles = nodeList.map { nodeId: NodeId =>
-      val cacheFactory = new CacheFactory(pgClient)
-      //val positions = new PositionCache(nodeId, pgClient)
-      val mockSensors = SensorFactory.mkSensors(nodeId)
-      val properties = propertyFactory.getProperties(nodeId)
-      val actor = context.actorOf(Vehicle.props(nodeId,
-        clientFactory,
-        cacheFactory,
-        mockSensors,
-        properties))
-      context.watch(actor)
-      (nodeId, actor)
-    }
-      .force
-      .toList
-    logger.info("Created all vehicles")
-    vehicles
+  private lazy val pgClient = new PgClient()
+  private lazy val nodeList = maxVehicles match {
+    case None      => pgClient.getNodes
+    case Some(max) => pgClient.getNodes.take(max)
+  }
+  private[simulation] lazy val vehicles: Stream[(NodeId, ActorRef)] = nodeList.map { nodeId: NodeId =>
+    logger.debug(s"Creating vehicle $nodeId")
+    val cacheFactory = new CacheFactory(pgClient)
+    //val positions = new PositionCache(nodeId, pgClient)
+    val mockSensors = SensorFactory.mkSensors(nodeId)
+    val properties = propertyFactory.getProperties(nodeId)
+    val actor = context.actorOf(Vehicle.props(nodeId,
+      clientFactory,
+      cacheFactory,
+      mockSensors,
+      properties))
+    context.watch(actor)
+    (nodeId, actor)
   }
 
   def receive = initializing
 
-  private lazy val startTime = {
-    logger.info("Creating start time")
-    Configuration.simStartOffsetMs + System.currentTimeMillis()
-  }
-
   private implicit val vehicleTimeout = Timeout(VEHICLE_WAIT_TIME)
   private implicit val ec = context.dispatcher
 
-  private def tryCheck(actorRef: ActorRef): Future[_] = {
-    logger.debug(s"Checking $actorRef")
-    val checkFuture = actorRef ? Vehicle.CheckReadyMessage
-    checkFuture
+  private def trySend[T](actorRef: ActorRef, message: Any, numAttempts: Int = 1): Future[T] = {
+    val MAX_WAIT_BEFORE_RETRY_MS = 700
+    logger.debug(s"Sending $message to $actorRef")
+    val sendFuture = (actorRef ? message).map(_.asInstanceOf[T])
+    sendFuture
       .recover {
         case err => {
-          logger.warning("Failed to send message to vehicle. Retrying.")
-          Thread.sleep((500.0 * Math.random).toLong) // Random wait to avoid livelock
-          tryCheck(actorRef)
+          logger.warning(s"Failed to send message to vehicle $actorRef $numAttempts. Retrying.")
+          Thread.sleep((MAX_WAIT_BEFORE_RETRY_MS * Math.random).toLong) // Random wait to avoid livelock
+          Await.result(trySend[T](actorRef, message, numAttempts = (numAttempts + 1)), Duration.Inf) //TODO: double-check best practices for this
         }
       }
+  }
+
+  private def tryCheck(actorRef: ActorRef): Future[_] = {
+    logger.debug(s"Sending check message to $actorRef")
+    trySend[Vehicle.ReadyMessage](actorRef, Vehicle.CheckReadyMessage)
+  }
+
+  private def tryStart(actorRef: ActorRef, startMessage: Vehicle.StartMessage): Future[_] = {
+    logger.debug(s"Starting $actorRef")
+    trySend[Vehicle.StartingMessage](actorRef, startMessage)
+  }
+
+  private def handleFailure {
+    logger.error("Simulation failed. Shutting down")
+    vehicles.foreach(_._2 ! Kill)
+  }
+
+  private def startAll(startTime: Double) {
+    val startRepliesFuture = Future.sequence {
+      vehicles.map(tup => tryStart(tup._2, Vehicle.StartMessage(startTime)))
+    }
+    val replies = Await.result(startRepliesFuture, Configuration.simStartOffsetMs milliseconds)
+    val tooLate = replies.forall(_.asInstanceOf[Vehicle.StartingMessage].eventTime < startTime) == false
+    if (tooLate) {
+      logger.error(s"Vehicle(s) started too late")
+      handleFailure
+    }
   }
 
   private def becomeStarted(supervisor: ActorRef) {
     logger.info(s"All ${vehicles.size} vehicles ready")
     supervisor ! Ready(vehicles.size)
-    context.become(started)
+    if (initOnly == false) {
+      val startTime = System.currentTimeMillis + Configuration.simStartOffsetMs
+      logger.info(s"Starting at epoch time $startTime")
+      startAll(startTime)
+      context.become(started(startTime))
+    } else {
+      logger.error(s"TEST MODE: not starting simulation")
+    }
   }
 
   private def checkReady(supervisor: ActorRef) {
-    val replyFutures = Future.sequence {
-      vehicles
-        .map(_._2)
-        .map(tryCheck)
+    logger.debug("Initializing vehicles and sending checkReady")
+    vehicles.foreach {
+      case (nodeId, actorRef) =>
+        logger.debug(s"Doing tryCheck to $nodeId")
+        Await.result(tryCheck(actorRef), Duration.Inf)
+        logger.debug(s"$nodeId is ready")
     }
-    logger.debug(s"Checking on all vehicles")
-    replyFutures.onSuccess {
-      case _ => {
-        becomeStarted(supervisor)
-      }
-    }
+    becomeStarted(supervisor)
   }
 
   def initializing: Receive = {
@@ -116,15 +141,12 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, maxV
     }
     case InitSimulation => {
       logger.info("World recieved init message")
-      // Initializes vehicles
-      val numVehicles = vehicles.size
-      logger.info(s"Created $numVehicles vehicles")
       sender ! Starting
       checkReady(sender)
     }
     case _ => throw new RuntimeException(s"Received unexpected message (start mode)")
   }
-  def started: Receive = {
+  def started(startTime: Double): Receive = {
     case _ => throw new RuntimeException(s"Received unexpected message (started mode)")
   }
 }
