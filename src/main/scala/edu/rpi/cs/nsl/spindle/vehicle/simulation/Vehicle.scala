@@ -21,9 +21,13 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSCache
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.MockSensor
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext
 
 /**
  * Wraps a value to prevent type erasure
@@ -70,23 +74,35 @@ object VehicleMessageFactory extends VehicleMessageFactory {}
 case class Ping()
 
 object Vehicle {
-  case class StartMessage(startTime: Double)
+  case class StartMessage(startTime: Timestamp)
   case class ReadyMessage(nodeId: NodeId)
-  case class StartingMessage(nodeId: NodeId, eventTime: Double = System.currentTimeMillis)
+  case class StartingMessage(nodeId: NodeId, eventTime: Timestamp = System.currentTimeMillis)
   // Sent by world
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
             clientFactory: ClientFactory,
+            transformationStore: TransformationStore,
             cacheFactory: CacheFactory,
             mockSensors: Set[MockSensor[Any]],
             properties: Set[TypedValue[Any]],
             warmCaches: Boolean = true) = {
     Props(new Vehicle(nodeId: NodeId,
       clientFactory: ClientFactory,
+      transformationStore: TransformationStore,
       cacheFactory: CacheFactory,
       mockSensors: Set[MockSensor[Any]],
       properties: Set[TypedValue[Any]],
       warmCaches))
+  }
+}
+
+object SchedulerUtils {
+  implicit class EnhancedScheduler(scheduler: Scheduler){
+    def scheduleAfterTime(timestamp: Timestamp, f: => Unit)(implicit ec: ExecutionContext) {
+      val delayMs = (timestamp - System.currentTimeMillis()).toLong
+      assert(delayMs >= 0, s"Time $timestamp has already passed (current time ${System.currentTimeMillis})")
+      scheduler.scheduleOnce(Duration.create(delayMs, TimeUnit.MILLISECONDS))(f)
+    }
   }
 }
 
@@ -97,6 +113,7 @@ object Vehicle {
  */
 class Vehicle(nodeId: NodeId,
               clientFactory: ClientFactory,
+              transformationStore: TransformationStore,
               cacheFactory: CacheFactory,
               mockSensors: Set[MockSensor[Any]],
               properties: Set[TypedValue[Any]],
@@ -106,7 +123,7 @@ class Vehicle(nodeId: NodeId,
   private lazy val logger = Logging(context.system, this)
   private lazy val fullProperties: Iterable[TypedValue[Any]] = properties.toSeq ++
     Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
-  private lazy val (timestamps, caches): (Seq[Timestamp], Map[CacheTypes.Value, TSCache[_]]) = cacheFactory.mkCaches(nodeId)
+  private lazy val (timestamps, caches): (Seq[Timestamp], Map[CacheTypes.Value, TSEntryCache[_]]) = cacheFactory.mkCaches(nodeId)
   private lazy val statusProducer = {
     logger.debug("Creating status producer")
     clientFactory.mkProducer[NodeId, VehicleMessage](TopicLookupService.getVehicleStatus(nodeId))
@@ -120,8 +137,8 @@ class Vehicle(nodeId: NodeId,
     import CacheTypes._
     val readings: Seq[TypedValue[Any]] = ({
       val position: Position = caches(PositionCache)
-        .asInstanceOf[TSCache[Position]]
-        .getReading(timestamp)
+        .asInstanceOf[TSEntryCache[Position]]
+        .getValue(timestamp)
       val mph = TypedValue[MPH](position.speed)
       val lat = TypedValue[Lat](position.x)
       val lon = TypedValue[Lon](position.y)
@@ -133,18 +150,20 @@ class Vehicle(nodeId: NodeId,
   /**
    * Create mapping from simulator time to future epoch times based on startTime
    */
-  private[simulation] def mkTimings(startTime: Double): Seq[Double] = {
+  private[simulation] def mkTimings(startTime: Timestamp): Seq[Timestamp] = {
     val zeroTime = timestamps.min
     val offsets = timestamps.map(_ - zeroTime)
     val absoluteTimes = offsets.map(_ + startTime)
     // Ensure ascending order
-    absoluteTimes.sorted.reverse
+    absoluteTimes.sorted
   }
-  private def startSimulation(startTime: Double) {
+
+  private def startSimulation(startTime: Timestamp) {
     logger.info(s"$nodeId will start at epoch $startTime")
     val timings = mkTimings(startTime)
-    logger.debug(s"$nodeId generated timings $timings")
+    logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")
     //TODO
+
     throw new RuntimeException("Not implemented")
   }
 
@@ -173,6 +192,3 @@ class Vehicle(nodeId: NodeId,
     case _ => throw new RuntimeException(s"Unknown message on $nodeId")
   }
 }
-
-//TODO: static vehicle (one cluster per vehicle)
-//TODO: database vehicle (interface with postgres)

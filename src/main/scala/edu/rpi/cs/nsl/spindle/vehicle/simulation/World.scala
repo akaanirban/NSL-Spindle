@@ -22,6 +22,8 @@ import scala.concurrent.ExecutionContext
 import java.util.concurrent.TimeoutException
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 import akka.actor.Kill
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
 
 /**
  * Manages vehicles
@@ -30,16 +32,26 @@ object World {
   case class InitSimulation()
   case class Starting()
   case class Ready(numVehicles: Int)
-  def props(propertyFactory: PropertyFactory, clientFactory: ClientFactory) = {
-    Props(new World(propertyFactory: PropertyFactory, clientFactory))
+  def props(propertyFactory: PropertyFactory,
+            transformationStoreFactory: TransformationStoreFactory,
+            clientFactory: ClientFactory) = {
+    Props(new World(propertyFactory: PropertyFactory,
+      transformationStoreFactory: TransformationStoreFactory, clientFactory))
   }
-  def propsTest(propertyFactory: PropertyFactory, clientFactory: ClientFactory, initOnly: Boolean = true) = {
-    Props(new World(propertyFactory: PropertyFactory, clientFactory, initOnly = initOnly))
+  def propsTest(propertyFactory: PropertyFactory,
+                transformationStoreFactory: TransformationStoreFactory,
+                clientFactory: ClientFactory, initOnly: Boolean = true) = {
+    Props(new World(propertyFactory: PropertyFactory,
+      transformationStoreFactory: TransformationStoreFactory, clientFactory, initOnly = initOnly))
   }
   val VEHICLE_WAIT_TIME = 3 seconds
 }
 
-class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, initOnly: Boolean = false, maxVehicles: Option[Int] = None)
+class World(propertyFactory: PropertyFactory,
+            transformationStoreFactory: TransformationStoreFactory,
+            clientFactory: ClientFactory,
+            initOnly: Boolean = false,
+            maxVehicles: Option[Int] = None)
     extends Actor with ActorLogging with RequiresMessageQueue[BoundedMessageQueueSemantics] {
   import World._
   import Vehicle.{ StartMessage, ReadyMessage }
@@ -57,6 +69,7 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, init
     val properties = propertyFactory.getProperties(nodeId)
     val actor = context.actorOf(Vehicle.props(nodeId,
       clientFactory,
+      transformationStoreFactory.getTransformationStore(nodeId),
       cacheFactory,
       mockSensors,
       properties))
@@ -98,7 +111,7 @@ class World(propertyFactory: PropertyFactory, clientFactory: ClientFactory, init
     vehicles.foreach(_._2 ! Kill)
   }
 
-  private def startAll(startTime: Double) {
+  private def startAll(startTime: Timestamp) {
     val startRepliesFuture = Future.sequence {
       vehicles.map(tup => tryStart(tup._2, Vehicle.StartMessage(startTime)))
     }

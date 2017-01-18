@@ -30,5 +30,4 @@ class ClientFactory(kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsC
   def mkMapper[K, V, K1, V1](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String) = {
     new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId))
   }
-  //TODO: make all kafka clients required by vehicles
 }

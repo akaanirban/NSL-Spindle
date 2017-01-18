@@ -2,12 +2,16 @@ package edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store
 
 import java.sql.ResultSet
 import java.sql.Connection
+import scala.concurrent.duration._
 
 /**
  * Contains database time-series data
  */
 case class TSEntry(timestamp: Double, x: Double, y: Double, speed: Double) {
   def toPosition = Position(x, y, speed)
+  def getTimestamp: Long = {
+    (timestamp seconds).toMillis
+  }
 }
 
 class TimeSeriesIterator(resultSet: ResultSet) extends QueryIterator[TSEntry](resultSet) {
