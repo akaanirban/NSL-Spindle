@@ -158,7 +158,7 @@ class Vehicle(nodeId: NodeId,
     absoluteTimes.sorted
   }
 
-  private def startSimulation(startTime: Timestamp) {
+  protected def startSimulation(startTime: Timestamp) {
     logger.info(s"$nodeId will start at epoch $startTime")
     val timings = mkTimings(startTime)
     logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")

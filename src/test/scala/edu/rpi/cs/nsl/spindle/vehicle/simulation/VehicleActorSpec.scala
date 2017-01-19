@@ -4,21 +4,31 @@ import scala.concurrent.duration.DurationInt
 import scala.util.Random
 
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.DoNotDiscover
 import org.scalatest.WordSpecLike
 import org.slf4j.LoggerFactory
-import edu.rpi.cs.nsl.spindle.vehicle.Types._
 
 import akka.actor.ActorSystem
+import akka.actor.Props
+import akka.pattern.ask
 import akka.actor.actorRef2Scala
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
+import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
+import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryDockerFixtures
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.DockerHelper
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
+import java.util.concurrent.Executors
+import akka.util.Timeout
+import org.scalatest.Ignore
+import edu.rpi.cs.nsl.spindle.tags.LoadTest
+import org.scalatest.Tag
+import edu.rpi.cs.nsl.spindle.tags.CoreTest
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -35,12 +45,13 @@ trait VehicleExecutorFixtures {
     }
   }
   val nodeId = 0
-  private val emptyTransformFactory = new EmptyStaticTransformationFactory()
+  val emptyTransformFactory = new EmptyStaticTransformationFactory()
   def mkVehicle(transformationStore: TransformationStore = emptyTransformFactory.getTransformationStore(nodeId)) = new Vehicle(nodeId, clientFactory, transformationStore, cacheFactory, Set(), Set(), false)
   def mkVehicleProps(nodeId: NodeId, fullInit: Boolean = false, transformFactory: TransformationStoreFactory = emptyTransformFactory) = {
     Vehicle.props(nodeId, clientFactory, transformFactory.getTransformationStore(nodeId), cacheFactory, Set(), Set(), fullInit)
   }
 }
+
 
 class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
@@ -63,7 +74,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       assert(timings.max == (randomTimings.max + startTime),
         s"${timings.max} != ${randomTimings.max + startTime}")
     }
-    "spawn multiple copies" in new VehicleExecutorFixtures{
+    "spawn multiple copies" taggedAs (LoadTest) in new VehicleExecutorFixtures {
       val NUM_COPIES = 5000
       (0 to NUM_COPIES)
         .map { nodeId =>
@@ -77,7 +88,44 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
           }
         }
     }
-    "completely initialize and start" in new VehicleExecutorFixtures {
+    "spawn executors inside vehicle" taggedAs (LoadTest) in new VehicleExecutorFixtures {
+
+      def mkExecVehicle(nodeId: NodeId) = {
+        system.actorOf(Props(new Vehicle(nodeId,
+          clientFactory,
+          emptyTransformFactory.getTransformationStore(nodeId),
+          cacheFactory,
+          Set(),
+          Set(), false) {
+          override def startSimulation(startTime: Timestamp) {
+            def getRunnable() = new Thread() {
+              override def run {
+                for (i <- 1 to 2) {
+                  Thread.sleep(1000)
+                }
+              }
+            }
+            val threads = (0 until 5).map(_ => getRunnable())
+            threads.foreach(context.dispatcher.execute)
+            logger.debug(s"Inner executors started for node $nodeId")
+          }
+        }))
+      }
+      val NUM_COPIES = 3000
+      within(10 minutes) {
+        import scala.concurrent.ExecutionContext.Implicits.global
+        implicit val timeout = Timeout(2 minutes)
+        (0 to NUM_COPIES).map(mkExecVehicle).par.foreach { actorRef =>
+          (actorRef ? Vehicle.CheckReadyMessage) onSuccess {
+            case _ =>
+              actorRef ! Vehicle.StartMessage(startTime)
+          }
+        }
+        receiveN(NUM_COPIES)
+      }
+
+    }
+    "completely initialize and start" taggedAs (CoreTest) in new VehicleExecutorFixtures {
       val actorRef = system.actorOf(mkVehicleProps(0, fullInit = true))
       within(1 minutes) {
         actorRef ! Vehicle.CheckReadyMessage
