@@ -40,15 +40,15 @@ class ClientFactorySpecDocker extends FlatSpec with BeforeAndAfterAll {
   private def getRandString = java.util.UUID.randomUUID.toString
 
   it should "make a mapper" in {
-    getFactory.mkMapper[Null, Null, Null, Null](getRandString, getRandString, (a, b) => null, getRandString)
+    getFactory.mkMapper[None.type, None.type, None.type, None.type](getRandString, getRandString, (a, b) => (None, None), getRandString)
   }
 
   it should "make a kv reducer" in {
-    getFactory.mkKvReducer[Null, Null](getRandString, getRandString, (a, b) => null, getRandString)
+    getFactory.mkKvReducer[None.type, None.type](getRandString, getRandString, (a, b) => None, getRandString)
   }
 
   it should "make a full reducer" in {
-    getFactory.mkReducer[Null, Null](getRandString, getRandString, (a, b) => null, getRandString)
+    getFactory.mkReducer[None.type, None.type](getRandString, getRandString, (a, b) => None, getRandString)
   }
 
   override def afterAll {
