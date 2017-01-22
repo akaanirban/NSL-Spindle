@@ -13,7 +13,8 @@ import org.apache.kafka.streams.kstream.KGroupedStream
 /**
  * Perform ReduceByKey on stream
  */
-class StreamKVReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig) extends TypedStreamExecutor[K, V] {
+class StreamKVReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
+    extends TypedStreamExecutor[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   protected val config = {
     logger.debug("Setting default serde")
