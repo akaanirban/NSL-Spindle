@@ -19,6 +19,8 @@ class ClientFactory(kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsC
   private def buildConfig(id: String) = streamsConfigBuilder.withId(id).build
   /**
    * Make a simple Kafka producer
+   *
+   * @todo - Automatically create topic if not exists
    */
   def mkProducer[K, V](outTopic: String) = new SingleTopicProducerKakfa[K, V](outTopic, producerConfig)
   def mkReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String) = {
