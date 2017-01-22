@@ -20,6 +20,8 @@ abstract class StreamExecutor extends Runnable {
 
   protected val byteSerde = Serdes.ByteArray
 
+  private var stream: KafkaStreams = _
+
   protected def deserialize[K, V](inStream: ByteStream): KStream[K, V] = {
     inStream.map { (k, v) => new KeyValue(ObjectSerializer.deserialize(k), ObjectSerializer.deserialize(v)) }
   }
@@ -35,10 +37,14 @@ abstract class StreamExecutor extends Runnable {
   def run {
     val id = config.getString(StreamsConfig.APPLICATION_ID_CONFIG)
     logger.debug(s"Building stream $id")
-    val stream = new KafkaStreams(builder, config)
+    stream = new KafkaStreams(builder, config)
     logger.info(s"Starting stream $id")
     stream.start
     logger.error(s"Stream $id has stopped")
+  }
+
+  def stop {
+    stream.close
   }
 }
 
