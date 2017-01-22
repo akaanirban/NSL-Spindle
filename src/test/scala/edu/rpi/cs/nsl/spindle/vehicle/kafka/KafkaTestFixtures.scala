@@ -285,7 +285,11 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     }
   }
 
-  private def testReducer(reducerType: ReducerType.Value) = {
+  private val kv1 = "kv1"
+  private val kv2 = "kv2"
+
+  private def testReducer(reducerType: ReducerType.Value, expectedSubstring: String) = {
+    import scala.concurrent.ExecutionContext.Implicits.global
     val reducerName = ReducerType.getName(reducerType)
     val Seq(inTopic, outTopic) = mkTopics(s"$reducerName-reducer").map { topic =>
       mkTopicSync(topic)
@@ -301,7 +305,7 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     }
 
     // Start producing 
-    Seq("kv1", "kv2").foreach(launchProducer)
+    Seq(kv1, kv2).foreach(launchProducer)
 
     def reducerFunc(a: TestObj, b: TestObj): TestObj = {
       new TestObj(a.testVal + b.testVal)
@@ -316,22 +320,25 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     pool.execute(reducer)
 
     val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
-    val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer)
+
+    def seekSubstring(messages: Iterable[(TestObj, TestObj)]): (TestObj, TestObj) = {
+      val matchOpt = messages
+      .filter{case (_, value) =>
+        value.testVal.contains(expectedSubstring)
+      }
+      .lastOption
+      matchOpt match {
+        case Some(message) => message
+        case None => seekSubstring(consumer.getMessages)
+      }
+    }
+
+    val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer).map(msg => seekSubstring(List(msg)))
 
     val (recvdKey, recvdValue) = Await.result(outMessageFuture, 1 minutes)
 
     logger.info(s"Got message ${recvdValue.testVal}")
-
-    (pool, consumer)
-  }
-
-  private def printMessages(consumer: ConsumerKafka[TestObj, TestObj]) {
-    for (i <- (0 to 10)) {
-      consumer.getMessages
-        .map { case (k, v) => s"${k.testVal} -> ${v.testVal}" }
-        .foreach(println)
-      Thread.sleep(1000)
-    }
+    (pool, consumer, reducer)
   }
 
   private def shutdownPool(pool: ExecutorService) {
@@ -342,22 +349,19 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
   def testKVReducer {
     logger.info("Testing KV reducer")
 
-    val (pool, consumer) = testReducer(ReducerType.KV)
-
-    printMessages(consumer)
-    //TODO: more sophisticated reduce tests (validate outputs)
+    val (pool, consumer, reducer) = testReducer(ReducerType.KV, s"$kv1$kv1")
     //TODO: specify window
     consumer.close
+    reducer.stop
     shutdownPool(pool)
   }
 
   def testFullReducer {
     logger.info("Testing full reducer")
 
-    val (pool, consumer) = testReducer(ReducerType.Full)
-    printMessages(consumer)
-
+    val (pool, consumer, reducer) = testReducer(ReducerType.Full, s"$kv1$kv2")
     consumer.close
+    reducer.stop
     shutdownPool(pool)
 
   }
