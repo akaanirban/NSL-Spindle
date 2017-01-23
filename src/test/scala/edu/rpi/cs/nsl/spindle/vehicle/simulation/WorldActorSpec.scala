@@ -20,6 +20,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationS
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
+import edu.rpi.cs.nsl.spindle.tags.LoadTest
 
 class EmptyStaticTransformationFactory extends GenerativeStaticTransformationFactory(_ => ActiveTransformations(Set(), Set()))
 

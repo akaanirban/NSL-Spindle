@@ -47,6 +47,7 @@ class KafkaSerializer[T] extends Serializer[T] with SerDeNop {
   }
 }
 
+//scalastyle:off null
 class KafkaDeserializer[T >: Null] extends Deserializer[T] with SerDeNop {
   def deserialize(topic: String, data: Array[Byte]): T = {
     if (data == null) {
@@ -58,6 +59,7 @@ class KafkaDeserializer[T >: Null] extends Deserializer[T] with SerDeNop {
 }
 
 class KafkaSerde[T >: Null] extends Serde[T] with SerDeNop {
-  def deserializer = new KafkaDeserializer[T]()
-  def serializer = new KafkaSerializer[T]()
+  def deserializer: KafkaDeserializer[T] = new KafkaDeserializer[T]()
+  def serializer: KafkaSerializer[T] = new KafkaSerializer[T]()
 }
+//scalastyle:on null

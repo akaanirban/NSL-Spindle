@@ -38,12 +38,12 @@ class PgClient(config: PgConfig = PgDefaults.config) extends EventStore {
   Class.forName("org.postgresql.Driver") // REQUIRED
   private val uri = s"jdbc:postgresql://${config.host}:${config.port}/${config.database}"
   private lazy val connection = DriverManager.getConnection(uri, config.getProps)
-  def close = connection.close
-  def isReadOnly = connection.isReadOnly
+  def close: Unit = connection.close
+  def isReadOnly: Boolean = connection.isReadOnly
 
   private lazy val readingQuery = new TimeSeriesQuery(connection)
   def getReadings(nodeId: Int): Stream[TSEntry] = readingQuery.loadReadings(nodeId)
 
   private lazy val metadataQuery = new MetadataQuery(connection)
-  def getNodes = metadataQuery.loadNodeIds
+  def getNodes: Stream[Int] = metadataQuery.loadNodeIds
 }

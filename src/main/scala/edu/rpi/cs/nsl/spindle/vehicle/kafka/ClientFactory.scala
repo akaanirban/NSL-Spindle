@@ -22,14 +22,14 @@ class ClientFactory(kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsC
    *
    * @todo - Automatically create topic if not exists
    */
-  def mkProducer[K, V](outTopic: String) = new SingleTopicProducerKakfa[K, V](outTopic, producerConfig)
-  def mkReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String) = {
+  def mkProducer[K, V](outTopic: String): SingleTopicProducerKakfa[K, V] = new SingleTopicProducerKakfa[K, V](outTopic, producerConfig)
+  def mkReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamReducer[K, V] = {
     new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId))
   }
-  def mkKvReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String) = {
+  def mkKvReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamKVReducer[K, V] = {
     new StreamKVReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId))
   }
-  def mkMapper[K, V, K1, V1](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String) = {
+  def mkMapper[K, V, K1, V1](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String): StreamMapper[K, V, K1, V1] = {
     new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId))
   }
 }

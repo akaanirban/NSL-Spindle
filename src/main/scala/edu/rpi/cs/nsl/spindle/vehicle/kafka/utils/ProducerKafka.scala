@@ -24,6 +24,7 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val kafkaProducer = new KafkaProducer[ByteArray, ByteArray](config.properties)
   private implicit val executionContext = ExecutionContext.global
+  val CLOSE_WAIT_SECONDS = 10
 
   logger.trace(s"Created producer with config ${config.properties}")
 
@@ -32,7 +33,7 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
     val serVal: ByteArray = ObjectSerializer.serialize(value)
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)
     val jFuture = kafkaProducer.send(producerRecord)
-    System.err.println(s"Topic replicas: ${kafkaProducer.partitionsFor(topic).toList.map(_.inSyncReplicas.toList)}")
+    logger.debug(s"Topic replicas: ${kafkaProducer.partitionsFor(topic).toList.map(_.inSyncReplicas.toList)}")
     Future {
       blocking {
         try {
@@ -51,7 +52,7 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
 
   def close {
     logger.trace(s"Closing producer ${kafkaProducer.metrics.toMap}")
-    kafkaProducer.close(10, TimeUnit.SECONDS)
+    kafkaProducer.close(CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)
   }
 }
 

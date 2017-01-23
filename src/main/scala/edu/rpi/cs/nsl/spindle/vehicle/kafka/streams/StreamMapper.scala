@@ -13,9 +13,13 @@ import org.apache.kafka.streams.kstream.KGroupedStream
 /**
  * Kafka streams mapper executor
  *
- * @see [[https://kafka.apache.org/0100/javadoc/org/apache/kafka/streams/kstream/KStream.html#map(org.apache.kafka.streams.kstream.KeyValueMapper) Mapper Documentation]]
+ * @see [[https://kafka.apache.org/0100/javadoc/org/apache/kafka/streams/kstream/KStream.html
+ * #map(org.apache.kafka.streams.kstream.KeyValueMapper) Mapper Documentation]]
  */
-class StreamMapper[K, V, K1, V1](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), protected val config: StreamsConfig)
+class StreamMapper[K, V, K1, V1](inTopic: String,
+                                 outTopic: String,
+                                 mapFunc: (K, V) => (K1, V1),
+                                 protected val config: StreamsConfig)
     extends StreamExecutor {
   private val logger = LoggerFactory.getLogger(this.getClass)
   protected val builder = {

@@ -24,7 +24,7 @@ class BasicPropertyFactory extends PropertyFactory {
     val colorIndex = rand.nextInt(colors.length)
     colors(colorIndex)
   }
-  def getProperties(nodeId: NodeId) = {
+  def getProperties(nodeId: NodeId): Set[TypedValue[Any]] = {
     val color = TypedValue[VehicleColors.Value](getColor).asInstanceOf[TypedValue[Any]]
     Set(color)
   }

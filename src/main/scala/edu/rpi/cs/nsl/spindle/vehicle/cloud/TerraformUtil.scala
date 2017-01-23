@@ -37,12 +37,12 @@ abstract class TerraformManager(workdir: String) {
   def apply: Future[String] = {
     execCommand(Commands.apply)
   }
-  def destroy = {
+  def destroy: Future[String] = {
     execCommand(Commands.destroy)
   }
   def printPlan {
     execCommand(Commands.plan).onComplete {
-      case Success(planString) => System.err.println(s"Terraform plan: $planString")
+      case Success(planString) => logger.error(s"Terraform plan: $planString")
       case _                   => throw new RuntimeException("Terraform plan failed")
     }
   }

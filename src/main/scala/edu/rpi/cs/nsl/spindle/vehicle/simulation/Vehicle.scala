@@ -43,8 +43,8 @@ case class TypedValue[T: TypeTag](value: T) {
 }
 
 object ReflectionUtils {
-  def getTypeString[T: TypeTag] = typeTag[T].toString
-  def getMatchingTypes(collection: Iterable[TypedValue[Any]], typeString: String) = {
+  def getTypeString[T: TypeTag]: String = typeTag[T].toString
+  def getMatchingTypes(collection: Iterable[TypedValue[Any]], typeString: String): Iterable[TypedValue[Any]] = {
     collection.filter(_.getTypeString == typeString)
   }
 }
@@ -94,7 +94,7 @@ object Vehicle {
             cacheFactory: CacheFactory,
             mockSensors: Set[MockSensor[Any]],
             properties: Set[TypedValue[Any]],
-            warmCaches: Boolean = true) = {
+            warmCaches: Boolean = true): Props = {
     Props(new Vehicle(nodeId: NodeId,
       clientFactory: ClientFactory,
       transformationStore: TransformationStore,
@@ -137,10 +137,6 @@ class Vehicle(nodeId: NodeId,
       Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
   }
   private lazy val (timestamps, caches): (Seq[Timestamp], Map[CacheTypes.Value, TSEntryCache[_]]) = cacheFactory.mkCaches(nodeId)
-  private lazy val statusProducer = {
-    logger.debug("Creating status producer")
-    clientFactory.mkProducer[NodeId, VehicleMessage](TopicLookupService.getVehicleStatus(nodeId))
-  }
 
   /**
    * Create a Vehicle status message
@@ -229,7 +225,7 @@ class Vehicle(nodeId: NodeId,
     }
   }
 
-  private val temporalDaemons = Seq(SensorDaemon, MapReduceDaemon)
+  private lazy val temporalDaemons = Seq(SensorDaemon, MapReduceDaemon)
 
   private def executeInterval(currentTiming: Timestamp) {
     logger.info(s"$nodeId executing for $currentTiming")
@@ -268,14 +264,15 @@ class Vehicle(nodeId: NodeId,
 
   override def preStart {
     if (warmCaches) {
-      // Force evaluation
+      // Force evaluation of lazy properties
       val props = fullProperties
       val cacheTypes = this.caches.keys
+      val numDaemons = temporalDaemons.size
       logger.debug(s"Cache types $cacheTypes")
     }
   }
 
-  def receive = {
+  def receive: PartialFunction[Any, Unit] = {
     case Vehicle.StartMessage(startTime, replyWhenDone) => {
       sender ! Vehicle.StartingMessage(nodeId)
       startSimulation(startTime, replyWhenDone)

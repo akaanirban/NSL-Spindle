@@ -16,9 +16,13 @@ import org.apache.kafka.streams.kstream.KeyValueMapper
  *
  * @note - strips keys
  *
- * @see [[https://github.com/confluentinc/examples/blob/10eafe95a972bf18b9f681129404044ef36ee8cc/kafka-streams/src/main/java/io/confluent/examples/streams/SumLambdaExample.java#L116 Confluent Reduce Example]]
+ * @todo - remove nulls (this will require changes to the Kafka consumer as well)
+ *
+ * @see [[https://github.com/confluentinc/examples/blob/10eafe95a972bf18b9f681129404044ef36ee8cc
+ * /kafka-streams/src/main/java/io/confluent/examples/streams/SumLambdaExample.java#L116 Confluent Reduce Example]]
  */
-class StreamReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig) extends StreamKVReducer[K, V](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig) {
+class StreamReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
+    extends StreamKVReducer[K, V](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   override protected val builder = {
@@ -26,12 +30,14 @@ class StreamReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, red
     val deserializedStream: KStream[K, V] = deserialize {
       builder.stream(byteSerde, byteSerde, inTopic)
     }
+    //scalastyle:off null
     val reducedStream: KStream[Null, V] = deserializedStream
       .selectKey[Int]((k, v) => 0)
       .groupByKey()
       .reduce(reducer, reduceTableName)
       .toStream
       .selectKey((k, v) => null)
+    //scalastyle:on null
     writeOut(serialize(reducedStream), outTopic)
     builder
   }

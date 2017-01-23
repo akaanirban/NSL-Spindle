@@ -34,13 +34,13 @@ object World {
   case class Ready(numVehicles: Int)
   def props(propertyFactory: PropertyFactory,
             transformationStoreFactory: TransformationStoreFactory,
-            clientFactory: ClientFactory) = {
+            clientFactory: ClientFactory): Props = {
     Props(new World(propertyFactory: PropertyFactory,
       transformationStoreFactory: TransformationStoreFactory, clientFactory))
   }
   def propsTest(propertyFactory: PropertyFactory,
                 transformationStoreFactory: TransformationStoreFactory,
-                clientFactory: ClientFactory, initOnly: Boolean = true) = {
+                clientFactory: ClientFactory, initOnly: Boolean = true): Props = {
     Props(new World(propertyFactory: PropertyFactory,
       transformationStoreFactory: TransformationStoreFactory, clientFactory, initOnly = initOnly))
   }
@@ -61,6 +61,7 @@ class World(propertyFactory: PropertyFactory,
     case None      => pgClient.getNodes
     case Some(max) => pgClient.getNodes.take(max)
   }
+  private val warmVehicleCaches = (initOnly == false)
   private[simulation] lazy val vehicles: Stream[(NodeId, ActorRef)] = nodeList.map { nodeId: NodeId =>
     logger.debug(s"Creating vehicle $nodeId")
     val cacheFactory = new CacheFactory(pgClient)
@@ -72,12 +73,13 @@ class World(propertyFactory: PropertyFactory,
       transformationStoreFactory.getTransformationStore(nodeId),
       cacheFactory,
       mockSensors,
-      properties))
+      properties,
+      warmCaches = warmVehicleCaches))
     context.watch(actor)
     (nodeId, actor)
   }
 
-  def receive = initializing
+  def receive: PartialFunction[Any, Unit] = initializing
 
   private implicit val vehicleTimeout = Timeout(VEHICLE_WAIT_TIME)
   private implicit val ec = context.dispatcher

@@ -10,8 +10,10 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamExecutor
 
 abstract class TransformationFunc(val funcId: String, inTopic: String, outTopic: String) {
   override def hashCode: Int = funcId.hashCode
-  override def equals(obj: Any) = {
+  override def equals(obj: Any): Boolean = {
+    //scalastyle:off null
     if (obj == null) {
+      //scalastyle:on null
       false
     } else if (obj.isInstanceOf[TransformationFunc] == false) {
       false
@@ -27,7 +29,7 @@ case class KvReducerFunc[K >: Null, V >: Null](override val funcId: String, inTo
   def getStreamReducer(clientFactory: ClientFactory): StreamKVReducer[K, V] = {
     clientFactory.mkKvReducer[K, V](inTopic, outTopic, reduceFunc, funcId)
   }
-  def getTransformExecutor(clientFactory: ClientFactory) = getStreamReducer(clientFactory)
+  def getTransformExecutor(clientFactory: ClientFactory): StreamExecutor = getStreamReducer(clientFactory)
 }
 
 case class MapperFunc[K, V, K1, V1](override val funcId: String, inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1))
@@ -35,7 +37,7 @@ case class MapperFunc[K, V, K1, V1](override val funcId: String, inTopic: String
   def getStreamMapper(clientFactory: ClientFactory): StreamMapper[K, V, K1, V1] = {
     clientFactory.mkMapper(inTopic, outTopic, mapFunc, funcId)
   }
-  def getTransformExecutor(clientFactory: ClientFactory) = getStreamMapper(clientFactory)
+  def getTransformExecutor(clientFactory: ClientFactory): StreamExecutor = getStreamMapper(clientFactory)
 }
 
 case class ActiveTransformations(mappers: Iterable[MapperFunc[Any, Any, Any, Any]], reducers: Iterable[KvReducerFunc[Any, Any]])

@@ -39,10 +39,11 @@ class KafkaAdmin(zkString: String) {
       val brokers = getBrokers
       logger.trace(s"Brokers $brokers")
       if (brokers.size == numBrokers) {
-        return brokers
+        brokers
+      } else {
+        Thread.sleep(THREAD_SLEEP_MS)
+        checkBrokers
       }
-      Thread.sleep(THREAD_SLEEP_MS)
-      return checkBrokers
     }
     implicit val ec = global
     Future {
@@ -69,11 +70,10 @@ class KafkaAdmin(zkString: String) {
       .filterNot(_ == KAFKA_PARTITION_NO_ERROR_CODE)
 
     def checkPartitionLeaders {
-      if (getPartitionErrors.isEmpty) {
-        return
+      if (getPartitionErrors.isEmpty == false) {
+        Thread.sleep(THREAD_SLEEP_MS)
+        checkPartitionLeaders
       }
-      Thread.sleep(THREAD_SLEEP_MS)
-      checkPartitionLeaders
     }
 
     implicit val ec = global

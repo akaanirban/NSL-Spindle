@@ -8,7 +8,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
  */
 class StaticTransformationStore(nodeId: NodeId, transformations: ActiveTransformations)
     extends TransformationStore(nodeId) {
-  def getActiveTransformations(timestamp: Timestamp) = transformations
+  def getActiveTransformations(timestamp: Timestamp): ActiveTransformations = transformations
 }
 
 abstract class StaticTransformationFactory
