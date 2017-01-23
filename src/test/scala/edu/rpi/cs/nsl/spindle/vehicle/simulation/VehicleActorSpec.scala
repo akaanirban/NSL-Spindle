@@ -114,7 +114,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       })
       .map(Await.result(_, 2 minutes))
       .map(Await.result(_, 2 minutes))
-      .toList: List[ActorRef]
+      .toList: List[ActorRef] //TODO: send actor for getting back completion confirmations
   }
 
   "A Vehicle actor" should {
