@@ -323,13 +323,14 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
 
     def seekSubstring(messages: Iterable[(TestObj, TestObj)]): (TestObj, TestObj) = {
       val matchOpt = messages
-      .filter{case (_, value) =>
-        value.testVal.contains(expectedSubstring)
-      }
-      .lastOption
+        .filter {
+          case (_, value) =>
+            value.testVal.contains(expectedSubstring)
+        }
+        .lastOption
       matchOpt match {
         case Some(message) => message
-        case None => seekSubstring(consumer.getMessages)
+        case None          => seekSubstring(consumer.getMessages)
       }
     }
 

@@ -162,7 +162,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
         logger.info(s"Vehicle finished")
       }
 
-      fail("Not completed")//TODO: finish test
+      fail("Not completed") //TODO: finish test
     }
   }
 }
