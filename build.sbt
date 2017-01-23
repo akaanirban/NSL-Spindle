@@ -56,3 +56,4 @@ def unitFilter(name: String): Boolean = cloudFilter(name) == false
 testOptions in Test := Seq(Tests.Filter(unitFilter))
 testOptions in CloudTest := Seq(Tests.Filter(cloudFilter))
 testOptions in SmallTest += Tests.Argument(TestFrameworks.ScalaTest, "-l", "LoadTest")
+testOptions in SmallTest += Tests.Argument("-l", "UnderConstructionTest")
