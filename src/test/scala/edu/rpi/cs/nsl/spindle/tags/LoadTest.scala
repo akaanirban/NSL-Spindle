@@ -10,4 +10,4 @@ object LoadTest extends Tag("LoadTest")
 /**
  * Test covers basic functionality of components under active development
  */
-object CoreTest extends Tag("CoreTest")
+object UnderConstructionTest extends Tag("UnderConstructionTest")

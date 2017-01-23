@@ -1,10 +1,11 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
-import com.typesafe.config.ConfigFactory
-import com.typesafe.config.Config
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgDefaults
-
 import scala.collection.JavaConverters.asScalaBufferConverter
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgDefaults
 
 trait ConfigurationSingleton {
   protected val conf = ConfigFactory.load()
@@ -39,7 +40,7 @@ object Configuration extends ConfigurationSingleton {
     val readOnly = conf.getOpt[Boolean]("postgres.readOnly").getOrElse(PgDefaults.readOnly)
   }
 
-  val simStartOffsetMs = 50000 //50 seconds
+  val simStartOffsetMs = 30 * 1000
 
   object Vehicles {
     object Sensors {

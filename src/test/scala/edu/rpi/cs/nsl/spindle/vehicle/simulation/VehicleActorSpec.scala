@@ -28,8 +28,12 @@ import akka.util.Timeout
 import org.scalatest.Ignore
 import edu.rpi.cs.nsl.spindle.tags.LoadTest
 import org.scalatest.Tag
-import edu.rpi.cs.nsl.spindle.tags.CoreTest
+import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
 import scala.concurrent.Await
+import akka.actor.PoisonPill
+import akka.actor.ActorRef
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -37,7 +41,11 @@ trait VehicleExecutorFixtures {
 
   val FIVE_SECONDS_MS: Double = 5 * 1000 toDouble
   lazy val startTime: Timestamp = System.currentTimeMillis() + Configuration.simStartOffsetMs
-  val randomTimings: TimeSeq = (0 to 500).map(_.toLong).toList
+  val randomTimings: TimeSeq = {
+    val INTERVAL_MS = 1000 // Corresponding to 1s test intervals
+    val END_TIME_OFFSET = INTERVAL_MS * 10
+    (0 to END_TIME_OFFSET by INTERVAL_MS).map(_.toLong).toList
+  }
   val clientFactory = ClientFactoryDockerFixtures.getFactory
   val cacheFactory = new CacheFactory(new PgClient()) {
     override def mkCaches(nodeId: NodeId) = {
@@ -45,11 +53,12 @@ trait VehicleExecutorFixtures {
       (randomTimings, caches)
     }
   }
+  private val vehicleProps = ReflectionFixtures.basicPropertiesCollection.toSet.filterNot(_.getTypeString.contains("VehicleId"))
   val nodeId = 0
   val emptyTransformFactory = new EmptyStaticTransformationFactory()
   def mkVehicle(transformationStore: TransformationStore = emptyTransformFactory.getTransformationStore(nodeId)) = new Vehicle(nodeId, clientFactory, transformationStore, cacheFactory, Set(), Set(), false)
   def mkVehicleProps(nodeId: NodeId, fullInit: Boolean = false, transformFactory: TransformationStoreFactory = emptyTransformFactory) = {
-    Vehicle.props(nodeId, clientFactory, transformFactory.getTransformationStore(nodeId), cacheFactory, Set(), Set(), fullInit)
+    Vehicle.props(nodeId, clientFactory, transformFactory.getTransformationStore(nodeId), cacheFactory, Set(), vehicleProps, fullInit)
   }
 
 }
@@ -74,7 +83,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
         fixtures.cacheFactory,
         Set(),
         Set(), false) {
-        override def startSimulation(startTime: Timestamp) {
+        override def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {
           def getRunnable() = new Thread() {
             override def run {
               for (i <- 1 to 2) {
@@ -130,25 +139,30 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       }
     }
 
-    "spawn executors inside vehicles" taggedAs (CoreTest) in new VehicleExecutorFixtures {
+    "spawn executors inside vehicles" in new VehicleExecutorFixtures {
       within(5 minutes) {
         testNestedExecutors(numVehicles = 10, numThreads = 10, sleepTime = 1000)(this)
       }
     }
 
-    "completely initialize and start" taggedAs (CoreTest) in new VehicleExecutorFixtures {
-      val actorRef = system.actorOf(mkVehicleProps(0, fullInit = true))
+    "completely initialize and start" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+      val actorRef = system.actorOf(mkVehicleProps(nodeId, fullInit = true))
       implicit val timeout = Timeout(1 minutes)
       val rdyMsg = Await.result(actorRef ? Vehicle.CheckReadyMessage, 1 minutes)
-      assert(rdyMsg.equals(Vehicle.ReadyMessage(0)))
+      assert(rdyMsg.equals(Vehicle.ReadyMessage(nodeId)))
 
-      val strtMsg = Await.result(actorRef ? Vehicle.StartMessage(startTime), 1 minutes)
+      val waitDoneTime: FiniteDuration = (30 + ((randomTimings.last + Configuration.simStartOffsetMs) / 1000).toInt) seconds
+
+      val strtMsg = Await.result(actorRef ? Vehicle.StartMessage(startTime, Some(self.actorRef)), 1 minutes)
       assert(strtMsg.isInstanceOf[Vehicle.StartingMessage])
-      //TODO
-      fail("Not completed")
+
+      within(waitDoneTime) {
+        logger.info(s"Started vehicle actor from ${self.actorRef} and waiting for $waitDoneTime")
+        expectMsgType[Vehicle.SimulationDone]
+        logger.info(s"Vehicle finished")
+      }
+
+      fail("Not completed")//TODO: finish test
     }
   }
-
-  //TODO: create, run vehicle, ensure it generates expected outputs
-  //TODO: test having lots of vehicles running at once
 }
