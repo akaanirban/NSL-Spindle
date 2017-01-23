@@ -84,28 +84,37 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
         Set(),
         Set(), false) {
         override def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {
-          def getRunnable() = new Thread() {
+          def getRunnable(threadId: Int) = new Thread() {
             override def run {
               for (i <- 1 to 2) {
                 Thread.sleep(sleepTime)
               }
+              logger.info(s"$nodeId finished thread $threadId")
             }
           }
-          val threads = (0 until numThreads).map(_ => getRunnable())
+          val threads = (0 until numThreads).map(getRunnable)
           threads.foreach(context.dispatcher.execute)
-          logger.debug(s"Inner executors started for node $nodeId")
+          logger.info(s"Inner executors started for node $nodeId")
         }
       }))
     }
     import scala.concurrent.ExecutionContext.Implicits.global
     implicit val timeout = Timeout(2 minutes)
-    (0 to numVehicles).map(mkExecVehicle).par.foreach { actorRef =>
-      (actorRef ? Vehicle.CheckReadyMessage) onSuccess {
-        case _ =>
-          actorRef ! Vehicle.StartMessage(fixtures.startTime)
-      }
-    }
-    receiveN(numVehicles)
+    (0 to numVehicles).map(mkExecVehicle).par
+      .map(actorRef => (actorRef ? Vehicle.CheckReadyMessage) map { case _ => actorRef })
+      .map(_ map {
+        case actorRef =>
+          actorRef ? Vehicle.StartMessage(fixtures.startTime) map {
+            case _ => {
+              logger.debug(s"$actorRef started")
+              actorRef
+            }
+          }
+
+      })
+      .map(Await.result(_, 2 minutes))
+      .map(Await.result(_, 2 minutes))
+      .toList: List[ActorRef]
   }
 
   "A Vehicle actor" should {
