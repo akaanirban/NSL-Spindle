@@ -52,7 +52,7 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
       }
     }
     "spawn vehicle actors on receiving init" in new WorldActorFixtures {
-      within(10 minutes) {
+      within(30 minutes) {
         world ! World.InitSimulation
         logger.debug("Sent init message")
         expectMsg(World.Starting)
