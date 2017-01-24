@@ -1,6 +1,9 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import scala.concurrent.Await
+import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Random
 
 import org.scalatest.BeforeAndAfterAll
@@ -8,40 +11,32 @@ import org.scalatest.DoNotDiscover
 import org.scalatest.WordSpecLike
 import org.slf4j.LoggerFactory
 
+import akka.actor.ActorRef
 import akka.actor.ActorSystem
+import akka.actor.PoisonPill
 import akka.actor.Props
-import akka.pattern.ask
 import akka.actor.actorRef2Scala
+import akka.pattern.ask
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit
+import akka.util.Timeout
+import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
+import edu.rpi.cs.nsl.spindle.tags.LoadTest
+import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryDockerFixtures
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.DockerHelper
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
-import java.util.concurrent.Executors
-import akka.util.Timeout
-import org.scalatest.Ignore
-import edu.rpi.cs.nsl.spindle.tags.LoadTest
-import org.scalatest.Tag
-import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
-import scala.concurrent.Await
-import akka.actor.PoisonPill
-import akka.actor.ActorRef
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration.FiniteDuration
-import org.scalatest.FlatSpec
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.TestObj
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
-import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
-import scala.concurrent.Promise
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -143,6 +138,27 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     actorRef
   }
 
+  //TODO: create consumer to ensure mapper is producing correct output (shld be fine given other tests)
+  private def mkTestMappers(nodeId: NodeId, mapperGotMessage: Promise[(_, _)], mapperId: String) = {
+    val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+    val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+    Set(MapperFunc[Any, VehicleMessage, TestObj, TestObj](mapperId, inTopic, outTopic, (k, v) => {
+      logger.info(s"Got vehicle $nodeId message $k -> $v")
+      if (mapperGotMessage.isCompleted == false) {
+        mapperGotMessage.success((k, v))
+      }
+      (new TestObj("mappedKey"), new TestObj("mappedValue"))
+    }))
+      .asInstanceOf[Set[MapperFunc[Any, Any, Any, Any]]]
+  }
+  //TODO: add reducer
+  private def mkTestMapperFactory(mapperGotMessage: Promise[(_, _)]) = {
+    val mapperId: String = java.util.UUID.randomUUID.toString
+    new GenerativeStaticTransformationFactory(nodeId => {
+      val mappers = mkTestMappers(nodeId, mapperGotMessage, mapperId)
+      ActiveTransformations(mappers, Set())
+    })
+  }
   "A Vehicle actor" should {
     "correctly generate timings" in new VehicleExecutorFixtures {
       val vExec = TestActorRef(mkVehicle()).underlyingActor
@@ -185,31 +201,18 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       fullyStartVehicle(actorRef)(this)
     }
 
-    "completely initialize and run mapper" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
-      val mapperId: String = java.util.UUID.randomUUID.toString
+    "completely initialize and run mapper" in new VehicleExecutorFixtures {
       val mapperGotMessage = Promise[(_, _)]()
-      val testMapperFactory = new GenerativeStaticTransformationFactory(nodeId => {
-        val inTopic = TopicLookupService.getVehicleStatus(nodeId)
-        val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
-        val mappers = Set(MapperFunc[Any, VehicleMessage, TestObj, TestObj](mapperId, inTopic, outTopic, (k, v) => {
-          logger.info(s"Got vehicle $nodeId message $k -> $v")
-          if(mapperGotMessage.isCompleted == false) {
-            mapperGotMessage.success((k, v))
-          }
-          (new TestObj("mappedKey"), new TestObj("mappedValue"))
-        }))
-          .asInstanceOf[Set[MapperFunc[Any, Any, Any, Any]]]
-        ActiveTransformations(mappers, Set())
-      })
-
+      val testMapperFactory = mkTestMapperFactory(mapperGotMessage)
       val vehicleProps = mkVehicleProps(nodeId: NodeId, fullInit = true, transformFactory = testMapperFactory)
       val actorRef = system.actorOf(vehicleProps)
       fullyStartVehicle(actorRef)(this)
       assert(mapperGotMessage.isCompleted, "Mapper did not get message at expected time")
       actorRef ! PoisonPill
-      //TODO?
     }
 
+    "completely initialize and run mapper and reducer" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+      fail("Not completed") //TODO 
+    }
   }
-
 }
