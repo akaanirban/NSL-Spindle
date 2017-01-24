@@ -6,6 +6,8 @@ import scala.concurrent.duration._
 
 /**
  * Contains database time-series data
+ * 
+ * @param timesetamp - database timestamp (in seconds)
  */
 case class TSEntry(timestamp: Double, x: Double, y: Double, speed: Double) {
   def toPosition: Position = Position(x, y, speed)
