@@ -41,6 +41,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.TestObj
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
+import scala.concurrent.Promise
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -49,8 +50,7 @@ trait VehicleExecutorFixtures {
   val FIVE_SECONDS_MS: Double = 5 * 1000 toDouble
   lazy val startTime: Timestamp = System.currentTimeMillis() + Configuration.simStartOffsetMs
   val randomTimings: TimeSeq = {
-    //val INTERVAL_MS = 1000 // Corresponding to 1s test intervals //TODO: configure window size kafka streams
-    val INTERVAL_MS = 30 * 1000 // 30 seconds
+    val INTERVAL_MS = 1000 // Corresponding to 1s test intervals //TODO: configure window size kafka streams
     val END_TIME_OFFSET = INTERVAL_MS * 10
     (0 to END_TIME_OFFSET by INTERVAL_MS).map(_.toLong).toList
   }
@@ -187,19 +187,25 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
 
     "completely initialize and run mapper" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
       val mapperId: String = java.util.UUID.randomUUID.toString
+      val mapperGotMessage = Promise[(_, _)]()
       val testMapperFactory = new GenerativeStaticTransformationFactory(nodeId => {
         val inTopic = TopicLookupService.getVehicleStatus(nodeId)
         val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
         val mappers = Set(MapperFunc[Any, VehicleMessage, TestObj, TestObj](mapperId, inTopic, outTopic, (k, v) => {
           logger.info(s"Got vehicle $nodeId message $k -> $v")
+          if(mapperGotMessage.isCompleted == false) {
+            mapperGotMessage.success((k, v))
+          }
           (new TestObj("mappedKey"), new TestObj("mappedValue"))
         }))
           .asInstanceOf[Set[MapperFunc[Any, Any, Any, Any]]]
         ActiveTransformations(mappers, Set())
       })
+
       val vehicleProps = mkVehicleProps(nodeId: NodeId, fullInit = true, transformFactory = testMapperFactory)
       val actorRef = system.actorOf(vehicleProps)
       fullyStartVehicle(actorRef)(this)
+      assert(mapperGotMessage.isCompleted, "Mapper did not get message at expected time")
       actorRef ! PoisonPill
       //TODO?
     }
