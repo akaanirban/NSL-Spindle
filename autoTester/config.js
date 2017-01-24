@@ -10,7 +10,7 @@ const config = {
   expressPort: 5050,
   sns: {
     region: 'us-east-1',
-    targetArn: 'arn:aws:sns:us-east-1:500518139216:Rory',
+    targetArn: 'arn:aws:sns:us-east-1:500518139216:Spindle-CI',
   }
 };
 
