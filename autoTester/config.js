@@ -1,7 +1,7 @@
 const config = {
   checkMs: 30 * 1000,
   //sbtArgs: ['small:test'],
-  sbtArgs: ['dev:test'],
+  sbtArgs: ['small:test'],
   workdir: '../',
   env: {
     'LOCAL_DOCKER': 'true'
