@@ -35,12 +35,15 @@ libraryDependencies += "com.typesafe.akka" %% "akka-remote" % "2.4.16"
 lazy val sharedLib = RootProject(file("../Shared"))
 lazy val CloudTest = config("cloud") extend(Test)
 lazy val SmallTest = config("small") extend(Test)
+lazy val DevTest = config("dev") extend(Test)
 val main = Project(id = "NSL-Spark", base = file("."))
     .settings(inConfig(CloudTest)(Defaults.testTasks): _*)
     .settings(inConfig(SmallTest)(Defaults.testTasks): _*)
+    .settings(inConfig(DevTest)(Defaults.testTasks): _*)
     .dependsOn(sharedLib)
     .configs(CloudTest)
     .configs(SmallTest)
+    .configs(DevTest)
 
 // Enable scala experimental compiler flags
 scalacOptions ++= Seq("-Xexperimental")
@@ -57,3 +60,5 @@ testOptions in Test := Seq(Tests.Filter(unitFilter))
 testOptions in CloudTest := Seq(Tests.Filter(cloudFilter))
 testOptions in SmallTest += Tests.Argument(TestFrameworks.ScalaTest, "-l", "LoadTest")
 testOptions in SmallTest += Tests.Argument("-l", "UnderConstructionTest")
+
+testOptions in DevTest += Tests.Argument(TestFrameworks.ScalaTest, "-n", "UnderConstructionTest")
