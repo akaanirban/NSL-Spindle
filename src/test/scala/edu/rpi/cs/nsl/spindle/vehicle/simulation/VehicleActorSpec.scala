@@ -34,6 +34,13 @@ import akka.actor.PoisonPill
 import akka.actor.ActorRef
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
+import org.scalatest.FlatSpec
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.TestObj
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
+import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -42,7 +49,8 @@ trait VehicleExecutorFixtures {
   val FIVE_SECONDS_MS: Double = 5 * 1000 toDouble
   lazy val startTime: Timestamp = System.currentTimeMillis() + Configuration.simStartOffsetMs
   val randomTimings: TimeSeq = {
-    val INTERVAL_MS = 1000 // Corresponding to 1s test intervals
+    //val INTERVAL_MS = 1000 // Corresponding to 1s test intervals //TODO: configure window size kafka streams
+    val INTERVAL_MS = 30 * 1000 // 30 seconds
     val END_TIME_OFFSET = INTERVAL_MS * 10
     (0 to END_TIME_OFFSET by INTERVAL_MS).map(_.toLong).toList
   }
@@ -60,7 +68,6 @@ trait VehicleExecutorFixtures {
   def mkVehicleProps(nodeId: NodeId, fullInit: Boolean = false, transformFactory: TransformationStoreFactory = emptyTransformFactory) = {
     Vehicle.props(nodeId, clientFactory, transformFactory.getTransformationStore(nodeId), cacheFactory, Set(), vehicleProps, fullInit)
   }
-
 }
 
 class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
@@ -117,6 +124,25 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       .toList: List[ActorRef] //TODO: send actor for getting back completion confirmations
   }
 
+  private def fullyStartVehicle(actorRef: ActorRef)(implicit fixtures: VehicleExecutorFixtures): ActorRef = {
+    import fixtures._
+    implicit val timeout = Timeout(1 minutes)
+    val rdyMsg = Await.result(actorRef ? Vehicle.CheckReadyMessage, 1 minutes)
+    assert(rdyMsg.equals(Vehicle.ReadyMessage(nodeId)))
+
+    val waitDoneTime: FiniteDuration = (30 + ((fixtures.randomTimings.last + Configuration.simStartOffsetMs) / 1000).toInt) seconds
+
+    val strtMsg = Await.result(actorRef ? Vehicle.StartMessage(startTime, Some(self.actorRef)), 1 minutes)
+    assert(strtMsg.isInstanceOf[Vehicle.StartingMessage])
+
+    within(waitDoneTime) {
+      logger.info(s"Started vehicle actor from ${self.actorRef} and waiting for $waitDoneTime")
+      expectMsgType[Vehicle.SimulationDone]
+      logger.info(s"Vehicle finished")
+    }
+    actorRef
+  }
+
   "A Vehicle actor" should {
     "correctly generate timings" in new VehicleExecutorFixtures {
       val vExec = TestActorRef(mkVehicle()).underlyingActor
@@ -154,24 +180,30 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       }
     }
 
-    "completely initialize and start" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+    "completely initialize and start" in new VehicleExecutorFixtures {
       val actorRef = system.actorOf(mkVehicleProps(nodeId, fullInit = true))
-      implicit val timeout = Timeout(1 minutes)
-      val rdyMsg = Await.result(actorRef ? Vehicle.CheckReadyMessage, 1 minutes)
-      assert(rdyMsg.equals(Vehicle.ReadyMessage(nodeId)))
-
-      val waitDoneTime: FiniteDuration = (30 + ((randomTimings.last + Configuration.simStartOffsetMs) / 1000).toInt) seconds
-
-      val strtMsg = Await.result(actorRef ? Vehicle.StartMessage(startTime, Some(self.actorRef)), 1 minutes)
-      assert(strtMsg.isInstanceOf[Vehicle.StartingMessage])
-
-      within(waitDoneTime) {
-        logger.info(s"Started vehicle actor from ${self.actorRef} and waiting for $waitDoneTime")
-        expectMsgType[Vehicle.SimulationDone]
-        logger.info(s"Vehicle finished")
-      }
-
-      fail("Not completed") //TODO: finish test
+      fullyStartVehicle(actorRef)(this)
     }
+
+    "completely initialize and run mapper" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+      val mapperId: String = java.util.UUID.randomUUID.toString
+      val testMapperFactory = new GenerativeStaticTransformationFactory(nodeId => {
+        val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+        val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+        val mappers = Set(MapperFunc[Any, VehicleMessage, TestObj, TestObj](mapperId, inTopic, outTopic, (k, v) => {
+          logger.info(s"Got vehicle $nodeId message $k -> $v")
+          (new TestObj("mappedKey"), new TestObj("mappedValue"))
+        }))
+          .asInstanceOf[Set[MapperFunc[Any, Any, Any, Any]]]
+        ActiveTransformations(mappers, Set())
+      })
+      val vehicleProps = mkVehicleProps(nodeId: NodeId, fullInit = true, transformFactory = testMapperFactory)
+      val actorRef = system.actorOf(vehicleProps)
+      fullyStartVehicle(actorRef)(this)
+      actorRef ! PoisonPill
+      //TODO?
+    }
+
   }
+
 }
