@@ -29,7 +29,7 @@ class WorldActorFixtures()(implicit system: ActorSystem) {
   private val propertyFactory = new BasicPropertyFactory()
   private val clientFactory = getFactory()(system.dispatcher)
   private val transformFactory = new EmptyStaticTransformationFactory
-  val world = system.actorOf(World.propsTest(propertyFactory, transformFactory, clientFactory, initOnly = true))
+  val nopWorld = system.actorOf(World.propsTest(propertyFactory, transformFactory, clientFactory, initOnly = true))
 }
 
 class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
@@ -45,7 +45,7 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
   "A world actor" should {
     "respond to a ping" in new WorldActorFixtures {
       within(50 milliseconds) {
-        world ! Ping
+        nopWorld ! Ping
         logger.debug("Sent ping")
         expectMsg(Ping)
         logger.debug("Got ping")
@@ -53,7 +53,7 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
     }
     "spawn vehicle actors on receiving init" in new WorldActorFixtures {
       within(30 minutes) {
-        world ! World.InitSimulation
+        nopWorld ! World.InitSimulation
         logger.debug("Sent init message")
         expectMsg(World.Starting)
         logger.debug("Got starting message and waiting for ready message")
