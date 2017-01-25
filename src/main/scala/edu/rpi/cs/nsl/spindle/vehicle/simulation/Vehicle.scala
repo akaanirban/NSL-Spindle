@@ -67,8 +67,7 @@ trait VehicleMessageFactory {
       case None        => throw new RuntimeException(s"No entry found of type $typeString")
     }
   }
-  def mkVehicle(readings: Iterable[TypedValue[Any]],
-                properties: Iterable[TypedValue[Any]]): VehicleMessage = {
+  def mkVehicle(readings: Iterable[TypedValue[Any]], properties: Iterable[TypedValue[Any]]): VehicleMessage = {
     import VehicleTypes._
     val id = getValueOfType[VehicleId](properties)
     val lat = getValueOfType[Lat](readings)
@@ -120,7 +119,8 @@ object SchedulerUtils { //TODO: remove
 /**
  * Simulates an individual vehicle
  *
- * @todo - Mappers, Reducers
+ * @todo - have real-world "vehicle" talk to simulator wrapper
+ *
  */
 class Vehicle(nodeId: NodeId,
               clientFactory: ClientFactory,
@@ -137,6 +137,10 @@ class Vehicle(nodeId: NodeId,
       Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
   }
   private lazy val (timestamps, caches): (Seq[Timestamp], Map[CacheTypes.Value, TSEntryCache[_]]) = cacheFactory.mkCaches(nodeId)
+
+  //TODO: add/integreate VehicleConnection actor
+  private lazy val clusterHeadConnection = VehicleConnection.props(nodeId, clientFactory)
+  //TODO: add cluster membership cache
 
   /**
    * Create a Vehicle status message

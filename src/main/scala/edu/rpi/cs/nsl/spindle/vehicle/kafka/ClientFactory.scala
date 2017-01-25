@@ -9,6 +9,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamMapper
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.SingleTopicProducerKakfa
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 import scala.concurrent._
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
 
 //import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleData }
 
@@ -53,5 +54,11 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
     initTopic(inTopic)
     initTopic(outTopic)
     new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId))
+  }
+
+  def mkRelay(inTopics: Set[String], outTopics: Set[String], relayId: String) {
+    inTopics.foreach(initTopic)
+    outTopics.foreach(initTopic)
+    new StreamRelay(inTopics, outTopics, buildConfig(relayId))
   }
 }
