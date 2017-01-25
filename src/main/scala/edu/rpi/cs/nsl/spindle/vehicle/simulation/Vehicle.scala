@@ -223,7 +223,7 @@ class Vehicle(nodeId: NodeId,
       val ActiveTransformations(mappers, reducers) = transformationStore
         .getActiveTransformations(currentTiming)
       updateMappers(mappers)
-      Thread.sleep(500) //TODO
+      Thread.sleep(700) //TODO: pre-initialize new topics!
       updateReducers(reducers)
       logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
     }

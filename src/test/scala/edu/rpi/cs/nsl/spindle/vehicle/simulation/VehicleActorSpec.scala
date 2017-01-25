@@ -249,10 +249,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       val actorRef = system.actorOf(mkVehicleProps(nodeId: NodeId, fullInit = true, transformFactory = testMRFactory))
       fullyStartVehicle(actorRef)(this)
       assert(mapperGotMessage.isCompleted, s"$mapperGotMessage not complete")
-      //assert(reducerGotMessage.isCompleted, s"$reducerGotMessage not complete")
-      logger.info("Waiting for reducer to get something")
-      Await.result(reducerGotMessage.future, 20 minutes)
-      logger.info("Reducer got something!")
+      assert(reducerGotMessage.isCompleted, s"$reducerGotMessage not complete")
     }
   }
 }
