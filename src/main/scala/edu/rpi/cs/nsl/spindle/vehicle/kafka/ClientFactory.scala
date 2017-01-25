@@ -24,7 +24,8 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
     assert(topic != null, "Topic is null")
     if (initTopics) {
       if (kafkaAdmin.topicExists(topic) == false) {
-        kafkaAdmin.mkTopic(topic) //note: blocking 
+        kafkaAdmin.mkTopic(topic) //note: blocking
+        Thread.sleep(200) //TODO!!!
       }
     }
   }
