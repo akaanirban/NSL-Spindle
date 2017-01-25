@@ -16,7 +16,6 @@ import kafka.utils.ZkUtils
 import kafka.cluster.Broker
 
 class KafkaAdmin(zkString: String) {
-  import AdminUtils._
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val ZK_CONNECT_TIMEOUT_MS = 1000
@@ -54,11 +53,18 @@ class KafkaAdmin(zkString: String) {
   }
 
   /**
+   * Check whether a topic with the specified name exists
+   */
+  def topicExists(topic: String): Boolean = {
+    AdminUtils.topicExists(zkUtils, topic)
+  }
+
+  /**
    * Create a Kafka topic
    */
   def mkTopic(topic: String, partitions: Int = 1, replicationFactor: Int = 1, topicConfig: Properties = new Properties()): Future[Unit] = {
-    createTopic(zkUtils, topic, partitions, replicationFactor, topicConfig)
-    assert(topicExists(zkUtils, topic), s"Failed to create topic $topic")
+    AdminUtils.createTopic(zkUtils, topic, partitions, replicationFactor, topicConfig)
+    assert(topicExists(topic), s"Failed to create topic $topic")
 
     def getMetadata = AdminUtils
       .fetchTopicMetadataFromZk(topic, zkUtils)

@@ -27,7 +27,7 @@ class EmptyStaticTransformationFactory extends GenerativeStaticTransformationFac
 class WorldActorFixtures()(implicit system: ActorSystem) {
   import ClientFactoryDockerFixtures._
   private val propertyFactory = new BasicPropertyFactory()
-  private val clientFactory = getFactory
+  private val clientFactory = getFactory()(system.dispatcher)
   private val transformFactory = new EmptyStaticTransformationFactory
   val world = system.actorOf(World.propsTest(propertyFactory, transformFactory, clientFactory, initOnly = true))
 }

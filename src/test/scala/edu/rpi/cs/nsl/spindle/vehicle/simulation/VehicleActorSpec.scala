@@ -42,6 +42,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 
 trait VehicleExecutorFixtures {
+  implicit val ec: ExecutionContext
   private type TimeSeq = List[Timestamp]
   private val random = new Random()
 
@@ -192,6 +193,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
 
   "A Vehicle actor" should {
     "correctly generate timings" in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
       val vExec = TestActorRef(mkVehicle()).underlyingActor
       val timings = vExec.mkTimings(startTime)
       assert(timings(0) == timings.min, "First value is not minimum")
@@ -201,6 +203,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
         s"${timings.max} != ${randomTimings.max + startTime}")
     }
     "spawn multiple copies" taggedAs (LoadTest) in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
       val NUM_COPIES = 5000
       (0 to NUM_COPIES)
         .map { nodeId =>
@@ -216,23 +219,27 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     }
 
     "spawn executors inside many vehicles" taggedAs (LoadTest) in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
       within(10 minutes) {
         testNestedExecutors(numVehicles = 3000, numThreads = 5, sleepTime = 1000)(this)
       }
     }
 
     "spawn executors inside vehicles" in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
       within(5 minutes) {
         testNestedExecutors(numVehicles = 10, numThreads = 10, sleepTime = 1000)(this)
       }
     }
 
     "completely initialize and start" in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
       val actorRef = system.actorOf(mkVehicleProps(nodeId, fullInit = true))
       fullyStartVehicle(actorRef)(this)
     }
 
     "completely initialize and run mapper" in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
       val mapperGotMessage = Promise[(_, _)]()
       val testMapperFactory = mkTestMapperFactory(mapperGotMessage)
       val vehicleProps = mkVehicleProps(nodeId: NodeId, fullInit = true, transformFactory = testMapperFactory)
@@ -242,7 +249,8 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       actorRef ! PoisonPill
     }
 
-    "completely initialize and run mapper and reducer" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+    "completely initialize and run mapper and reducer" in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
       val mapperGotMessage = Promise[(_, _)]()
       val reducerGotMessage = Promise[(_, _)]()
       val testMRFactory = mkTestMapReduceFactory(mapperGotMessage, reducerGotMessage)

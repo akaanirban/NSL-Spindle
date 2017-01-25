@@ -5,6 +5,7 @@ import scala.concurrent.Await
 import org.scalatest.BeforeAndAfterAll
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
+import scala.concurrent.ExecutionContext
 
 private[vehicle] object ClientFactoryDockerFixtures {
   lazy val zkString = DockerHelper.getZkString
@@ -15,18 +16,19 @@ private[vehicle] object ClientFactoryDockerFixtures {
     DockerHelper.startCluster
     Await.ready(kafkaAdmin.waitBrokers(DockerHelper.NUM_KAFKA_BROKERS), Constants.KAFKA_WAIT_TIME)
   }
-  def getFactory = {
+  def getFactory()(implicit ec: ExecutionContext) = {
     val TEST_STREAM_ID = java.util.UUID.randomUUID.toString
     val streamsConfig = streamsTestFixtures
       .getStreamsConfig(TEST_STREAM_ID)
       .withAutoOffset()
       .withCommitInterval(Configuration.Streams.commitMs)
-    new ClientFactory(baseConfig, streamsConfig)
+    new ClientFactory(zkString, baseConfig, streamsConfig)
   }
 }
 
 class ClientFactorySpecDocker extends FlatSpec with BeforeAndAfterAll {
   import ClientFactoryDockerFixtures._
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def beforeAll {
     waitReady
