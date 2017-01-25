@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer;
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
+import org.apache.kafka.streams.processor.TopologyBuilder
 
 /**
  * Executor that runs a Kafka Streams program
@@ -15,7 +16,7 @@ abstract class StreamExecutor extends Runnable {
   type ByteArray = Array[Byte]
   protected type ByteStream = KStream[ByteArray, ByteArray]
   private val logger = LoggerFactory.getLogger(this.getClass)
-  protected val builder: KStreamBuilder
+  protected val builder: TopologyBuilder
   protected val config: StreamsConfig
 
   protected val byteSerde = Serdes.ByteArray
