@@ -206,6 +206,7 @@ class Vehicle(nodeId: NodeId,
       toRemove.map(prevMap(_)).foreach(_.stop)
       val newTransformers = toAdd.map(func => (func -> func.getTransformExecutor(clientFactory))).toMap
       newTransformers.values.foreach(pool.execute(_))
+      newTransformers.values.foreach(transformer => logger.debug(s"Launched executor $transformer"))
       (prevMap -- toRemove) ++ newTransformers
     }
     private def updateMappers(mappers: Iterable[MapperFunc[Any, Any, Any, Any]]) {
@@ -214,14 +215,17 @@ class Vehicle(nodeId: NodeId,
       prevMappers = nextMap
     }
     private def updateReducers(reducers: Iterable[KvReducerFunc[Any, Any]]) {
-      prevReducers = updateTransformers(reducers, prevReducers)
+      val nextReducers = updateTransformers(reducers, prevReducers)
+      assert(nextReducers.keySet equals reducers.toSet)
+      prevReducers = nextReducers
     }
     def executeInterval(currentTiming: Timestamp) {
       val ActiveTransformations(mappers, reducers) = transformationStore
         .getActiveTransformations(currentTiming)
       updateMappers(mappers)
+      Thread.sleep(500) //TODO
       updateReducers(reducers)
-      logger.info(s"$nodeId updated mappers and reducers")
+      logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
     }
   }
 

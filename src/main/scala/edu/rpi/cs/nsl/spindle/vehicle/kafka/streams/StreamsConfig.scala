@@ -3,6 +3,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 import java.util.Properties
 import org.apache.kafka.streams.StreamsConfig
 import org.slf4j.LoggerFactory
+import kafka.consumer.ConsumerConfig
 
 class StreamConfigException(message: String) extends RuntimeException(message)
 
@@ -11,6 +12,7 @@ class StreamConfigException(message: String) extends RuntimeException(message)
  */
 case class StreamsConfigBuilder(properties: Properties = new Properties()) {
   import StreamsConfig._
+
   private val logger = LoggerFactory.getLogger(this.getClass)
   def withProperty(key: String, value: String): StreamsConfigBuilder = {
     val newProps = new Properties()
@@ -50,5 +52,7 @@ case class StreamsConfigBuilder(properties: Properties = new Properties()) {
     this.withProperty(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
   }
   def withZk(zkString: String): StreamsConfigBuilder = this.withProperty(ZOOKEEPER_CONNECT_CONFIG, zkString)
+  def withCommitInterval(intervalMs: Int): StreamsConfigBuilder = this.withProperty(COMMIT_INTERVAL_MS_CONFIG, intervalMs.toString)
+  def withAutoOffset(resetLocation: String = "latest"): StreamsConfigBuilder = this.withProperty(ConsumerConfig.AutoOffsetReset, resetLocation)
   def build: StreamsConfig = new StreamsConfig(properties)
 }

@@ -7,6 +7,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamKVReducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamMapper
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.TypedStreamExecutor
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamExecutor
+import org.slf4j.LoggerFactory
 
 abstract class TransformationFunc(val funcId: String, inTopic: String, outTopic: String) {
   override def hashCode: Int = funcId.hashCode
@@ -26,8 +27,10 @@ abstract class TransformationFunc(val funcId: String, inTopic: String, outTopic:
 
 case class KvReducerFunc[K >: Null, V >: Null](override val funcId: String, inTopic: String, outTopic: String, reduceFunc: (V, V) => V)
     extends TransformationFunc(funcId, inTopic, outTopic) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def getStreamReducer(clientFactory: ClientFactory): StreamKVReducer[K, V] = {
-    clientFactory.mkKvReducer[K, V](inTopic, outTopic, reduceFunc, funcId)
+    logger.info(s"Creating kv reducer $funcId topics: $inTopic->$outTopic")
+    clientFactory.mkKvReducer[K, V](inTopic = inTopic, outTopic, reduceFunc, funcId)
   }
   def getTransformExecutor(clientFactory: ClientFactory): StreamExecutor = getStreamReducer(clientFactory)
 }

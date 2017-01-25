@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 import edu.rpi.cs.nsl.spindle.vehicle.TestingConfiguration
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
+import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
 
 class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
   import Constants._
@@ -36,11 +37,6 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
     logger.info("Testing send/recv")
     sharedTests.testSendRecv
     logger.info("Done testing send/recv")
-  }
-
-  ignore should "produce data from a data source" in {
-    //TODO
-    fail("Not implemented")
   }
 
   it should "perform map operations" in {

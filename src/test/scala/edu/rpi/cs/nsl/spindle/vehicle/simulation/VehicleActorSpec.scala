@@ -37,6 +37,9 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStati
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 
 trait VehicleExecutorFixtures {
   private type TimeSeq = List[Timestamp]
@@ -70,6 +73,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
   private val logger = LoggerFactory.getLogger(this.getClass)
   override def beforeAll {
     super.beforeAll
+    logger.debug("Vehicle actor spec waiting for docker to come online")
     ClientFactoryDockerFixtures.waitReady
   }
   override def afterAll {
@@ -142,7 +146,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
   private def mkTestMappers(nodeId: NodeId, mapperGotMessage: Promise[(_, _)], mapperId: String) = {
     val inTopic = TopicLookupService.getVehicleStatus(nodeId)
     val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
-    Set(MapperFunc[Any, VehicleMessage, TestObj, TestObj](mapperId, inTopic, outTopic, (k, v) => {
+    val mappers = Set(MapperFunc[Any, VehicleMessage, TestObj, TestObj](mapperId, inTopic, outTopic = outTopic, (k, v) => {
       logger.info(s"Got vehicle $nodeId message $k -> $v")
       if (mapperGotMessage.isCompleted == false) {
         mapperGotMessage.success((k, v))
@@ -150,15 +154,42 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       (new TestObj("mappedKey"), new TestObj("mappedValue"))
     }))
       .asInstanceOf[Set[MapperFunc[Any, Any, Any, Any]]]
+    (outTopic, mappers)
   }
-  //TODO: add reducer
+
+  private def mkTestReducers(nodeId: NodeId, reducerGotMessage: Promise[(_, _)], inTopic: String, reducerId: String) = {
+    logger.debug(s"Reducer $reducerId listening on topic $inTopic")
+    val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
+    val reducer = KvReducerFunc[TestObj, TestObj](reducerId, inTopic = inTopic, outTopic: String, (v1, v2) => {
+      logger.info(s"Reducer got message ${v1} and ${v2}")
+      if (reducerGotMessage.isCompleted == false) {
+        reducerGotMessage.success((v1, v2))
+      }
+      new TestObj(s"${v1.testVal}|${v2.testVal}")
+    })
+    Set(reducer).asInstanceOf[Set[KvReducerFunc[Any, Any]]]
+  }
+
   private def mkTestMapperFactory(mapperGotMessage: Promise[(_, _)]) = {
     val mapperId: String = java.util.UUID.randomUUID.toString
     new GenerativeStaticTransformationFactory(nodeId => {
-      val mappers = mkTestMappers(nodeId, mapperGotMessage, mapperId)
+      val (_, mappers) = mkTestMappers(nodeId, mapperGotMessage, mapperId)
       ActiveTransformations(mappers, Set())
     })
   }
+
+  private def mkTestMapReduceFactory(mapperGotMessage: Promise[(_, _)], reducerGotMessage: Promise[(_, _)]) = {
+    val mapperId: String = java.util.UUID.randomUUID.toString
+    val reducerId: String = java.util.UUID.randomUUID.toString
+    val factory = new GenerativeStaticTransformationFactory(nodeId => {
+      val (mapperOut, mappers) = mkTestMappers(nodeId, mapperGotMessage, mapperId)
+      val reducers = mkTestReducers(nodeId, reducerGotMessage, mapperOut, reducerId)
+      ActiveTransformations(mappers, reducers)
+    })
+    //TODO: add consumer to ensure reducer is producing data correctly
+    factory
+  }
+
   "A Vehicle actor" should {
     "correctly generate timings" in new VehicleExecutorFixtures {
       val vExec = TestActorRef(mkVehicle()).underlyingActor
@@ -212,7 +243,16 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     }
 
     "completely initialize and run mapper and reducer" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
-      fail("Not completed") //TODO 
+      val mapperGotMessage = Promise[(_, _)]()
+      val reducerGotMessage = Promise[(_, _)]()
+      val testMRFactory = mkTestMapReduceFactory(mapperGotMessage, reducerGotMessage)
+      val actorRef = system.actorOf(mkVehicleProps(nodeId: NodeId, fullInit = true, transformFactory = testMRFactory))
+      fullyStartVehicle(actorRef)(this)
+      assert(mapperGotMessage.isCompleted, s"$mapperGotMessage not complete")
+      //assert(reducerGotMessage.isCompleted, s"$reducerGotMessage not complete")
+      logger.info("Waiting for reducer to get something")
+      Await.result(reducerGotMessage.future, 20 minutes)
+      logger.info("Reducer got something!")
     }
   }
 }

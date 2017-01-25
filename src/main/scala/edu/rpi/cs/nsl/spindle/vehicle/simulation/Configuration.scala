@@ -41,6 +41,10 @@ object Configuration extends ConfigurationSingleton {
   }
 
   val simStartOffsetMs = 30 * 1000
+  
+  object Streams {
+    val commitMs = 500
+  }
 
   object Vehicles {
     object Sensors {

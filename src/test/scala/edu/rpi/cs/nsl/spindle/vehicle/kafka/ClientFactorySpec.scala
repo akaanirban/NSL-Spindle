@@ -4,6 +4,7 @@ import org.scalatest.FlatSpec
 import scala.concurrent.Await
 import org.scalatest.BeforeAndAfterAll
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 
 private[vehicle] object ClientFactoryDockerFixtures {
   lazy val zkString = DockerHelper.getZkString
@@ -16,7 +17,10 @@ private[vehicle] object ClientFactoryDockerFixtures {
   }
   def getFactory = {
     val TEST_STREAM_ID = java.util.UUID.randomUUID.toString
-    val streamsConfig = streamsTestFixtures.getStreamsConfig(TEST_STREAM_ID)
+    val streamsConfig = streamsTestFixtures
+      .getStreamsConfig(TEST_STREAM_ID)
+      .withAutoOffset()
+      .withCommitInterval(Configuration.Streams.commitMs)
     new ClientFactory(baseConfig, streamsConfig)
   }
 }
