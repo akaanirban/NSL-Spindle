@@ -25,13 +25,13 @@ export default class SnsNotifier extends Notifier {
       resolve(data);
     }));
   }
-  async alertFinished(message, exitCode) {
-    await this._sendMessage(`Test finished ${exitCode}`, message);
+  async alertFinished(url, message, exitCode) {
+    await this._sendMessage(`Test finished ${exitCode}`, `${message}\n${url}`);
   }
-  async alertError(message) {
-    await this._sendMessage('Test error', message);
+  async alertError(url, message) {
+    await this._sendMessage('Test error', `${message}\n${url}`);
   }
   async alertStarted(url) {
-    await this._sendMessage('Test started', url);
+    await this._sendMessage('Test started', `Access logs for this test at ${url}`);
   }
 }

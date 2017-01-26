@@ -1,12 +1,12 @@
 export default class Notifier {
   constructor() {}
-  alertFinished(message, exitCode) {
+  async alertFinished(url, message, exitCode) {
     throw 'Not implemented';
   }
-  alertError(message) {
+  async alertError(url, message) {
     throw 'Not implemented';
   }
-  alertStarted(url) {
+  async alertStarted(url) {
     throw 'Not implemented';
   }
 }

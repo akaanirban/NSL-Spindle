@@ -21,9 +21,9 @@ const metaLogger = mkLogger('meta');
 
 const git = simpleGit(config.workdir);
 
-const handleError = (error) => {
+const handleError = (error, url = 'no url specified') => {
   metaLogger.error('Error', error);
-  notifier.alertError('Failure during test', JSON.stringify(error));
+  notifier.alertError(url, 'Failure during test', JSON.stringify(error));
   throw error;
 }
 
@@ -66,7 +66,7 @@ async function needsToTest(prevHash) {
   return {doTest: hash !== prevHash, latestHash: hash};
 }
 
-async function runTests(testLogger) {
+async function runTests(testLogger, url) {
   const {sbtArgs, workdir, env} = config;
   const process = spawn('sbt', sbtArgs, {cwd: workdir, env});
   process.stdout.on('data', (data) => testLogger.info(String(data)));
@@ -77,11 +77,11 @@ async function runTests(testLogger) {
       metaLogger.debug('test returned code', returnCode);
       if(failed) {
         testLogger.error('Test failed');
-        notifier.alertError(`Test failed with return code ${returnCode}`); 
+        notifier.alertError(url, `Test failed with return code ${returnCode}`); 
       } else {
         testLogger.info('Tests passed');
       }
-      notifier.alertFinished(`SBT command ${sbtArgs} completed`, returnCode);
+      notifier.alertFinished(url, `SBT command ${sbtArgs} completed`, returnCode);
       resolve({returnCode, failed});
     });
   });
@@ -95,8 +95,9 @@ async function tryTest(lastTestedHash = null) {
   if(doTest) {
     const logPath = `test-${String(new Date()).replace(/ /g, '_')}-commit-${latestHash}`;
     const testLogger = mkLogger(logPath);
-    notifier.alertStarted(mkUrl(logPath));
-    await runTests(testLogger);
+    const url = mkUrl(logPath);
+    notifier.alertStarted(url);
+    await runTests(testLogger, url);
   }
   setTimeout(() => tryTest(latestHash), config.checkMs);
 }
