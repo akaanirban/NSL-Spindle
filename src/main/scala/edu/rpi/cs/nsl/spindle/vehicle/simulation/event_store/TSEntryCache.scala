@@ -19,7 +19,9 @@ trait TSCache[T] {
    */
   protected implicit class TSMap[T](map: Map[Timestamp, T]) {
     def getOrPrior(timestamp: Timestamp): T = {
-      val nearestTime = map.keys.filter(_ <= timestamp).max
+      val priorTimes = map.keys.filter(_ <= timestamp)
+      assert(priorTimes.isEmpty == false, s"No times for $timestamp in $map")
+      val nearestTime = priorTimes.max
       map(nearestTime)
     }
   }
@@ -36,6 +38,5 @@ class TSEntryCache[T](readings: Iterable[TSEntry[T]]) extends TSCache[T] {
       (reading.getTimestamp -> reading.getReading)
     }
     .toMap
-
 }
 
