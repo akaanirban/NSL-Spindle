@@ -18,7 +18,7 @@ class ClusterMemberIterator(resultSet: ResultSet)
 }
 
 class ClusterMembershipQuery(connection: Connection, clusterTable: String) extends {
-  private val statement = """SELECT
+  private val statement = s"""SELECT
        timestamp, 
        clusterhead 
      FROM $clusterTable
