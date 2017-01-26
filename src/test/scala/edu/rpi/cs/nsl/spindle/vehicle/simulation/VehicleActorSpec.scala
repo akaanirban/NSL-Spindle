@@ -40,6 +40,10 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.ClusterMembership
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
 
 trait VehicleExecutorFixtures {
   implicit val ec: ExecutionContext
@@ -53,19 +57,43 @@ trait VehicleExecutorFixtures {
     val END_TIME_OFFSET = INTERVAL_MS * 10
     (0 to END_TIME_OFFSET by INTERVAL_MS).map(_.toLong).toList
   }
-  val clientFactory = ClientFactoryDockerFixtures.getFactory
-  val cacheFactory = new PgCacheLoader() {
+  class MockTimingCacheLoader extends PgCacheLoader {
     override def mkCaches(nodeId: NodeId) = {
       val (_, caches) = super.mkCaches(nodeId)
       (randomTimings, caches)
     }
   }
+  def getTestEventStore = new MockTimingCacheLoader()
+  val clientFactory = ClientFactoryDockerFixtures.getFactory
   private val vehicleProps = ReflectionFixtures.basicPropertiesCollection.toSet.filterNot(_.getTypeString.contains("VehicleId"))
   val nodeId = 0
   val emptyTransformFactory = new EmptyStaticTransformationFactory()
-  def mkVehicle(transformationStore: TransformationStore = emptyTransformFactory.getTransformationStore(nodeId)) = new Vehicle(nodeId, clientFactory, transformationStore, cacheFactory, Set(), Set(), false)
-  def mkVehicleProps(nodeId: NodeId, fullInit: Boolean = false, transformFactory: TransformationStoreFactory = emptyTransformFactory) = {
-    Vehicle.props(nodeId, clientFactory, transformFactory.getTransformationStore(nodeId), cacheFactory, Set(), vehicleProps, fullInit)
+  def mkVehicle(transformationStore: TransformationStore = emptyTransformFactory.getTransformationStore(nodeId),
+                eventStore: EventStore = getTestEventStore) =
+    new Vehicle(nodeId, clientFactory, transformationStore, eventStore, Set(), Set(), false)
+  def mkVehicleProps(nodeId: NodeId, fullInit: Boolean = false,
+                     transformFactory: TransformationStoreFactory = emptyTransformFactory,
+                     eventStore: EventStore = getTestEventStore) = {
+    Vehicle.props(nodeId, clientFactory, transformFactory.getTransformationStore(nodeId), eventStore, Set(), vehicleProps, fullInit)
+  }
+
+  val ZERO_TIME = 0 milliseconds
+  private lazy val nodeList = getTestEventStore.getNodes
+  private lazy val clusterHeadId = nodeList.head
+
+  class MockClusterCacheLoader extends MockTimingCacheLoader() {
+    private lazy val clusterCache = new TSEntryCache[NodeId](Seq(new ClusterMembership(ZERO_TIME, clusterHeadId)))
+    override def mkCaches(nodeId: NodeId) = {
+      val (timestamps, caches) = super.mkCaches(nodeId)
+      // Replace default cluster cache
+      (timestamps, (caches - CacheTypes.ClusterCache) +
+        (CacheTypes.ClusterCache -> clusterCache))
+    }
+  }
+
+  def mkCluster(numChildren: Int): (Props, Iterable[Props]) = {
+    def mkClusterVehicleProps(nodeId: NodeId) = mkVehicleProps(nodeId, fullInit = true, eventStore = new MockClusterCacheLoader())
+    (mkClusterVehicleProps(clusterHeadId), nodeList.tail.take(numChildren).map(mkClusterVehicleProps))
   }
 }
 
@@ -87,7 +115,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       system.actorOf(Props(new Vehicle(nodeId,
         fixtures.clientFactory,
         fixtures.emptyTransformFactory.getTransformationStore(nodeId),
-        fixtures.cacheFactory,
+        fixtures.getTestEventStore,
         Set(),
         Set(), false) {
         override def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {
@@ -196,11 +224,16 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       implicit val ec = system.dispatcher
       val vExec = TestActorRef(mkVehicle()).underlyingActor
       val timings = vExec.mkTimings(startTime)
-      assert(timings(0) == timings.min, "First value is not minimum")
-      assert(timings.last == timings.max, "Last value is not maximum")
-      assert(timings.min == startTime)
-      assert(timings.max == (randomTimings.max + startTime),
-        s"${timings.max} != ${randomTimings.max + startTime}")
+      val wallTimings = timings.map(_.wallTime)
+      val simTimings = timings.map(_.simTime)
+      assert(timings.length == randomTimings.length, "Generated timings don't match random timings length")
+      assert(wallTimings(0) == wallTimings.min, "First value is not wall minimum")
+      assert(simTimings(0) == simTimings.min, "First value is not sim minimum")
+      assert(wallTimings.last == wallTimings.max, "Last value is not wall maximum")
+      assert(simTimings.last == simTimings.max, "Last value is not sim maximum")
+      assert(wallTimings.min == startTime)
+      assert(wallTimings.max == (randomTimings.max + startTime),
+        s"${wallTimings.max} != ${randomTimings.max + startTime}\n\tRandom: $randomTimings\n\tWall: $wallTimings")
     }
     "spawn multiple copies" taggedAs (LoadTest) in new VehicleExecutorFixtures {
       implicit val ec = system.dispatcher
@@ -259,8 +292,12 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       assert(mapperGotMessage.isCompleted, s"$mapperGotMessage not complete")
       assert(reducerGotMessage.isCompleted, s"$reducerGotMessage not complete")
     }
-    "communicate across vehicles in cluster" taggedAs(UnderConstructionTest) in new VehicleExecutorFixtures {
+    "communicate across vehicles in cluster" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
       implicit val ec = system.dispatcher
+      val NUM_CLUSTER_CHILDREN = 1
+      val (clusterHead, Seq(clusterChild)) = mkCluster(NUM_CLUSTER_CHILDREN)
+      println(s"Cluster head $clusterHead")
+      println(s"Cluster child $clusterChild")
       fail("Not implemented") //TODO: create mock clustering, wait for messages to pass among vehicles
       //TODO: implement program entrypoint
     }

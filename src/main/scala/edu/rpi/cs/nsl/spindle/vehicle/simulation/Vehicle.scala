@@ -163,15 +163,22 @@ class Vehicle(nodeId: NodeId,
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
   }
 
+  private[simulation] case class TimeMapping(wallTime: Timestamp, simTime: Timestamp)
+
   /**
    * Create mapping from simulator time to future epoch times based on startTime
    */
-  private[simulation] def mkTimings(startTime: Timestamp): Seq[Timestamp] = {
+  private[simulation] def mkTimings(startTime: Timestamp): Seq[TimeMapping] = {
     val zeroTime = timestamps.min
     val offsets = timestamps.map(_ - zeroTime)
-    val absoluteTimes = offsets.map(_ + startTime)
+    val absoluteTimes = offsets
+      .map(_ + startTime)
+      .sorted
+      .zip(timestamps)
+      .sorted
+      .map { case (wallTime, simTime) => TimeMapping(wallTime, simTime) }
     // Ensure ascending order
-    absoluteTimes.sorted
+    absoluteTimes
   }
 
   private def currentTime: Timestamp = System.currentTimeMillis
@@ -242,8 +249,8 @@ class Vehicle(nodeId: NodeId,
     temporalDaemons.foreach(_.executeInterval(currentTiming))
   }
 
-  private def tick(timings: Seq[Timestamp], replyWhenDone: Option[ActorRef]) {
-    executeInterval(timings.head)
+  private def tick(timings: Seq[TimeMapping], replyWhenDone: Option[ActorRef]) {
+    executeInterval(timings.head.simTime)
     val remainingTimings = timings.tail
     remainingTimings.headOption match {
       case None => {
@@ -256,8 +263,8 @@ class Vehicle(nodeId: NodeId,
           case None => logger.debug(s"$nodeId done (no replyWhenDone actor specified)")
         }
       }
-      case Some(epochTime: Timestamp) => {
-        sleepUntil(epochTime)
+      case Some(nextTime: TimeMapping) => {
+        sleepUntil(nextTime.wallTime)
         tick(remainingTimings, replyWhenDone)
       }
     }
@@ -267,7 +274,7 @@ class Vehicle(nodeId: NodeId,
     logger.info(s"$nodeId will start at epoch $startTime")
     val timings = mkTimings(startTime)
     logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")
-    sleepUntil(timings.head)
+    sleepUntil(timings.head.wallTime)
     logger.info(s"Simulation running")
     tick(timings.tail, replyWhenDone)
   }
