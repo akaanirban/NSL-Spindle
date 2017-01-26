@@ -8,6 +8,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgDefaults
 import org.slf4j.LoggerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
 
 class PgClientSpec extends FlatSpec {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -16,7 +17,7 @@ class PgClientSpec extends FlatSpec {
   }
 
   trait ConnectedClient {
-    val client = new PgClient()
+    val client = new PgCacheLoader()
   }
 
   it should "connect to postgres" in new ConnectedClient {
@@ -31,14 +32,15 @@ class PgClientSpec extends FlatSpec {
   it should "load readings through PgClient" in new ConnectedClient {
     (0 to 5) map { nodeId =>
       logger.debug(s"PgClient loading for $nodeId")
-      val readings = client.getReadings(nodeId)
-      assert(readings.size > 0)
+      val (timestamps, caches) = client.mkCaches(nodeId)
+      assert(caches.size > 0)
+      assert(timestamps.size > 0)
     }
     client.close
   }
 
-  it should "cache position information" in new ConnectedClient {
-    (0 to 5)
+  ignore should "cache position information" in new ConnectedClient {
+    /*(0 to 5)
       .map { nodeId =>
         logger.debug(s"Position cache generating for $nodeId")
         new TSEntryCache[Position](client.getReadings(nodeId), _.toPosition)
@@ -46,7 +48,7 @@ class PgClientSpec extends FlatSpec {
       .foreach { cache =>
         assert(cache.getTimestamps.size > 0)
       }
-    client.close
+    client.close*/
   }
 
   it should "load a stream of node ids" in new ConnectedClient {

@@ -20,10 +20,10 @@ import akka.actor.ActorRef
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.TimeoutException
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 import akka.actor.Kill
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
 
 /**
  * Manages vehicles
@@ -56,7 +56,7 @@ class World(propertyFactory: PropertyFactory,
   import World._
   import Vehicle.{ StartMessage, ReadyMessage }
   private val logger = Logging(context.system, this)
-  private lazy val pgClient = new PgClient()
+  private lazy val pgClient = new PgCacheLoader()
   private lazy val nodeList = maxVehicles match {
     case None      => pgClient.getNodes
     case Some(max) => pgClient.getNodes.take(max)
@@ -64,14 +64,13 @@ class World(propertyFactory: PropertyFactory,
   private val warmVehicleCaches = (initOnly == false)
   private[simulation] lazy val vehicles: Stream[(NodeId, ActorRef)] = nodeList.map { nodeId: NodeId =>
     logger.debug(s"Creating vehicle $nodeId")
-    val cacheFactory = new CacheFactory(pgClient)
     //val positions = new PositionCache(nodeId, pgClient)
     val mockSensors = SensorFactory.mkSensors(nodeId)
     val properties = propertyFactory.getProperties(nodeId)
     val actor = context.actorOf(Vehicle.props(nodeId,
       clientFactory,
       transformationStoreFactory.getTransformationStore(nodeId),
-      cacheFactory,
+      new PgCacheLoader,
       mockSensors,
       properties,
       warmCaches = warmVehicleCaches))

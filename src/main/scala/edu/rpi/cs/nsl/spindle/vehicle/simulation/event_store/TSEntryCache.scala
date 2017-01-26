@@ -5,14 +5,14 @@ import edu.rpi.cs.nsl.spindle.vehicle.Types._
 case class Position(x: Double, y: Double, speed: Double)
 
 object CacheTypes extends Enumeration {
-  val PositionCache = Value
+  val PositionCache, ClusterCache = Value
 }
 import CacheTypes._
 
 trait TSCache[T] {
   protected val cache: Map[Timestamp, T]
-  def getValue(timestamp: Timestamp): T
-  def getTimestamps: Iterable[Timestamp]
+  def getValue(timestamp: Timestamp): T = cache.getOrPrior(timestamp)
+  def getTimestamps: Iterable[Timestamp] = cache.keys
 
   /**
    * Map from timestamp to value that can return the closest prior value
@@ -25,13 +25,17 @@ trait TSCache[T] {
   }
 }
 
-class TSEntryCache[T](readings: Iterable[TSEntry], mapper: (TSEntry) => T) extends TSCache[T] {
+/**
+ * @note - can be used to store mock sensor data?
+ *
+ * @todo - clean this up
+ */
+class TSEntryCache[T](readings: Iterable[TSEntry[T]]) extends TSCache[T] {
   protected val cache: Map[Timestamp, T] = readings
     .map { reading =>
-      (reading.getTimestamp, mapper(reading))
+      (reading.getTimestamp -> reading.getReading)
     }
     .toMap
 
-  def getValue(timestamp: Timestamp): T = cache.getOrPrior(timestamp)
-  def getTimestamps: Iterable[Timestamp] = cache.keys
 }
+

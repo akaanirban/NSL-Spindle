@@ -47,6 +47,7 @@ object Configuration extends ConfigurationSingleton {
   }
 
   object Vehicles {
+    val clusterMemberTable = "simple_clusters"
     object Sensors {
       private val prefix = "spindle.sim.vehicle.sensors"
       //TODO: load json, use beans, etc...

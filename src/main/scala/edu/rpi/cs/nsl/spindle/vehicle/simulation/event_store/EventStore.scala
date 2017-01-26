@@ -1,8 +1,9 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store
 
+import edu.rpi.cs.nsl.spindle.vehicle.Types._
+
 trait EventStore {
-  type NodeId = Int
   def close
-  def getReadings(nodeId: Int): Stream[TSEntry]
+  def mkCaches(nodeId: Int): (Seq[Timestamp], CacheMap)
   def getNodes: Stream[NodeId]
 }

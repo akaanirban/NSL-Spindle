@@ -1,14 +1,11 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres
 
-import java.sql.Connection
 import java.sql.DriverManager
 import java.util.Properties
 
-import edu.rpi.cs.nsl.spindle.vehicle.PropUtils._
+import edu.rpi.cs.nsl.spindle.vehicle.PropUtils.PipelinedProps
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntry
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TimeSeriesQuery
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.MetadataQuery
 
 object PgDefaults {
@@ -34,16 +31,10 @@ case class PgConfig(host: String, port: Int, password: String, username: String,
   }
 }
 
-class PgClient(config: PgConfig = PgDefaults.config) extends EventStore {
+abstract class PgClient(config: PgConfig) {
   Class.forName("org.postgresql.Driver") // REQUIRED
   private val uri = s"jdbc:postgresql://${config.host}:${config.port}/${config.database}"
-  private lazy val connection = DriverManager.getConnection(uri, config.getProps)
+  protected lazy val connection = DriverManager.getConnection(uri, config.getProps)
   def close: Unit = connection.close
   def isReadOnly: Boolean = connection.isReadOnly
-
-  private lazy val readingQuery = new TimeSeriesQuery(connection)
-  def getReadings(nodeId: Int): Stream[TSEntry] = readingQuery.loadReadings(nodeId)
-
-  private lazy val metadataQuery = new MetadataQuery(connection)
-  def getNodes: Stream[Int] = metadataQuery.loadNodeIds
 }

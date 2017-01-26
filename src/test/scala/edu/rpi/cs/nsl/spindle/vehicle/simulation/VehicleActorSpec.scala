@@ -30,7 +30,6 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryDockerFixtures
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.DockerHelper
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.TestObj
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
@@ -40,6 +39,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationS
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
 
 trait VehicleExecutorFixtures {
   implicit val ec: ExecutionContext
@@ -54,7 +54,7 @@ trait VehicleExecutorFixtures {
     (0 to END_TIME_OFFSET by INTERVAL_MS).map(_.toLong).toList
   }
   val clientFactory = ClientFactoryDockerFixtures.getFactory
-  val cacheFactory = new CacheFactory(new PgClient()) {
+  val cacheFactory = new PgCacheLoader() {
     override def mkCaches(nodeId: NodeId) = {
       val (_, caches) = super.mkCaches(nodeId)
       (randomTimings, caches)
@@ -258,6 +258,11 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       fullyStartVehicle(actorRef)(this)
       assert(mapperGotMessage.isCompleted, s"$mapperGotMessage not complete")
       assert(reducerGotMessage.isCompleted, s"$reducerGotMessage not complete")
+    }
+    "communicate across vehicles in cluster" taggedAs(UnderConstructionTest) in new VehicleExecutorFixtures {
+      implicit val ec = system.dispatcher
+      fail("Not implemented") //TODO: create mock clustering, wait for messages to pass among vehicles
+      //TODO: implement program entrypoint
     }
   }
 }

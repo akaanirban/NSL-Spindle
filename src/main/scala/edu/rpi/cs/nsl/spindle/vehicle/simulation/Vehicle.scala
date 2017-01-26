@@ -17,7 +17,6 @@ import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
 import edu.rpi.cs.nsl.spindle.vehicle.Types._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
@@ -34,6 +33,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamExecutor
 import java.util.concurrent.Executors
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSCache
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
 
 /**
  * Wraps a value to prevent type erasure
@@ -90,14 +91,14 @@ object Vehicle {
   def props(nodeId: NodeId,
             clientFactory: ClientFactory,
             transformationStore: TransformationStore,
-            cacheFactory: CacheFactory,
+            eventStore: EventStore,
             mockSensors: Set[MockSensor[Any]],
             properties: Set[TypedValue[Any]],
             warmCaches: Boolean = true): Props = {
     Props(new Vehicle(nodeId: NodeId,
       clientFactory: ClientFactory,
       transformationStore: TransformationStore,
-      cacheFactory: CacheFactory,
+      eventStore: EventStore,
       mockSensors: Set[MockSensor[Any]],
       properties: Set[TypedValue[Any]],
       warmCaches))
@@ -121,11 +122,13 @@ object SchedulerUtils { //TODO: remove
  *
  * @todo - have real-world "vehicle" talk to simulator wrapper
  *
+ * @todo - convert "sensors" to TSEntryCache? (refactor to expect data sometimes to be generated)
+ *
  */
 class Vehicle(nodeId: NodeId,
               clientFactory: ClientFactory,
               transformationStore: TransformationStore,
-              cacheFactory: CacheFactory,
+              eventStore: EventStore,
               mockSensors: Set[MockSensor[Any]],
               properties: Set[TypedValue[Any]],
               // Disable cache warming for faster tests
@@ -136,7 +139,7 @@ class Vehicle(nodeId: NodeId,
     properties.toSeq ++
       Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
   }
-  private lazy val (timestamps, caches): (Seq[Timestamp], Map[CacheTypes.Value, TSEntryCache[_]]) = cacheFactory.mkCaches(nodeId)
+  private lazy val (timestamps, caches): (Seq[Timestamp], CacheMap) = eventStore.mkCaches(nodeId)
 
   //TODO: add/integreate VehicleConnection actor
   private lazy val clusterHeadConnection = VehicleConnection.props(nodeId, clientFactory)
