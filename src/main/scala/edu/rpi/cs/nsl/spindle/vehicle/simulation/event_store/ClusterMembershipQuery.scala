@@ -27,6 +27,8 @@ class ClusterMembershipQuery(connection: Connection, clusterTable: String) exten
 } with JdbcQuery(connection, statement) {
   def loadClusters(nodeId: Int): Stream[ClusterMembership] = {
     setNode(nodeId)
-    new ClusterMemberIterator(executeQuery).toStream
+    val nodeStream = new ClusterMemberIterator(executeQuery).toStream
+    assert(nodeStream.headOption.isDefined, s"No cluster head information found for $nodeId")
+    nodeStream
   }
 }
