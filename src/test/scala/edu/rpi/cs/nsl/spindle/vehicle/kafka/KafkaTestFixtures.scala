@@ -353,7 +353,7 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     val (pool, consumer, reducer) = testReducer(ReducerType.KV, s"$kv1$kv1")
     //TODO: specify window
     consumer.close
-    reducer.stop
+    reducer.stopStream
     shutdownPool(pool)
   }
 
@@ -362,7 +362,7 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
 
     val (pool, consumer, reducer) = testReducer(ReducerType.Full, s"$kv1$kv2")
     consumer.close
-    reducer.stop
+    reducer.stopStream
     shutdownPool(pool)
 
   }
