@@ -12,7 +12,7 @@ import org.apache.kafka.streams.processor.TopologyBuilder
 /**
  * Executor that runs a Kafka Streams program
  */
-abstract class StreamExecutor extends Runnable {
+abstract class StreamExecutor extends Thread {
   type ByteArray = Array[Byte]
   protected type ByteStream = KStream[ByteArray, ByteArray]
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -35,16 +35,24 @@ abstract class StreamExecutor extends Runnable {
     outStream.to(byteSerde, byteSerde, outTopic)
   }
 
-  def run {
+  override def run {
     val id = config.getString(StreamsConfig.APPLICATION_ID_CONFIG)
-    logger.debug(s"Building stream $id")
-    stream = new KafkaStreams(builder, config)
-    logger.info(s"Starting stream $id")
-    stream.start
-    logger.error(s"Stream $id has stopped")
+    try {
+      logger.debug(s"Building stream $id")
+      stream = new KafkaStreams(builder, config)
+      logger.info(s"Starting stream $id")
+      stream.start
+      logger.error(s"Stream $id has stopped")
+    } catch {
+      case e: Exception => {
+        logger.error(s"Failure in stream executor $id: ${e.getMessage}")
+        throw e
+      }
+    }
   }
 
-  def stop {
+  def stopStream {
+    logger.info(s"Stream stopping: ${config.getString(StreamsConfig.APPLICATION_ID_CONFIG)}")
     stream.close
   }
 }
