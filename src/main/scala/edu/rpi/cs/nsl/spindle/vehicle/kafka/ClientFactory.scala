@@ -10,13 +10,20 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.SingleTopicProducerKakfa
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 import scala.concurrent._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
+import org.slf4j.LoggerFactory
 
 //import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleData }
+
+case class ClientFactoryConfig(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean = true)
 
 /**
  * Factor to make kafka clients for vehicles
  */
-class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean = true)(implicit ec: ExecutionContext) {
+class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean = true) {
+  def this(config: ClientFactoryConfig) {
+    this(config.zkString: String, config.kafkaBaseConfig: KafkaConfig, config.streamsConfigBuilder: StreamsConfigBuilder, config.initTopics: Boolean)
+  }
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private lazy val producerConfig = kafkaBaseConfig.withProducerDefaults
   private lazy val kafkaAdmin = new KafkaAdmin(zkString)
   private def buildConfig(id: String) = streamsConfigBuilder.withId(id).build
@@ -30,6 +37,8 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
       }
     }
   }
+
+  def getConfig: ClientFactoryConfig = ClientFactoryConfig(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean)
 
   /**
    * Make a simple Kafka producer
@@ -56,9 +65,10 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
     new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId))
   }
 
-  def mkRelay(inTopics: Set[String], outTopics: Set[String], relayId: String) {
-    inTopics.foreach(initTopic)
-    outTopics.foreach(initTopic)
-    new StreamRelay(inTopics, outTopics, buildConfig(relayId))
+  def mkRelay(inTopics: Set[String], outTopic: String, relayId: String): StreamRelay = {
+    inTopics.par.map(initTopic)
+    initTopic(outTopic)
+    logger.debug(s"Creating relay from $inTopics to $outTopic")
+    new StreamRelay(inTopics, outTopic, buildConfig(relayId))
   }
 }
