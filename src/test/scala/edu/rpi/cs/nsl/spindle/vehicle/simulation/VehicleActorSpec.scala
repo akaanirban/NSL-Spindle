@@ -53,17 +53,19 @@ trait VehicleExecutorFixtures {
 
   val FIVE_SECONDS_MS: Double = 5 * 1000 toDouble
   lazy val startTime: Timestamp = System.currentTimeMillis() + Configuration.simStartOffsetMs
-  lazy val simTimesMin: Timestamp = new PgCacheLoader().mkCaches(NODE_ID_ZERO)._1.head
-  val randomTimings: TimeSeq = {
+  lazy val pgLoader = new PgCacheLoader()
+  lazy val simTimesMin: Timestamp = pgLoader.mkCaches(NODE_ID_ZERO)._1.min
+  val fakeTimingsNodeZero: TimeSeq = {
     val INTERVAL_MS = 1000 // Corresponding to 1s test intervals //TODO: configure window size kafka streams
     val END_TIME_OFFSET = INTERVAL_MS * 10
-    (simTimesMin to simTimesMin + END_TIME_OFFSET by INTERVAL_MS).map(_.toLong).toList
+    val timings = (simTimesMin to simTimesMin + END_TIME_OFFSET by INTERVAL_MS).map(_.toLong).toList
+    timings
   }
   class MockTimingCacheLoader extends PgCacheLoader {
     override def mkCaches(nodeId: NodeId) = {
       val (_, caches) = super.mkCaches(nodeId)
       logger.info(s"Creating caches for node $nodeId: $caches")
-      (randomTimings, caches)
+      (fakeTimingsNodeZero, caches)
     }
   }
   def getTestEventStore = new MockTimingCacheLoader()
@@ -89,22 +91,18 @@ trait VehicleExecutorFixtures {
   }
 
   val ZERO_TIME = 0 milliseconds
-  private lazy val nodeList = getTestEventStore.getNodes
-  private lazy val clusterHeadId = nodeList.head
+  lazy val nodeList = getTestEventStore.getNodes
 
   class MockClusterCacheLoader extends MockTimingCacheLoader() {
-    private lazy val clusterCache = new TSEntryCache[NodeId](Seq(new ClusterMembership(ZERO_TIME, clusterHeadId)))
+    private lazy val clusterCache = new TSEntryCache[NodeId](Seq(new ClusterMembership(ZERO_TIME, NODE_ID_ZERO)))
     override def mkCaches(nodeId: NodeId) = {
       val (timestamps, caches) = super.mkCaches(nodeId)
       // Replace default cluster cache
-      (timestamps, (caches - CacheTypes.ClusterCache) +
-        (CacheTypes.ClusterCache -> clusterCache))
+      val fakedCaches = (caches - CacheTypes.ClusterCache) +
+        (CacheTypes.ClusterCache -> clusterCache)
+      logger.debug(s"Generated fake caches for $nodeId: $fakedCaches and cluster cache ${fakedCaches(CacheTypes.ClusterCache).cache}")
+      (timestamps, fakedCaches)
     }
-  }
-
-  def mkCluster(numChildren: Int): ((NodeId, Props), Iterable[(NodeId, Props)]) = {
-    def mkClusterVehicleProps(nodeId: NodeId) = (nodeId, mkVehicleProps(nodeId, fullInit = true, eventStore = new MockClusterCacheLoader()))
-    (mkClusterVehicleProps(clusterHeadId), nodeList.tail.take(numChildren).map(mkClusterVehicleProps))
   }
 }
 
@@ -163,7 +161,9 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       .toList: List[ActorRef] //TODO: send actor for getting back completion confirmations
   }
 
-  private def fullyStartVehicle(actorRef: ActorRef, nodeIdOpt: Option[NodeId] = None)(implicit fixtures: VehicleExecutorFixtures): ActorRef = {
+  private def waitDoneTime()(implicit fixtures: VehicleExecutorFixtures) = (10 + ((fixtures.fakeTimingsNodeZero.last - fixtures.fakeTimingsNodeZero.head + Configuration.simStartOffsetMs) / 1000).toInt) seconds
+
+  private def fullyStartVehicleAndWaitDone(actorRef: ActorRef, nodeIdOpt: Option[NodeId] = None)(implicit fixtures: VehicleExecutorFixtures): ActorRef = {
     import fixtures._
     val nodeId = nodeIdOpt match {
       case Some(nodeId) => nodeId
@@ -172,8 +172,6 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     implicit val timeout = Timeout(1 minutes)
     val rdyMsg = Await.result(actorRef ? Vehicle.CheckReadyMessage, 1 minutes)
     assert(rdyMsg.equals(Vehicle.ReadyMessage(nodeId)), s"Ready message for node $nodeId was invalid ${rdyMsg}")
-
-    val waitDoneTime: FiniteDuration = (30 + ((fixtures.randomTimings.last + Configuration.simStartOffsetMs) / 1000).toInt) seconds
 
     val strtMsg = Await.result(actorRef ? Vehicle.StartMessage(startTime, Some(self.actorRef)), 1 minutes)
     assert(strtMsg.isInstanceOf[Vehicle.StartingMessage], s"Starting message for node $nodeId was invalid ${strtMsg}")
@@ -186,6 +184,8 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     actorRef
   }
 
+  private def mkMapVal(nodeId: NodeId) = s"mappedValue-$nodeId"
+
   //TODO: create consumer to ensure mapper is producing correct output (shld be fine given other tests)
   private def mkTestMappers(nodeId: NodeId, mapperGotMessage: Promise[(_, _)], mapperId: String) = {
     val inTopic = TopicLookupService.getVehicleStatus(nodeId)
@@ -195,7 +195,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       if (mapperGotMessage.isCompleted == false) {
         mapperGotMessage.success((k, v))
       }
-      (new TestObj("mappedKey"), new TestObj("mappedValue"))
+      (new TestObj(s"mappedKey-$nodeId"), new TestObj(mkMapVal(nodeId)))
     }))
       .asInstanceOf[Set[MapperFunc[Any, Any, Any, Any]]]
     (outTopic, mappers)
@@ -214,8 +214,10 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     Set(reducer).asInstanceOf[Set[KvReducerFunc[Any, Any]]]
   }
 
+  private def mkUUID = java.util.UUID.randomUUID.toString
+
   private def mkTestMapperFactory(mapperGotMessage: Promise[(_, _)]) = {
-    val mapperId: String = java.util.UUID.randomUUID.toString
+    val mapperId: String = mkUUID
     new GenerativeStaticTransformationFactory(nodeId => {
       val (_, mappers) = mkTestMappers(nodeId, mapperGotMessage, mapperId)
       ActiveTransformations(mappers, Set())
@@ -234,21 +236,51 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     factory
   }
 
+  def mkCluster(reducerSawChildPromises: Seq[Promise[Unit]])(implicit fixtures: VehicleExecutorFixtures): ((NodeId, Props), Iterable[(NodeId, Props)]) = {
+    import fixtures._
+    val clusterHeadId = NODE_ID_ZERO
+    val numChildren = reducerSawChildPromises.size
+    val childIds = pgLoader.getConcurrentNodes(clusterHeadId).take(numChildren)
+    val childTransformStore = mkTestMapperFactory(Promise[(_, _)]())
+    val promiseMap = childIds.map(mkMapVal).zip(reducerSawChildPromises).toMap
+    val clusterHeadTransformStore = new GenerativeStaticTransformationFactory(nodeId => {
+      val (_, mappers) = mkTestMappers(nodeId, Promise[(_, _)](), mkUUID)
+      val reducerTopic = TopicLookupService.getClusterInput(nodeId)
+      val outTopic = TopicLookupService.getClusterOutput(nodeId)
+      val reducer = KvReducerFunc[TestObj, TestObj](mkUUID, inTopic = reducerTopic, outTopic: String, (v1, v2) => {
+        val v1match = promiseMap.filterKeys(_ == v1.testVal)
+        val v2match = promiseMap.filterKeys(_ == v2.testVal)
+        (v1match ++ v2match).filterNot { case (_, promise) => promise.isCompleted }
+          .values
+          .foreach(_.success(Unit))
+        logger.debug(s"Reducer from $reducerTopic -> $outTopic node $nodeId got (${v1.testVal}, ${v2.testVal}")
+        new TestObj(s"reducer-output")
+      })
+
+      ActiveTransformations(mappers, Set(reducer).asInstanceOf[Set[KvReducerFunc[Any, Any]]])
+    })
+    def mkClusterVehicleProps(nodeId: NodeId, transformFactory: TransformationStoreFactory = childTransformStore) = {
+      val vehicleProps = mkVehicleProps(nodeId, fullInit = true, eventStore = new MockClusterCacheLoader(), transformFactory = transformFactory)
+      (nodeId, vehicleProps)
+    }
+    (mkClusterVehicleProps(clusterHeadId, clusterHeadTransformStore), childIds.map(mkClusterVehicleProps(_)))
+  }
+
   "A Vehicle actor" should {
-    "correctly generate timings" in new VehicleExecutorFixtures {
+    "correctly generate timings" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
       implicit val ec = system.dispatcher
       val vExec = TestActorRef(mkVehicle()).underlyingActor
       val timings = vExec.mkTimings(startTime)
       val wallTimings = timings.map(_.wallTime)
       val simTimings = timings.map(_.simTime)
-      assert(timings.length == randomTimings.length, "Generated timings don't match random timings length")
+      assert(timings.length == fakeTimingsNodeZero.length, "Generated timings don't match random timings length")
       assert(wallTimings(0) == wallTimings.min, "First value is not wall minimum")
       assert(simTimings(0) == simTimings.min, "First value is not sim minimum")
       assert(wallTimings.last == wallTimings.max, "Last value is not wall maximum")
       assert(simTimings.last == simTimings.max, "Last value is not sim maximum")
       assert(wallTimings.min == startTime)
-      assert(wallTimings.max == (randomTimings.max + startTime - randomTimings.min),
-        s"Wall timings max not correct\n\tStart Time: $startTime\n\tRandom: $randomTimings\n\tWall: $wallTimings")
+      assert(wallTimings.max == (fakeTimingsNodeZero.max + startTime - fakeTimingsNodeZero.min),
+        s"Wall timings max not correct\n\tStart Time: $startTime\n\tRandom: $fakeTimingsNodeZero\n\tWall: $wallTimings")
     }
     "spawn multiple copies" taggedAs (LoadTest) in new VehicleExecutorFixtures {
       implicit val ec = system.dispatcher
@@ -283,7 +315,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
     "completely initialize and start" in new VehicleExecutorFixtures {
       implicit val ec = system.dispatcher
       val actorRef = system.actorOf(mkVehicleProps(NODE_ID_ZERO, fullInit = true))
-      fullyStartVehicle(actorRef)(this)
+      fullyStartVehicleAndWaitDone(actorRef)(this)
     }
 
     "completely initialize and run mapper" in new VehicleExecutorFixtures {
@@ -292,7 +324,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       val testMapperFactory = mkTestMapperFactory(mapperGotMessage)
       val vehicleProps = mkVehicleProps(NODE_ID_ZERO: NodeId, fullInit = true, transformFactory = testMapperFactory)
       val actorRef = system.actorOf(vehicleProps)
-      fullyStartVehicle(actorRef)(this)
+      fullyStartVehicleAndWaitDone(actorRef)(this)
       assert(mapperGotMessage.isCompleted, "Mapper did not get message at expected time")
       actorRef ! PoisonPill
     }
@@ -303,34 +335,39 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       val reducerGotMessage = Promise[(_, _)]()
       val testMRFactory = mkTestMapReduceFactory(mapperGotMessage, reducerGotMessage)
       val actorRef = system.actorOf(mkVehicleProps(NODE_ID_ZERO: NodeId, fullInit = true, transformFactory = testMRFactory))
-      fullyStartVehicle(actorRef)(this)
+      fullyStartVehicleAndWaitDone(actorRef)(this)
       assert(mapperGotMessage.isCompleted, s"$mapperGotMessage not complete")
       assert(reducerGotMessage.isCompleted, s"$reducerGotMessage not complete")
     }
     "communicate across vehicles in cluster" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+      implicit val timeout = Timeout(1 minutes)
       implicit val ec = system.dispatcher
-      fail("Not completed")
-      val NUM_CLUSTER_CHILDREN = 1
-      val chMapperGotMessage = Promise[Unit]()
-      val chReducerGotChildMessage = Promise[Unit]() //TODO
-      val (clusterHead, Seq(clusterChild)) = mkCluster(NUM_CLUSTER_CHILDREN)
-      implicit val that = this
-      Seq(clusterHead, clusterChild)
+      implicit val fixtures = this
+      val reducerPromises = Seq(Promise[Unit]())
+      val (clusterHead, clusterChildren) = mkCluster(reducerPromises)
+      val actors = (Seq(clusterHead) ++ clusterChildren)
         .map {
           case (nodeId, actorProps) =>
             (nodeId, system.actorOf(actorProps))
         }
-        .map {
-          case (nodeId, actorRef) =>
-            Future { blocking { fullyStartVehicle(actorRef, nodeIdOpt = Some(nodeId)) } }
-        }
+      assert(actors.size > 1)
+      assert(reducerPromises.size == clusterChildren.size)
+      val readyFuture = Future.sequence {
+        actors
+          .map {
+            case (nodeId, actorRef) =>
+              actorRef ? Vehicle.CheckReadyMessage
+          }
+      }
 
-      /*val txnFutures = Future.sequence(Seq(Future { blocking { fullyStartVehicle(clusterHead, nodeIdOpt = Some(clusterHeadId)) } },
-        Future { blocking { fullyStartVehicle(clusterChild, nodeIdOpt = Some(clusterChildId)) } }))*/
-      //val txnFutures = Future.sequence(
-      //logger.info(s"Test results: ${Await.result(txnFutures, Duration.Inf)}")
-      fail("Not implemented") //TODO: create mock clustering, wait for messages to pass among vehicles
-      //TODO: implement program entrypoint
+      Await.result(readyFuture, 1 minutes)
+      logger.info("All nodes ready")
+      val startedFuture = Future.sequence { actors.map { case (_, actorRef) => actorRef ? Vehicle.StartMessage(startTime, Some(self.actorRef)) } }
+      Await.result(startedFuture, 1 minutes)
+      logger.info("All nodes started")
+      val promiseResults = Await.result(Future.sequence(reducerPromises.map(_.future)), waitDoneTime)
+      logger.info("Promise results: $promiseResults")
+      assert(reducerPromises.forall(_.isCompleted), "Cluster head did not get outputs from all nodes")
     }
   }
 }
