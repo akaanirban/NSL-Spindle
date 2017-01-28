@@ -22,6 +22,9 @@ abstract class TransformationFunc(val funcId: String, inTopic: String, outTopic:
       obj.asInstanceOf[TransformationFunc].funcId == funcId
     }
   }
+  override def toString: String = {
+    s"${super.toString}_funcId-$funcId-topics:-$inTopic->$outTopic"
+  }
   def getTransformExecutor(clientFactory: ClientFactory): StreamExecutor
 }
 
