@@ -9,7 +9,7 @@ class NodeIdIterator(resultSet: ResultSet) extends QueryIterator[NodeId](resultS
 }
 
 class MetadataQuery(connection: Connection) extends {
-  private val statement = "SELECT DISTINCT(node) FROM posx"
+  private val statement = "SELECT DISTINCT(node) FROM posx x, posy y, speed s WHERE x.node = y.node and y.node = s.node"
 } with JdbcQuery(connection, statement) {
   def loadNodeIds: Stream[NodeId] = {
     new NodeIdIterator(executeQuery).toStream //TODO: ensure returning string doesn't cause memory leak
