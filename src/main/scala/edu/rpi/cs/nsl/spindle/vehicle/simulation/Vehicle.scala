@@ -213,7 +213,7 @@ class Vehicle(nodeId: NodeId,
     }
   }
 
-  implicit val connectionActorTimeout = Timeout(10 minutes) //TODO: this should be within 1 second
+  implicit val connectionActorTimeout = Timeout(2 seconds) //TODO: this should be within 1 second
 
   private object MapReduceDaemon extends TemporalDaemon {
     private lazy val pool = context.dispatcher //TODO: replace with Executors.newCachedThreadPool?
