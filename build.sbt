@@ -46,7 +46,7 @@ val main = Project(id = "NSL-Spark", base = file("."))
     .configs(DevTest)
 
 // Enable scala experimental compiler flags
-scalacOptions ++= Seq("-Xexperimental", "-feature")
+scalacOptions ++= Seq("-Xexperimental", "-feature", "-deprecation", "-language:postfixOps")
 
 
 // Enable parallel testing
