@@ -6,7 +6,7 @@ import java.util.Properties
 import edu.rpi.cs.nsl.spindle.vehicle.PropUtils.PipelinedProps
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.MetadataQuery
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.NodeIdsQuery
 
 object PgDefaults {
   val port = 5432

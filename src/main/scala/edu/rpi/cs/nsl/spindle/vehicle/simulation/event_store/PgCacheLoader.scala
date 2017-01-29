@@ -12,8 +12,11 @@ class PgCacheLoader(config: PgConfig = PgDefaults.config) extends PgClient(confi
   private val logger = LoggerFactory.getLogger(this.getClass)
   private lazy val positionQuery = new PositionQuery(connection)
   private lazy val clusterHeadQuery = new ClusterMembershipQuery(connection, Configuration.Vehicles.clusterMemberTable)
-  private lazy val metadataQuery = new MetadataQuery(connection)
+  private lazy val metadataQuery = new NodeIdsQuery(connection)
   private lazy val concurrentQuery = new ConcurrentNodesQuery(connection)
+  private lazy val timeRangeQuery = new TimeRangeQuery(connection)
+  
+  def getTimeRange: TimeRange = timeRangeQuery.loadTimeMinMax
   def getNodes: Iterable[NodeId] = metadataQuery.loadNodeIds
   def mkCaches(nodeId: NodeId): (Seq[Timestamp], CacheMap) = {
     val positionCache = new TSEntryCache[Position](positionQuery.loadReadings(nodeId))

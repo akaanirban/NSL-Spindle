@@ -4,6 +4,9 @@ import java.sql.ResultSet
 import java.sql.Connection
 import edu.rpi.cs.nsl.spindle.vehicle.Types._
 import org.slf4j.LoggerFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration.Vehicles.eventsPerSecondMod
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 class NodeIdIterator(resultSet: ResultSet) extends QueryIterator[NodeId](resultSet) {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -13,7 +16,7 @@ class NodeIdIterator(resultSet: ResultSet) extends QueryIterator[NodeId](resultS
   }
 }
 
-class MetadataQuery(connection: Connection) extends {
+class NodeIdsQuery(connection: Connection) extends {
   //note: timestamp selection is to limit memory consumption
   private val statement = """SELECT 
       DISTINCT(x.node) as node

@@ -4,6 +4,7 @@ import java.sql.ResultSet
 import java.sql.Connection
 import edu.rpi.cs.nsl.spindle.vehicle.Types._
 import scala.concurrent.duration._
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration.Vehicles.eventsPerSecondMod
 
 case class PositionEntry(timestamp: FiniteDuration, x: Double, y: Double, speed: Double) extends TSEntry[Position](timestamp) {
   def getReading: Position = Position(x, y, speed)
@@ -19,7 +20,6 @@ class PositionIterator(resultSet: ResultSet) extends QueryIterator[TSEntry[Posit
 }
 
 class PositionQuery(connection: Connection) extends {
-  val EVENTS_PER_SECOND = 1 //TODO: DRY - move to config
   //NOTE: we mod timestamp by 1 to get data only once per second
   //scalastyle:off whitespace.end.of.line
   private val statement = s"""SELECT 
@@ -29,7 +29,7 @@ class PositionQuery(connection: Connection) extends {
       s.reading as speed
     FROM posx x, posy y, speed s
     WHERE (x.timestamp = y.timestamp and y.timestamp = s.timestamp)
-      and x.timestamp % $EVENTS_PER_SECOND = 0
+      and x.timestamp % $eventsPerSecondMod = 0
       and (x.node = y.node and y.node = s.node) 
       and x.node = ?
     ORDER BY x.timestamp"""
@@ -41,32 +41,5 @@ class PositionQuery(connection: Connection) extends {
     assert(positionStream.headOption.isDefined, s"No position information for node $nodeId")
     positionStream
     //TODO: ensure this doesn't cause memory leak (probably best to return iterator and convert to stream in calling method)
-  }
-}
-
-/**
- * Get nodes that have been online or are online
- */
-class ConcurrentNodesQuery(connection: Connection) extends {
-  val EVENTS_PER_SECOND = 1 //TODO: DRY - move to config
-  private val statement = s"""SELECT 
-      distinct(x.node)
-    FROM posx x, posy y, speed s
-    WHERE (x.timestamp = y.timestamp and y.timestamp = s.timestamp)
-      and x.timestamp % $EVENTS_PER_SECOND = 0
-      and (x.node = y.node and y.node = s.node)
-      and x.node != ?
-      and x.timestamp <= (SELECT 
-                    min(x.timestamp)
-                  FROM posx x, posy y, speed s
-                  WHERE (x.timestamp = y.timestamp and y.timestamp = s.timestamp)
-                    and x.timestamp % $EVENTS_PER_SECOND = 0
-                    and (x.node = y.node and y.node = s.node) 
-                    and x.node = ?)"""
-} with JdbcQuery(connection, statement) {
-  def loadConcurrentNodes(nodeId: NodeId): Stream[NodeId] = {
-    setNode(nodeId)
-    setNode(nodeId, argNum = 2)
-    new NodeIdIterator(executeQuery).toStream
   }
 }
