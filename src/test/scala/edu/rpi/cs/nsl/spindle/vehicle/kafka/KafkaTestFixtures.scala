@@ -260,7 +260,7 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
 
     // Start mapper
     val mapper = new StreamMapper(inTopic, outTopic, MapperFuncs.prependText, config = getStreamsConfig("testMapper").build)
-    pool.execute(mapper)
+    mapper.run
 
     val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer)
 
@@ -317,7 +317,7 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
       case _                => throw new RuntimeException(s"Unrecognized reducer type $reducerName")
     }
 
-    pool.execute(reducer)
+    reducer.run
 
     val consumer = new ConsumerKafka[TestObj, TestObj](consumerConfig)
 

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
+import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
 
 class PgClientSpec extends FlatSpec {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -40,6 +41,9 @@ class PgClientSpec extends FlatSpec {
   }
 
   ignore should "cache position information" in new ConnectedClient {
+    val testNode = client.getNodes.head
+    client.mkCaches(testNode)
+    fail("Not implemented")
     /*(0 to 5)
       .map { nodeId =>
         logger.debug(s"Position cache generating for $nodeId")
@@ -63,6 +67,12 @@ class PgClientSpec extends FlatSpec {
         throw e
       }
     }
+    client.close
+  }
+
+  it should "load the simulation time range" taggedAs (UnderConstructionTest) in new ConnectedClient {
+    val timeRange = client.getTimeRange
+    assert(timeRange.minTime <= timeRange.maxTime)
     client.close
   }
 }

@@ -54,36 +54,6 @@ object ReflectionUtils {
   }
 }
 
-/**
- * Use reflection to generate a Vehicle message
- *
- * @note - this breaks encapsulation, but Scala's support for multiple constructors isn't great
- */
-trait VehicleMessageFactory {
-  private val logger = LoggerFactory.getLogger(this.getClass)
-  protected def getValueOfType[T: TypeTag](collection: Iterable[TypedValue[Any]]): T = {
-    val typeString = ReflectionUtils.getTypeString[T]
-    val matches = ReflectionUtils.getMatchingTypes(collection, typeString)
-    if (matches.size != 1) {
-      logger.error(s"Found more than one entry for $typeString in $collection")
-    }
-    matches.lastOption match {
-      case Some(entry) => entry.value.asInstanceOf[T]
-      case None        => throw new RuntimeException(s"No entry found of type $typeString")
-    }
-  }
-  def mkVehicle(readings: Iterable[TypedValue[Any]], properties: Iterable[TypedValue[Any]]): VehicleMessage = {
-    import VehicleTypes._
-    val id = getValueOfType[VehicleId](properties)
-    val lat = getValueOfType[Lat](readings)
-    val lon = getValueOfType[Lon](readings)
-    val mph = getValueOfType[MPH](readings)
-    val color = getValueOfType[VehicleColors.Value](properties)
-    VehicleMessage(id, lat, lon, mph, color)
-  }
-}
-object VehicleMessageFactory extends VehicleMessageFactory {}
-
 case class Ping()
 
 object Vehicle {
@@ -230,14 +200,20 @@ class Vehicle(nodeId: NodeId,
 
   private object ClusterMembershipDaemon extends TemporalDaemon {
     def executeInterval(currentSimTime: Timestamp) {
-      val clusterHead: NodeId = caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]].getOrPriorOpt(currentSimTime).get
-      logger.info(s"Node $nodeId has cluster head $clusterHead at time $currentSimTime")
-      Await.result((clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead)), Duration.Inf)
-      logger.info(s"Node $nodeId has updated cluster head $clusterHead at time $currentSimTime")
+      caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]].getOrPriorOpt(currentSimTime) match {
+        case Some(clusterHead) => {
+          logger.info(s"Node $nodeId has cluster head $clusterHead at time $currentSimTime")
+          Await.result((clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead)), 2 seconds)
+          logger.info(s"Node $nodeId has updated cluster head $clusterHead at time $currentSimTime")
+        }
+        case None => {
+          logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime")
+        }
+      }
     }
   }
 
-  implicit val connectionActorTimeout = Timeout(10 minutes)//TODO: this should be within 1 second
+  implicit val connectionActorTimeout = Timeout(10 minutes) //TODO: this should be within 1 second
 
   private object MapReduceDaemon extends TemporalDaemon {
     private lazy val pool = context.dispatcher //TODO: replace with Executors.newCachedThreadPool?
@@ -252,7 +228,7 @@ class Vehicle(nodeId: NodeId,
       val (toRemove, toAdd) = getChanges(prevMap.keySet, toRun.toSet)
       toRemove.map(prevMap(_)).foreach(_.stopStream)
       val newTransformers = toAdd.map(func => (func -> func.getTransformExecutor(clientFactory))).toMap
-      newTransformers.values.foreach(pool.execute(_))
+      newTransformers.values.foreach(_.run)
       newTransformers.values.foreach(transformer => logger.debug(s"Launched executor $transformer"))
       (prevMap -- toRemove) ++ newTransformers
     }

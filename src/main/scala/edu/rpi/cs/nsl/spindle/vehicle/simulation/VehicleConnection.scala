@@ -39,7 +39,7 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
     val relayId = java.util.UUID.randomUUID.toString //TODO: check if we can re-use relays (prolly not)    
     val relay: StreamRelay = clientFactory.mkRelay(inTopics, outTopic, relayId)
     logger.debug(s"Node $inNode dispatching relay $relay and is sendign to $outTopic")
-    context.dispatcher.execute(relay)
+    relay.run
     logger.debug(s"Node $inNode relaying to $outNode via topics $inTopics -> $outTopic with $relay")
     relay
   }
@@ -49,9 +49,12 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
     relayOpt match {
       case Some(relay) => {
         logger.debug(s"Node $inNode is stopping existing relay")
-        relay.interrupt
-        //relay.stopStream //TODO: debug
-        //relay.join() //TODO: make this async
+        context.dispatcher.execute(new Runnable() {
+          def run {
+            logger.info(s"Stopping stream in $inNode asynchronously")
+            relay.stopStream //TODO: debug slowness
+          }
+        })
         logger.debug(s"Node $inNode has stopped existing relay")
       }
       case _ => {}
