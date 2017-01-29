@@ -9,6 +9,6 @@ object Core {
   private val actorSystem = ActorSystem("SpindleSimulator")
   def main(args: Array[String]) {
     //TODO
-    actorSystem.shutdown()
+    actorSystem.terminate()
   }
 }
