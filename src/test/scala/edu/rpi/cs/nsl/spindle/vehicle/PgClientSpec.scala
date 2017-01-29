@@ -10,6 +10,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
 import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
 
 class PgClientSpec extends FlatSpec {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -40,19 +41,10 @@ class PgClientSpec extends FlatSpec {
     client.close
   }
 
-  ignore should "cache position information" in new ConnectedClient {
+  it should "cache position information" in new ConnectedClient {
     val testNode = client.getNodes.head
-    client.mkCaches(testNode)
-    fail("Not implemented")
-    /*(0 to 5)
-      .map { nodeId =>
-        logger.debug(s"Position cache generating for $nodeId")
-        new TSEntryCache[Position](client.getReadings(nodeId), _.toPosition)
-      }
-      .foreach { cache =>
-        assert(cache.getTimestamps.size > 0)
-      }
-    client.close*/
+    val positionCache = client.mkCaches(testNode)._2(CacheTypes.PositionCache)
+    assert(positionCache.getTimestamps.size > 0)
   }
 
   it should "load a stream of node ids" in new ConnectedClient {
@@ -70,8 +62,8 @@ class PgClientSpec extends FlatSpec {
     client.close
   }
 
-  it should "load the simulation time range" taggedAs (UnderConstructionTest) in new ConnectedClient {
-    val timeRange = client.getTimeRange
+  it should "load the simulation time range" in new ConnectedClient {
+    val timeRange = client.timeRange
     assert(timeRange.minTime <= timeRange.maxTime)
     client.close
   }

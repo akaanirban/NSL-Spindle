@@ -267,7 +267,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
   }
 
   "A Vehicle actor" should {
-    "correctly generate timings" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+    "correctly generate timings" in new VehicleExecutorFixtures {
       implicit val ec = system.dispatcher
       val vExec = TestActorRef(mkVehicle()).underlyingActor
       val timings = vExec.mkTimings(startTime)
@@ -339,12 +339,14 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
       assert(mapperGotMessage.isCompleted, s"$mapperGotMessage not complete")
       assert(reducerGotMessage.isCompleted, s"$reducerGotMessage not complete")
     }
-    "communicate across vehicles in cluster" taggedAs (UnderConstructionTest) in new VehicleExecutorFixtures {
+    "communicate across vehicles in cluster" in new VehicleExecutorFixtures {
       implicit val timeout = Timeout(1 minutes)
       implicit val ec = system.dispatcher
       implicit val fixtures = this
       val reducerPromises = Seq(Promise[Unit]())
+      logger.debug("Creating cluster props")
       val (clusterHead, clusterChildren) = mkCluster(reducerPromises)
+      logger.debug("Creating actors")
       val actors = (Seq(clusterHead) ++ clusterChildren)
         .map {
           case (nodeId, actorProps) =>
@@ -352,6 +354,7 @@ class VehicleActorSpecDocker extends TestKit(ActorSystem("VehicleActorSpec"))
         }
       assert(actors.size > 1)
       assert(reducerPromises.size == clusterChildren.size)
+      logger.debug("Waiting for actors to come online")
       val readyFuture = Future.sequence {
         actors
           .map {
