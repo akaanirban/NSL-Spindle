@@ -158,7 +158,7 @@ class Vehicle(nodeId: NodeId,
    */
   private[simulation] def mkTimings(startTime: Timestamp): Seq[TimeMapping] = {
     logger.debug(s"Generating timestamps from start time $startTime using sim times $timestamps")
-    val zeroTime = timestamps.min
+    val zeroTime = eventStore.getMinSimTime
     val offsets = timestamps.map(_ - zeroTime)
     assert(offsets.length == timestamps.length)
     assert(offsets(0) == 0)
