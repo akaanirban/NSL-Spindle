@@ -6,4 +6,5 @@ trait EventStore {
   def close
   def mkCaches(nodeId: Int): (Seq[Timestamp], CacheMap)
   def getNodes: Iterable[NodeId]
+  def getMinSimTime: Timestamp
 }

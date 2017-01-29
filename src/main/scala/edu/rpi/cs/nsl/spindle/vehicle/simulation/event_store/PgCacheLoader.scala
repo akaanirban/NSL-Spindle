@@ -15,8 +15,9 @@ class PgCacheLoader(config: PgConfig = PgDefaults.config) extends PgClient(confi
   private lazy val metadataQuery = new NodeIdsQuery(connection)
   private lazy val concurrentQuery = new ConcurrentNodesQuery(connection)
   private lazy val timeRangeQuery = new TimeRangeQuery(connection)
-  
-  def getTimeRange: TimeRange = timeRangeQuery.loadTimeMinMax
+
+  lazy val timeRange: TimeRange = timeRangeQuery.loadTimeMinMax
+  def getMinSimTime: Timestamp = timeRange.minTime.toMillis
   def getNodes: Iterable[NodeId] = metadataQuery.loadNodeIds
   def mkCaches(nodeId: NodeId): (Seq[Timestamp], CacheMap) = {
     val positionCache = new TSEntryCache[Position](positionQuery.loadReadings(nodeId))
