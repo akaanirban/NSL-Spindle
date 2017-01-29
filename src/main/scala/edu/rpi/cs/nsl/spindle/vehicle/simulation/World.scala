@@ -62,7 +62,7 @@ class World(propertyFactory: PropertyFactory,
     case Some(max) => pgClient.getNodes.take(max)
   }
   private val warmVehicleCaches = (initOnly == false)
-  private[simulation] lazy val vehicles: Stream[(NodeId, ActorRef)] = nodeList.map { nodeId: NodeId =>
+  private[simulation] lazy val vehicles: Iterable[(NodeId, ActorRef)] = nodeList.map { nodeId: NodeId =>
     logger.debug(s"Creating vehicle $nodeId")
     //val positions = new PositionCache(nodeId, pgClient)
     val mockSensors = SensorFactory.mkSensors(nodeId)
