@@ -52,9 +52,17 @@ class PgClientSpec extends FlatSpec {
   }
 
   it should "load a stream of node ids" in new ConnectedClient {
-    val nodeStream = client.getNodes
-    assert(nodeStream.size > 0)
-    assert(nodeStream.hasDefiniteSize)
+    try {
+      val nodeStream = client.getNodes
+      assert(nodeStream.size > 0)
+      // Check that stream has been materialized
+      assert(nodeStream.hasDefiniteSize)
+    } catch {
+      case e: ArrayIndexOutOfBoundsException => {
+        e.printStackTrace()
+        throw e
+      }
+    }
     client.close
   }
 }

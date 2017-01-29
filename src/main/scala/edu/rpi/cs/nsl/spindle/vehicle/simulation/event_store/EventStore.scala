@@ -5,5 +5,5 @@ import edu.rpi.cs.nsl.spindle.vehicle.Types._
 trait EventStore {
   def close
   def mkCaches(nodeId: Int): (Seq[Timestamp], CacheMap)
-  def getNodes: Stream[NodeId]
+  def getNodes: Iterable[NodeId]
 }
