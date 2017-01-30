@@ -24,7 +24,7 @@ import org.apache.kafka.streams.kstream.KeyValueMapper
 class StreamReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
     extends StreamKVReducer[K, V](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig) {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  
+
   logger.info(s"Creating reducer from $inTopic -> $outTopic")
 
   override protected val builder = {
