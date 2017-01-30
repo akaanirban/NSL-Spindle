@@ -7,6 +7,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.WordSpecLike
 import akka.testkit.TestActorRef
 import scala.concurrent.duration._
+import akka.pattern.ask
 import akka.testkit.ImplicitSender
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.SensorFactory
@@ -21,8 +22,9 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationS
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
 import edu.rpi.cs.nsl.spindle.tags.LoadTest
-
-class EmptyStaticTransformationFactory extends GenerativeStaticTransformationFactory(_ => ActiveTransformations(Set(), Set()))
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.EmptyStaticTransformationFactory
+import scala.concurrent.Await
+import akka.util.Timeout
 
 class WorldActorFixtures()(implicit system: ActorSystem) {
   import ClientFactoryDockerFixtures._
@@ -52,12 +54,12 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
       }
     }
     "spawn vehicle actors on receiving init" in new WorldActorFixtures {
+      val waitTime = 10 minutes
+      implicit val timeout = Timeout(10 minutes)
       within(30 minutes) {
-        nopWorld ! World.InitSimulation
-        logger.debug("Sent init message")
-        expectMsg(World.Starting)
-        logger.debug("Got starting message and waiting for ready message")
-        expectMsg(World.Ready(numVehicles))
+        logger.debug("Sending init message")
+        assert(Await.result(nopWorld ? World.InitSimulation, waitTime).asInstanceOf[World.Ready].numVehicles == numVehicles)
+        assert(Await.result(nopWorld ? World.StartSimulation, waitTime).isInstanceOf[World.Starting])
       }
     }
   }

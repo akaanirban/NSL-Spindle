@@ -18,6 +18,8 @@ case class ClientFactoryConfig(zkString: String, kafkaBaseConfig: KafkaConfig, s
 
 /**
  * Factor to make kafka clients for vehicles
+ * 
+ * @todo - refactor interface to take shared config vlaues (zk string, brokers, id)
  */
 class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean = true) {
   def this(config: ClientFactoryConfig) {

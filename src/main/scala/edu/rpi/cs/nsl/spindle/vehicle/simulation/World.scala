@@ -30,13 +30,18 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
  */
 object World {
   case class InitSimulation()
-  case class Starting()
   case class Ready(numVehicles: Int)
+  case class StartSimulation(supervisor: Option[ActorRef])
+  case class Starting()
+  case class Finished()
   def props(propertyFactory: PropertyFactory,
             transformationStoreFactory: TransformationStoreFactory,
-            clientFactory: ClientFactory): Props = {
+            clientFactory: ClientFactory,
+            maxNodes: Option[Int] = None): Props = {
     Props(new World(propertyFactory: PropertyFactory,
-      transformationStoreFactory: TransformationStoreFactory, clientFactory))
+      transformationStoreFactory: TransformationStoreFactory,
+      clientFactory,
+      maxVehicles = maxNodes))
   }
   def propsTest(propertyFactory: PropertyFactory,
                 transformationStoreFactory: TransformationStoreFactory,
@@ -59,7 +64,7 @@ class World(propertyFactory: PropertyFactory,
   private lazy val pgClient = new PgCacheLoader()
   private lazy val nodeList = maxVehicles match {
     case None      => pgClient.getNodes
-    case Some(max) => pgClient.getNodes.take(max)
+    case Some(max) => pgClient.getNodes.toList.sorted.take(max)
   }
   private val warmVehicleCaches = (initOnly == false)
   private[simulation] lazy val vehicles: Iterable[(NodeId, ActorRef)] = nodeList.map { nodeId: NodeId =>
@@ -124,20 +129,19 @@ class World(propertyFactory: PropertyFactory,
     }
   }
 
-  private def becomeStarted(supervisor: ActorRef) {
+  private def becomeStarted(supervisor: Option[ActorRef]) {
     logger.info(s"All ${vehicles.size} vehicles ready")
-    supervisor ! Ready(vehicles.size)
     if (initOnly == false) {
       val startTime = System.currentTimeMillis + Configuration.simStartOffsetMs
       logger.info(s"Starting at epoch time $startTime")
       startAll(startTime)
-      context.become(started(startTime))
+      context.become(started(startTime, vehicles.size, supervisor=supervisor))
     } else {
       logger.error(s"TEST MODE: not starting simulation")
     }
   }
 
-  private def checkReady(supervisor: ActorRef) {
+  private def checkReady() {
     logger.debug("Initializing vehicles and sending checkReady")
     vehicles.foreach {
       case (nodeId, actorRef) =>
@@ -145,7 +149,6 @@ class World(propertyFactory: PropertyFactory,
         Await.result(tryCheck(actorRef), Duration.Inf)
         logger.debug(s"$nodeId is ready")
     }
-    becomeStarted(supervisor)
   }
 
   def initializing: Receive = {
@@ -155,13 +158,27 @@ class World(propertyFactory: PropertyFactory,
     }
     case InitSimulation => {
       logger.info("World recieved init message")
-      sender ! Starting
-      checkReady(sender)
+      checkReady()
+      sender ! Ready(vehicles.size)
+    }
+    case StartSimulation(supervisor) => {
+      sender ! Starting()
+      becomeStarted(supervisor)
     }
     case _ => throw new RuntimeException(s"Received unexpected message (start mode)")
   }
-  def started(startTime: Double): Receive = {
+  def started(startTime: Double, numVehicles: Int, finishedVehicles: Set[NodeId] = Set(), supervisor: Option[ActorRef]): Receive = {
     case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
+    case Vehicle.SimulationDone(nodeId) => {
+      val newFinished: Set[NodeId] = finishedVehicles + nodeId
+      if(newFinished.size == numVehicles){
+        logger.info("All vehicles completed")
+        supervisor match{
+          case Some(actorRef) => actorRef ! Finished
+          case None => context.system.terminate()
+        }
+      }
+    }
     case m: Any => {
       logger.error(s"Got unexpected message: $m")
     }

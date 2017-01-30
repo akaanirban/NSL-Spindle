@@ -44,6 +44,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.ClusterMembership
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
 import scala.concurrent.duration.Duration
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.EmptyStaticTransformationFactory
 
 trait VehicleExecutorFixtures {
   implicit val ec: ExecutionContext

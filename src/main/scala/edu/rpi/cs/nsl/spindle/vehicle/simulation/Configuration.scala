@@ -29,6 +29,7 @@ trait ConfigurationSingleton {
  */
 object Configuration extends ConfigurationSingleton {
   lazy val kafkaServers = conf.getString("kafka.brokers")
+  lazy val zkString = conf.getString("zookeeper.connection.string")
 
   object Postgres {
     val host = conf.getString("postgres.hostname")
@@ -47,6 +48,7 @@ object Configuration extends ConfigurationSingleton {
   }
 
   object Vehicles {
+    val maxEnabledNodes = 20 
     val clusterMemberTable = "simple_clusters"
     val eventsPerSecondMod = 1
     object Sensors {

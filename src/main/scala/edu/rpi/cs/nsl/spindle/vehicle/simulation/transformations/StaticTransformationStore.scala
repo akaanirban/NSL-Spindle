@@ -30,3 +30,5 @@ class GenerativeStaticTransformationFactory(generator: (NodeId) => ActiveTransfo
     extends StaticTransformationFactory {
   protected def getActiveTransformations(nodeId: NodeId) = generator(nodeId)
 }
+
+class EmptyStaticTransformationFactory extends GenerativeStaticTransformationFactory(_ => ActiveTransformations(Set(), Set()))
