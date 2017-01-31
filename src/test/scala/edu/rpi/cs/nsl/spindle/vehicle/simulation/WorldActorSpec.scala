@@ -25,6 +25,7 @@ import edu.rpi.cs.nsl.spindle.tags.LoadTest
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.EmptyStaticTransformationFactory
 import scala.concurrent.Await
 import akka.util.Timeout
+import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
 
 class WorldActorFixtures()(implicit system: ActorSystem) {
   import ClientFactoryDockerFixtures._
@@ -53,7 +54,7 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
         logger.debug("Got ping")
       }
     }
-    "spawn vehicle actors on receiving init" in new WorldActorFixtures {
+    "spawn vehicle actors on receiving init" taggedAs(UnderConstructionTest) in new WorldActorFixtures {
       val waitTime = 10 minutes
       implicit val timeout = Timeout(10 minutes)
       within(30 minutes) {

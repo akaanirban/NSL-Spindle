@@ -161,11 +161,15 @@ class World(propertyFactory: PropertyFactory,
       checkReady()
       sender ! Ready(vehicles.size)
     }
+    case StartSimulation => {
+      sender ! Starting()
+      becomeStarted(None)
+    }
     case StartSimulation(supervisor) => {
       sender ! Starting()
       becomeStarted(supervisor)
     }
-    case _ => throw new RuntimeException(s"Received unexpected message (start mode)")
+    case m: Any => throw new RuntimeException(s"Received unexpected message (start mode): $m")
   }
   def started(startTime: Double, numVehicles: Int, finishedVehicles: Set[NodeId] = Set(), supervisor: Option[ActorRef]): Receive = {
     case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
