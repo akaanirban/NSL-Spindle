@@ -16,11 +16,14 @@ import org.slf4j.LoggerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Producer
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.SendResult
 import kafka.common.UnknownTopicOrPartitionException
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
+
+import scala.reflect.runtime.universe._
 
 /**
  * Kafka producer
  */
-class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
+class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Producer[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val kafkaProducer = new KafkaProducer[ByteArray, ByteArray](config.properties)
   private implicit val executionContext = ExecutionContext.global
@@ -29,8 +32,8 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
   logger.trace(s"Created producer with config ${config.properties}")
 
   override def send(topic: String, key: K, value: V): Future[SendResult] = {
-    val serKey: ByteArray = ObjectSerializer.serialize(key)
-    val serVal: ByteArray = ObjectSerializer.serialize(value)
+    val serKey: ByteArray = ObjectSerializer.serialize(TypedValue[K](key))
+    val serVal: ByteArray = ObjectSerializer.serialize(TypedValue[V](value))
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)
     val jFuture = kafkaProducer.send(producerRecord)
     logger.debug(s"Topic replicas: ${kafkaProducer.partitionsFor(topic).toList.map(_.inSyncReplicas.toList)}")
@@ -59,6 +62,6 @@ class ProducerKafka[K, V](config: KafkaConfig) extends Producer[K, V] {
 /**
  * Sends only to a single topic
  */
-class SingleTopicProducerKakfa[K, V](topic: String, config: KafkaConfig) extends ProducerKafka[K, V](config) {
+class SingleTopicProducerKakfa[K: TypeTag, V: TypeTag](topic: String, config: KafkaConfig) extends ProducerKafka[K, V](config) {
   def send(key: K, value: V): Future[SendResult] = super.send(topic, key, value)
 }

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Consumer
 import scala.concurrent.duration._
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
 
 class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerRebalanceListener {
   type PartitionCollection = java.util.Collection[TopicPartition]
@@ -80,7 +81,7 @@ class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
       }
     rawData.map {
       case (k, v) =>
-        (ObjectSerializer.deserialize[K](k), ObjectSerializer.deserialize[V](v))
+        (ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
     }
   }
 

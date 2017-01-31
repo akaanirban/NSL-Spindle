@@ -135,7 +135,7 @@ class World(propertyFactory: PropertyFactory,
       val startTime = System.currentTimeMillis + Configuration.simStartOffsetMs
       logger.info(s"Starting at epoch time $startTime")
       startAll(startTime)
-      context.become(started(startTime, vehicles.size, supervisor=supervisor))
+      context.become(started(startTime, vehicles.size, supervisor = supervisor))
     } else {
       logger.error(s"TEST MODE: not starting simulation")
     }
@@ -171,11 +171,11 @@ class World(propertyFactory: PropertyFactory,
     case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
     case Vehicle.SimulationDone(nodeId) => {
       val newFinished: Set[NodeId] = finishedVehicles + nodeId
-      if(newFinished.size == numVehicles){
+      if (newFinished.size == numVehicles) {
         logger.info("All vehicles completed")
-        supervisor match{
+        supervisor match {
           case Some(actorRef) => actorRef ! Finished
-          case None => context.system.terminate()
+          case None           => context.system.terminate()
         }
       }
     }

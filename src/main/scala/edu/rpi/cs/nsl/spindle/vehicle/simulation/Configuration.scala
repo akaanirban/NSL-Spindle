@@ -42,13 +42,13 @@ object Configuration extends ConfigurationSingleton {
   }
 
   val simStartOffsetMs = 30 * 1000
-  
+
   object Streams {
     val commitMs = 500
   }
 
   object Vehicles {
-    val maxEnabledNodes = 20 
+    val maxEnabledNodes = 20
     val clusterMemberTable = "simple_clusters"
     val eventsPerSecondMod = 1
     object Sensors {

@@ -9,11 +9,12 @@ import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.kstream.Reducer
 import org.apache.kafka.streams.kstream.KTable
 import org.apache.kafka.streams.kstream.KGroupedStream
+import scala.reflect.runtime.universe._
 
 /**
  * Perform ReduceByKey on stream
  */
-class StreamKVReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
+class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
     extends TypedStreamExecutor[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   protected val config = {

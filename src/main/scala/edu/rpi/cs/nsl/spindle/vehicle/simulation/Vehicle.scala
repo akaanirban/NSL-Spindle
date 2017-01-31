@@ -217,8 +217,8 @@ class Vehicle(nodeId: NodeId,
 
   private object MapReduceDaemon extends TemporalDaemon {
     private lazy val pool = context.dispatcher //TODO: replace with Executors.newCachedThreadPool?
-    private var prevMappers: Map[MapperFunc[Any, Any, Any, Any], StreamExecutor] = Map()
-    private var prevReducers: Map[KvReducerFunc[Any, Any], StreamExecutor] = Map()
+    private var prevMappers: Map[MapperFunc[_, _, _, _], StreamExecutor] = Map()
+    private var prevReducers: Map[KvReducerFunc[_, _], StreamExecutor] = Map()
     private def getChanges[T <: TransformationFunc](existing: Set[T], latest: Set[T]) = {
       val toRemove = existing diff latest
       val toAdd = latest diff existing
@@ -232,12 +232,12 @@ class Vehicle(nodeId: NodeId,
       newTransformers.values.foreach(transformer => logger.debug(s"Launched executor $transformer"))
       (prevMap -- toRemove) ++ newTransformers
     }
-    private def updateMappers(mappers: Iterable[MapperFunc[Any, Any, Any, Any]]) {
+    private def updateMappers(mappers: Iterable[MapperFunc[_, _, _, _]]) {
       val nextMap = updateTransformers(mappers, prevMappers)
       assert(nextMap.keySet equals mappers.toSet)
       prevMappers = nextMap
     }
-    private def updateReducers(reducers: Iterable[KvReducerFunc[Any, Any]]) {
+    private def updateReducers(reducers: Iterable[KvReducerFunc[_, _]]) {
       val nextReducers = updateTransformers(reducers, prevReducers)
       assert(nextReducers.keySet equals reducers.toSet)
       prevReducers = nextReducers

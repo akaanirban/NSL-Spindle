@@ -9,6 +9,7 @@ import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.kstream.Reducer
 import org.apache.kafka.streams.kstream.KTable
 import org.apache.kafka.streams.kstream.KGroupedStream
+import scala.reflect.runtime.universe._
 
 /**
  * Kafka streams mapper executor
@@ -16,7 +17,7 @@ import org.apache.kafka.streams.kstream.KGroupedStream
  * @see [[https://kafka.apache.org/0100/javadoc/org/apache/kafka/streams/kstream/KStream.html
  * #map(org.apache.kafka.streams.kstream.KeyValueMapper) Mapper Documentation]]
  */
-class StreamMapper[K, V, K1, V1](inTopic: String,
+class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String,
                                  outTopic: String,
                                  mapFunc: (K, V) => (K1, V1),
                                  protected val config: StreamsConfig)

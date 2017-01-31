@@ -11,6 +11,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 import scala.concurrent._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
 import org.slf4j.LoggerFactory
+import scala.reflect.runtime.universe._
 
 //import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleData }
 
@@ -18,7 +19,7 @@ case class ClientFactoryConfig(zkString: String, kafkaBaseConfig: KafkaConfig, s
 
 /**
  * Factor to make kafka clients for vehicles
- * 
+ *
  * @todo - refactor interface to take shared config vlaues (zk string, brokers, id)
  */
 class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean = true) {
@@ -47,21 +48,21 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
    *
    * @todo - Automatically create topic if not exists
    */
-  def mkProducer[K, V](outTopic: String): SingleTopicProducerKakfa[K, V] = {
+  def mkProducer[K: TypeTag, V: TypeTag](outTopic: String): SingleTopicProducerKakfa[K, V] = {
     initTopic(outTopic)
     new SingleTopicProducerKakfa[K, V](outTopic, producerConfig)
   }
-  def mkReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamReducer[K, V] = {
+  def mkReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamReducer[K, V] = {
     initTopic(inTopic)
     initTopic(outTopic)
     new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId))
   }
-  def mkKvReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamKVReducer[K, V] = {
+  def mkKvReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamKVReducer[K, V] = {
     initTopic(inTopic)
     initTopic(outTopic)
     new StreamKVReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId))
   }
-  def mkMapper[K, V, K1, V1](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String): StreamMapper[K, V, K1, V1] = {
+  def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String): StreamMapper[K, V, K1, V1] = {
     initTopic(inTopic)
     initTopic(outTopic)
     new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId))
