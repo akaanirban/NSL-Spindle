@@ -37,6 +37,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ProducerKafka
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ConsumerKafka
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
+import scala.reflect.runtime.universe._
 
 /**
  * Serialization test class
@@ -133,7 +134,7 @@ class KafkaSharedTests(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin) {
     Thread.sleep((10 seconds).toMillis) // Wait for kafka to converge
   }
 
-  protected def mkProducerConsumer[K, V] = {
+  protected def mkProducerConsumer[K: TypeTag, V: TypeTag] = {
     val producer = new ProducerKafka[K, V](producerConfig)
     val consumer = new ConsumerKafka[K, V](consumerConfig)
     (producer, consumer)

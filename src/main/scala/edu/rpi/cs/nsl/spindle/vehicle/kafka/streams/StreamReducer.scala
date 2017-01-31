@@ -10,6 +10,7 @@ import org.apache.kafka.streams.kstream.Reducer
 import org.apache.kafka.streams.kstream.KTable
 import org.apache.kafka.streams.kstream.KGroupedStream
 import org.apache.kafka.streams.kstream.KeyValueMapper
+import scala.reflect.runtime.universe._
 
 /**
  * Perform pure reduce on stream
@@ -21,7 +22,7 @@ import org.apache.kafka.streams.kstream.KeyValueMapper
  * @see [[https://github.com/confluentinc/examples/blob/10eafe95a972bf18b9f681129404044ef36ee8cc
  * /kafka-streams/src/main/java/io/confluent/examples/streams/SumLambdaExample.java#L116 Confluent Reduce Example]]
  */
-class StreamReducer[K >: Null, V >: Null](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
+class StreamReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
     extends StreamKVReducer[K, V](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 

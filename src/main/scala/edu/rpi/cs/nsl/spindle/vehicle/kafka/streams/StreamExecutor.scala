@@ -5,10 +5,13 @@ import org.apache.kafka.streams._
 import org.apache.kafka.streams.kstream._
 import org.slf4j.LoggerFactory
 
+import scala.reflect.runtime.universe._
+
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer;
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
 import org.apache.kafka.streams.processor.TopologyBuilder
 import java.util.concurrent.atomic.AtomicBoolean
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
 
 /**
  * Executor that runs a Kafka Streams program
@@ -26,12 +29,14 @@ abstract class StreamExecutor { //extends Thread { //TODO: this doesn't need to 
 
   private var stream: KafkaStreams = _
 
-  protected def deserialize[K, V](inStream: ByteStream): KStream[K, V] = {
-    inStream.map { (k, v) => new KeyValue(ObjectSerializer.deserialize(k), ObjectSerializer.deserialize(v)) }
+  protected def deserialize[K: TypeTag, V: TypeTag](inStream: ByteStream): KStream[K, V] = {
+    inStream.map { (k, v) =>
+      new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
+    }
   }
 
-  protected def serialize[K, V](objStream: KStream[K, V]): ByteStream = {
-    objStream.map { (k, v) => new KeyValue(ObjectSerializer.serialize(k), ObjectSerializer.serialize(v)) }
+  protected def serialize[K: TypeTag, V: TypeTag](objStream: KStream[K, V]): ByteStream = {
+    objStream.map { (k, v) => new KeyValue(ObjectSerializer.serialize(TypedValue[K](k)), ObjectSerializer.serialize(TypedValue[V](v))) }
   }
 
   protected def writeOut(outStream: ByteStream, outTopic: String) = {
@@ -65,7 +70,7 @@ abstract class StreamExecutor { //extends Thread { //TODO: this doesn't need to 
   }
 }
 
-abstract class TypedStreamExecutor[K >: Null, V >: Null] extends StreamExecutor {
-  protected val keySerde = new KafkaSerde[K]
-  protected val valueSerde = new KafkaSerde[V]
+abstract class TypedStreamExecutor[K: TypeTag, V: TypeTag] extends StreamExecutor {
+  protected val keySerde = new KafkaSerde[TypedValue[K]]
+  protected val valueSerde = new KafkaSerde[TypedValue[V]]
 }
