@@ -63,7 +63,10 @@ class World(propertyFactory: PropertyFactory,
   private val logger = Logging(context.system, this)
   private lazy val pgClient = new PgCacheLoader()
   private lazy val nodeList = maxVehicles match {
-    case None      => pgClient.getNodes
+    case None      => {
+      logger.warning("World is loading all nodes")
+      pgClient.getNodes
+    }
     case Some(max) => pgClient.getNodes.toList.sorted.take(max)
   }
   private val warmVehicleCaches = (initOnly == false)

@@ -90,7 +90,7 @@ trait SpeedSumSimulation {
       val inTopic = TopicLookupService.getClusterInput(nodeId)
       val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerBaseId)
       KvReducerFunc[String, Double](reducerBaseId, inTopic, outTopic, (a, b) => {
-        12
+        a + b
       })
     }
     ActiveTransformations(Set(mapper), Set()) //TODO
