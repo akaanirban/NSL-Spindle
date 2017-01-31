@@ -1,9 +1,12 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import scala.annotation.migration
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.duration.FiniteDuration
+import scala.reflect.runtime.universe
 import scala.util.Random
 
 import org.scalatest.BeforeAndAfterAll
@@ -23,28 +26,23 @@ import akka.testkit.TestKit
 import akka.util.Timeout
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
 import edu.rpi.cs.nsl.spindle.tags.LoadTest
-import edu.rpi.cs.nsl.spindle.tags.UnderConstructionTest
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryDockerFixtures
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.DockerHelper
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.TestObj
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.ClusterMembership
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
-import scala.concurrent._
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.ClusterMembership
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
-import scala.concurrent.duration.Duration
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.EmptyStaticTransformationFactory
 
 trait VehicleExecutorFixtures {
   implicit val ec: ExecutionContext
