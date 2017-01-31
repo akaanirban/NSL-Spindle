@@ -18,6 +18,7 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
   private def uuid = java.util.UUID.randomUUID.toString
   val totalData: AtomicLong = new AtomicLong
 
+  //TODO: use JMX
   val builder = {
     val builder = new KStreamBuilder()
     val inStreams: Seq[ByteStream] = inTopics.toSeq.map(topic => builder.stream(topic): ByteStream)
