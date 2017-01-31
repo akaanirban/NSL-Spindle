@@ -42,6 +42,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStati
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.EmptyStaticTransformationFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
 
 trait VehicleExecutorFixtures {
