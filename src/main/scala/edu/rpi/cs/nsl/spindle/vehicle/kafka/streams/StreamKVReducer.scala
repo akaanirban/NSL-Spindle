@@ -14,7 +14,10 @@ import scala.reflect.runtime.universe._
 /**
  * Perform ReduceByKey on stream
  */
-class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig)
+class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
+                                              outTopic: String,
+                                              reduceFunc: (V, V) => V,
+                                              intermediateConfig: StreamsConfig)
     extends TypedStreamExecutor[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   protected val config = {
@@ -40,8 +43,14 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String,
       .groupByKey
       .reduce(reducer, reduceTableName)
       .toStream
+    //TODO: tag with reducer function ID
     val serializedStream: ByteStream = serialize(reducedStream)
     writeOut(serializedStream, outTopic)
     builder
+  }
+
+  override def handleException(id: String, t: Thread, e: Throwable) {
+    logger.error(s"Stream reducer $inTopic -> $outTopic failed")
+    super.handleException(id, t, e)
   }
 }

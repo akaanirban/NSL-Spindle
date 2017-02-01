@@ -114,6 +114,18 @@ class Vehicle(nodeId: NodeId,
     actorRef
   }
 
+  private lazy val middlewareConnection = {
+    logger.debug(s"$nodeId creating middleware connection relay")
+    val inTopic = TopicLookupService.getClusterOutput(nodeId)
+    val outTopic = TopicLookupService.middlewareInput
+    val relayId = s"$nodeId-middleware-connection"
+    val relay = clientFactory.mkRelay(Set(inTopic), outTopic, relayId)
+    logger.debug(s"$nodeId starting middleware relay")
+    relay.run
+    logger.debug(s"$nodeId has started middleware relay")
+    relay
+  }
+
   /**
    * Create a Vehicle status message
    */
@@ -146,7 +158,6 @@ class Vehicle(nodeId: NodeId,
    * Create mapping from simulator time to future epoch times based on startTime
    */
   private[simulation] def mkTimings(startTime: Timestamp): Seq[TimeMapping] = {
-    logger.debug(s"Generating timestamps from start time $startTime using sim times $timestamps")
     val zeroTime = eventStore.getMinSimTime
     val offsets = timestamps.map(_ - zeroTime)
     assert(offsets.length == timestamps.length)
@@ -181,7 +192,9 @@ class Vehicle(nodeId: NodeId,
     private lazy val outTopic = TopicLookupService.getVehicleStatus(nodeId)
     private val producer = clientFactory.mkProducer[NodeId, VehicleMessage](outTopic)
     def executeInterval(currentSimTime: Timestamp) {
+      logger.debug(s"$nodeId executing sensor daemon for $currentSimTime")
       val message = generateMessage(currentSimTime)
+      logger.debug(s"$nodeId generated message $message")
       producer.send(nodeId, message)
       logger.debug(s"$nodeId sent status message")
     }
@@ -232,10 +245,14 @@ class Vehicle(nodeId: NodeId,
       prevReducers = nextReducers
     }
     def executeInterval(currentSimTime: Timestamp) {
+      logger.debug(s"$nodeId mapreduce daemon updating for $currentSimTime")
       val ActiveTransformations(mappers, reducers) = transformationStore
         .getActiveTransformations(currentSimTime)
+      logger.debug(s"$nodeId updating mappers")
       updateMappers(mappers)
+      logger.debug(s"$nodeId updating reducers")
       updateReducers(reducers)
+      logger.debug(s"$nodeId updating cluster head connection with map/reduce changes")
       Await.result((clusterHeadConnection ? VehicleConnection.SetMappers(mappers.map(_.funcId).toSet)), Duration.Inf) //TODO: clean up 
       logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
     }
@@ -292,6 +309,7 @@ class Vehicle(nodeId: NodeId,
       val numDaemons = temporalDaemons.size
       logger.debug(s"$nodeId has $numDaemons temporal daemons")
       logger.debug(s"Created cluster head connection ${this.clusterHeadConnection.actorRef}")
+      logger.debug(s"Created middleware connection ${this.middlewareConnection}")
     }
     logger.debug(s"$nodeId finished pre-start")
   }

@@ -6,6 +6,7 @@ import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Future
 import scala.concurrent.blocking
+import scala.concurrent.duration._
 
 import org.I0Itec.zkclient.ZkClient
 import org.I0Itec.zkclient.ZkConnection
@@ -88,6 +89,15 @@ class KafkaAdmin(zkString: String) {
         checkPartitionLeaders
       }
     }
+  }
+
+  def wipeCluster {
+    val topics = AdminUtils.fetchAllTopicConfigs(zkUtils).map(_._1)
+    logger.info(s"Deleting topics: $topics")
+    topics.foreach(AdminUtils.deleteTopic(zkUtils, _))
+    Thread.sleep((5 seconds).toMillis) //TODO: remove magic
+    val remainingTopics = AdminUtils.fetchAllTopicConfigs(zkUtils)
+    assert(remainingTopics.isEmpty, s"Failed to delete all topics: ${remainingTopics.map(_._1).toList}")
   }
 
   def close {

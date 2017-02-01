@@ -12,6 +12,7 @@ import scala.concurrent._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
 import org.slf4j.LoggerFactory
 import scala.reflect.runtime.universe._
+import org.apache.kafka.common.errors.TopicExistsException
 
 //import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleData }
 
@@ -35,7 +36,13 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
     assert(topic != null, "Topic is null")
     if (initTopics) {
       if (kafkaAdmin.topicExists(topic) == false) {
+        try {
         kafkaAdmin.mkTopic(topic) //note: blocking
+        } catch {
+          case e: TopicExistsException => {
+            logger.info(s"Tried to create exsting topic $topic")
+          }
+        }
         Thread.sleep(200) //TODO!!!
       }
     }

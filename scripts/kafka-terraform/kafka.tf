@@ -139,8 +139,8 @@ resource "aws_security_group_rule" "allow_zookeeper" {
 }
 
 output "kafka" {
-    value = "${join(",", aws_instance.kafka_compute.*.public_ip)}"
+    value = "${join(",", formatlist("%s:9092", aws_instance.kafka_compute.*.public_ip))}"
 }
 output "zookeeper" {
-    value = "${aws_instance.zookeeper_compute.public_ip}"
+    value = "${format("%s:2181", aws_instance.zookeeper_compute.public_ip)}"
 }

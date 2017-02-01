@@ -27,6 +27,8 @@ libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.8"
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.16"
 libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.4.16"
 libraryDependencies += "com.typesafe.akka" %% "akka-remote" % "2.4.16"
+// JMX Metrics
+libraryDependencies += "io.dropwizard.metrics" % "metrics-core" % "3.1.0"
 
 // Docker
 //libraryDependencies += "edu.rpi.cs.nsl.spindle" %% "shared-lib" % "1.4.0"

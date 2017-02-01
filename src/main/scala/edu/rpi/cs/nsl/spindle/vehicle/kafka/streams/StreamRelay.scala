@@ -9,6 +9,11 @@ import org.apache.kafka.streams.kstream.KStreamBuilder
 import org.slf4j.LoggerFactory
 import org.apache.kafka.streams.KeyValue
 import java.util.concurrent.atomic.AtomicLong
+import com.codahale.metrics.Counter
+import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.Histogram
+import com.codahale.metrics.JmxReporter
+import com.codahale.metrics.SharedMetricRegistries
 
 class StreamRelay(inTopics: Set[String], outTopic: String, protected val config: StreamsConfig) extends StreamExecutor {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -16,16 +21,22 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
   private val serializer = new ByteArraySerializer()
   private val sourceName = "in-topics"
   private def uuid = java.util.UUID.randomUUID.toString
-  val totalData: AtomicLong = new AtomicLong
+  private val metrics = SharedMetricRegistries.getOrCreate(s"metrics-$uuid")
+  private val totalData: Counter = metrics.counter(s"data-sent-to-$outTopic-from-$uuid")
+  private val dataHist: Histogram = metrics.histogram(s"message-sizes-to-$outTopic-from-$uuid")
+  // Start reporting JMX metrics
+  private val reporter = JmxReporter.forRegistry(metrics).build
+  reporter.start
 
-  //TODO: use JMX
   val builder = {
     val builder = new KStreamBuilder()
     val inStreams: Seq[ByteStream] = inTopics.toSeq.map(topic => builder.stream(topic): ByteStream)
     val mappedStreams: Seq[ByteStream] = inStreams.map { inStream =>
       val mappedStream: ByteStream = inStream.map { (k, v) =>
         logger.debug(s"Relaying message from $inStream to $outTopic")
-        logger.info(s"Sent ${totalData.getAndAdd(v.length + k.length)} total bytes  to $outTopic")
+        val messageSize = k.length + v.length
+        totalData.inc(messageSize)
+        dataHist.update(messageSize)
         new KeyValue[ByteArray, ByteArray](k, v)
       }
       mappedStream
@@ -34,5 +45,9 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
     logger.info(s"Relay created mapped topics $mappedStreams")
     builder
   }
-
+  
+  override def stopStream {
+    super.stopStream
+    reporter.stop()
+  }
 }

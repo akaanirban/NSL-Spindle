@@ -12,8 +12,7 @@ trait TopicLookupService {
    * Get output topic for a given mapper on a given vehicle
    */
   def getMapperOutput(node: NodeId, mapperId: String): String = mkTopic(node, s"mapper-$mapperId")
-  def getReducerOutput(node: NodeId, reducerId: String): String = mkTopic(node, s"reducer-$reducerId")
-  //def getSensorOutput(node: NodeId, sensorId: String) = mkTopic(node, s"sensor-$sensorId")
+  def getReducerOutput(node: NodeId, reducerId: String): String = getClusterOutput(node)//mkTopic(node, s"reducer-$reducerId") //TODO: resolve whether to have internal relays
   def getVehicleStatus(node: NodeId): String = mkTopic(node, "vehicle-status")
 
   /**
@@ -21,6 +20,8 @@ trait TopicLookupService {
    */
   def getClusterInput(node: NodeId): String = mkTopic(node, s"-ch-input")
   def getClusterOutput(node: NodeId): String = mkTopic(node, s"-ch-output")
+  
+  lazy val middlewareInput = "middleware-input"
 }
 
 object TopicLookupService extends TopicLookupService {}

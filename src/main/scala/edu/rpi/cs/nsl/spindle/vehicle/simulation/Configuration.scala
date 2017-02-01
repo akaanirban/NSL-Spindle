@@ -41,7 +41,9 @@ object Configuration extends ConfigurationSingleton {
     val readOnly = conf.getOpt[Boolean]("postgres.readOnly").getOrElse(PgDefaults.readOnly)
   }
 
-  val simStartOffsetMs = 30 * 1000
+  val simStartOffsetMs = 5 * 1000
+  // Uniquely identifies the current job
+  val simUid = java.util.UUID.randomUUID.toString
 
   object Streams {
     val commitMs = 500
@@ -49,7 +51,7 @@ object Configuration extends ConfigurationSingleton {
 
   object Vehicles {
     val maxEnabledNodes = 2 //TODO: at least 500
-    val clusterMemberTable = "simple_clusters"
+    val clusterMemberTable = "self_clusters"
     val eventsPerSecondMod = 1
     object Sensors {
       private val prefix = "spindle.sim.vehicle.sensors"

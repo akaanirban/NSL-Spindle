@@ -14,7 +14,7 @@ import _root_.edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 import scala.reflect.runtime.universe.TypeTag
-
+import java.lang.Thread.UncaughtExceptionHandler
 
 /**
  * Executor that runs a Kafka Streams program
@@ -46,13 +46,25 @@ abstract class StreamExecutor {
     outStream.to(byteSerde, byteSerde, outTopic)
   }
 
+  protected def handleException(id: String, t: Thread, e: Throwable) {
+    logger.error(s"Stream $id encountered exception $e")
+    throw e
+  }
+
   def run {
     assert(this.ready.get == false)
     val id = config.getString(StreamsConfig.APPLICATION_ID_CONFIG)
     logger.debug(s"Building stream $id")
     stream = new KafkaStreams(builder, config)
     logger.info(s"Starting stream $id")
+    stream.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+      def uncaughtException(t: Thread, e: Throwable) {
+        handleException(id, t, e)
+      }
+    })
+
     stream.start
+
     logger.error(s"Stream $id has started")
     this.ready.set(true)
   }

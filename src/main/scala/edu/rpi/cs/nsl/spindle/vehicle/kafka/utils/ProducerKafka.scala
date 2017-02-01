@@ -32,10 +32,13 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
   logger.trace(s"Created producer with config ${config.properties}")
 
   override def send(topic: String, key: K, value: V): Future[SendResult] = {
+    logger.debug(s"Sending ($key, $value) to $topic")
     val serKey: ByteArray = ObjectSerializer.serialize(TypedValue[K](key))
     val serVal: ByteArray = ObjectSerializer.serialize(TypedValue[V](value))
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)
+    logger.debug(s"Generated producer record $producerRecord")
     val jFuture = kafkaProducer.send(producerRecord)
+    logger.debug(s"Got send future $jFuture")
     logger.debug(s"Topic replicas: ${kafkaProducer.partitionsFor(topic).toList.map(_.inSyncReplicas.toList)}")
     Future {
       blocking {

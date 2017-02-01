@@ -21,6 +21,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 
 trait SimulationConfig {
   protected val propertyFactory = new BasicPropertyFactory
@@ -55,6 +56,11 @@ trait Simulator extends SimulationConfig {
   private lazy val world = actorSystem.actorOf(worldProps)
   private implicit val worldTimeout = Timeout(WORLD_TIMEOUT)
 
+  protected def clearKafka {
+    val admin = new KafkaAdmin(Configuration.zkString)
+    admin.wipeCluster
+  }
+
   protected def initWorld {
     logger.info("Initializing world")
     val reply = Await.result(world ? World.InitSimulation, Duration.Inf)
@@ -87,13 +93,14 @@ trait SpeedSumSimulation {
       })
     }
     val reducer = {
+      val reducerId = s"$reducerBaseId-$nodeId"
       val inTopic = TopicLookupService.getClusterInput(nodeId)
-      val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerBaseId)
-      KvReducerFunc[String, Double](reducerBaseId, inTopic, outTopic, (a, b) => {
+      val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
+      KvReducerFunc[String, Double](reducerId, inTopic, outTopic, (a, b) => {
         a + b
       })
     }
-    ActiveTransformations(Set(mapper), Set()) //TODO
+    ActiveTransformations(Set(mapper), Set(reducer))
   })
 }
 
@@ -101,6 +108,7 @@ object Core extends Simulator with SpeedSumSimulation {
   protected val actorSystem = ActorSystem("SpindleSimulator")
 
   def main(args: Array[String]) {
+    clearKafka
     initWorld
     println("World initialized. Press ENTER to start")
     scala.io.StdIn.readLine

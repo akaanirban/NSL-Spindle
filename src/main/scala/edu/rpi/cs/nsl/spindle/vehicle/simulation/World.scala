@@ -196,6 +196,7 @@ class World(propertyFactory: PropertyFactory,
         }
       } else {
         logger.debug(s"${newFinished.size} vehicles finished of $numVehicles")
+        context.become(started(startTime, numVehicles, newFinished, supervisor))
       }
     }
     case m: Any => {

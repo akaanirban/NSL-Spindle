@@ -1,16 +1,16 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
-import akka.actor.Props
-import akka.actor.ActorLogging
 import akka.actor.Actor
-import edu.rpi.cs.nsl.spindle.vehicle.Types._
-import akka.event.Logging
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
+import akka.actor.ActorLogging
 import akka.actor.ActorRef
+import akka.actor.Props
+import akka.actor.actorRef2Scala
+import akka.event.Logging
+import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactoryConfig
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 
 object VehicleConnection {
   case class SetMappers(runningMapperIds: Set[String])
@@ -21,7 +21,7 @@ object VehicleConnection {
 /**
  * Acts as a relay between vehicles and cluster head, with ability to drop and re-send
  */
-class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig) extends Actor with ActorLogging { //TODO
+class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig) extends Actor with ActorLogging {
   import VehicleConnection._
   import TopicLookupService.{ getClusterInput, getMapperOutput }
   private val logger = Logging(context.system, this)
@@ -89,5 +89,4 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
       }
     }
   }
-
 }
