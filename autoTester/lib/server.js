@@ -25,7 +25,8 @@ const parseFile = (fileContents) => {
     console.log('parsing line', line);
     return JSON.parse(line);
   })
-  .map(({level, message, timestamp}) => `<li><b>${level} (${timestamp})</b> ${message}</li>`)
+  .map(({level, message, timestamp}) => `<li><b>${level} (${timestamp})</b> ${message.replace(/\n/g, '<br/>')}</li>`)
+  })
   .join('')}</ul>`;
 }
 
