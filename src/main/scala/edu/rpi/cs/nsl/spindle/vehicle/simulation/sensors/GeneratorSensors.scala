@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import scala.util.Random
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 /**
  * Use generator function to make readings and cast them to specified type

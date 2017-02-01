@@ -39,6 +39,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import akka.util.Timeout
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
+import edu.rpi.cs.nsl.spindle.vehicle.ReflectionUtils
 
 /**
  * Use reflection to generate a Vehicle message

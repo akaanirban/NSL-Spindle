@@ -5,6 +5,7 @@ import org.scalatest.FlatSpec
 import org.slf4j.LoggerFactory
 import VehicleTypes._
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 class MessageFactorySpec extends FlatSpec {
   private val logger = LoggerFactory.getLogger(this.getClass)

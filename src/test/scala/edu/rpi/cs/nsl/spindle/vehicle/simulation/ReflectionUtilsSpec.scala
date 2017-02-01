@@ -3,6 +3,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.simulation
 import edu.rpi.cs.nsl.spindle.datatypes._
 import VehicleTypes._
 import org.scalatest.FlatSpec
+import edu.rpi.cs.nsl.spindle.vehicle.ReflectionUtils
 
 class ReflectionUtilsSpec extends FlatSpec {
 

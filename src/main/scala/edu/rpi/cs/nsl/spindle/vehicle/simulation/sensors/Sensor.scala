@@ -3,7 +3,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 /**
  * Top Level class for simulated sensors

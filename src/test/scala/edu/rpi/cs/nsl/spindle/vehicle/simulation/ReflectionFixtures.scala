@@ -2,6 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
 import edu.rpi.cs.nsl.spindle.datatypes._
 import VehicleTypes._
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 object ReflectionFixtures {
   val mphValue = 100

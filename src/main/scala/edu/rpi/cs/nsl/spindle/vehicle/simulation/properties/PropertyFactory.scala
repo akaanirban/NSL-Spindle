@@ -4,7 +4,7 @@ import scala.reflect.runtime.universe
 import scala.util.Random
 
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 trait PropertyFactory {
   def getProperties(nodeId: NodeId): Set[TypedValue[Any]]

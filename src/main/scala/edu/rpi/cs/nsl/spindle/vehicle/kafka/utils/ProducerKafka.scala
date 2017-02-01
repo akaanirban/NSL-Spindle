@@ -16,9 +16,9 @@ import org.slf4j.LoggerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Producer
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.SendResult
 import kafka.common.UnknownTopicOrPartitionException
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
 
 import scala.reflect.runtime.universe._
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 /**
  * Kafka producer

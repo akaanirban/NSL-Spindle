@@ -39,20 +39,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationFunc
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import akka.util.Timeout
-
-/**
- * Wraps a value to prevent type erasure
- */
-case class TypedValue[T: TypeTag](value: T) {
-  def getTypeString: String = typeTag[T].toString
-}
-
-object ReflectionUtils {
-  def getTypeString[T: TypeTag]: String = typeTag[T].toString
-  def getMatchingTypes(collection: Iterable[TypedValue[Any]], typeString: String): Iterable[TypedValue[Any]] = {
-    collection.filter(_.getTypeString == typeString)
-  }
-}
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 case class Ping()
 
@@ -118,9 +105,11 @@ class Vehicle(nodeId: NodeId,
   /**
    * Actor responsible for relaying data to cluster head
    */
-  private val clusterHeadConnection: ActorRef = {
+  private lazy val clusterHeadConnection: ActorRef = {
     logger.debug(s"Node $nodeId creating cluster head connection actor")
     val actorRef: ActorRef = context.actorOf(VehicleConnection.props(nodeId, clientFactory.getConfig), name = s"clusterHeadConnector$nodeId")
+    context.watch(actorRef)
+    logger.debug(s"Node $nodeId has created cluster head connection actor")
     //NOTE: insert monitoring here (once message-based tick is set up)
     actorRef
   }
@@ -198,6 +187,8 @@ class Vehicle(nodeId: NodeId,
     }
   }
 
+  implicit val connectionActorTimeout = Timeout(2 seconds) //TODO: this should be within 1 second
+
   private object ClusterMembershipDaemon extends TemporalDaemon {
     def executeInterval(currentSimTime: Timestamp) {
       caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]].getOrPriorOpt(currentSimTime) match {
@@ -212,8 +203,6 @@ class Vehicle(nodeId: NodeId,
       }
     }
   }
-
-  implicit val connectionActorTimeout = Timeout(2 seconds) //TODO: this should be within 1 second
 
   private object MapReduceDaemon extends TemporalDaemon {
     private lazy val pool = context.dispatcher //TODO: replace with Executors.newCachedThreadPool?
@@ -252,7 +241,10 @@ class Vehicle(nodeId: NodeId,
     }
   }
 
-  private lazy val temporalDaemons = Seq(SensorDaemon, MapReduceDaemon, ClusterMembershipDaemon)
+  private lazy val temporalDaemons = {
+    logger.info(s"$nodeId initializing temporal daemons")
+    Seq(SensorDaemon, MapReduceDaemon, ClusterMembershipDaemon)
+  }
 
   private def executeInterval(currentSimTime: Timestamp) {
     logger.info(s"$nodeId executing for $currentSimTime: $temporalDaemons")
@@ -290,17 +282,23 @@ class Vehicle(nodeId: NodeId,
   }
 
   override def preStart {
+    logger.debug(s"$nodeId running pre-start")
     if (warmCaches) {
       // Force evaluation of lazy properties
       val props = fullProperties
+      logger.debug(s"$nodeId props: $props")
       val cacheTypes = this.caches.keys
+      logger.debug(s"$nodeId cache types $cacheTypes")
       val numDaemons = temporalDaemons.size
-      logger.debug(s"Cache types $cacheTypes")
+      logger.debug(s"$nodeId has $numDaemons temporal daemons")
+      logger.debug(s"Created cluster head connection ${this.clusterHeadConnection.actorRef}")
     }
+    logger.debug(s"$nodeId finished pre-start")
   }
 
   def receive: PartialFunction[Any, Unit] = {
     case Vehicle.StartMessage(startTime, replyWhenDone) => {
+      logger.info(s"Node $nodeId got start message")
       sender ! Vehicle.StartingMessage(nodeId)
       startSimulation(startTime, replyWhenDone)
     }
@@ -309,7 +307,7 @@ class Vehicle(nodeId: NodeId,
       sender ! Ping()
     }
     case Vehicle.CheckReadyMessage => {
-      logger.info("Got checkReady")
+      logger.info(s"$nodeId got checkReady")
       sender ! Vehicle.ReadyMessage(nodeId)
     }
     case Terminated(clusterHeadConnection) => {

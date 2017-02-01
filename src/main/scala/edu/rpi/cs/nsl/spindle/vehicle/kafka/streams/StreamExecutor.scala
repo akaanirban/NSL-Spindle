@@ -1,22 +1,25 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
-import org.apache.kafka.common.serialization._
-import org.apache.kafka.streams._
-import org.apache.kafka.streams.kstream._
+import java.util.concurrent.atomic.AtomicBoolean
+
+import org.apache.kafka.common.serialization.Serdes
+import org.apache.kafka.streams.KafkaStreams
+import org.apache.kafka.streams.KeyValue
+import org.apache.kafka.streams.StreamsConfig
+import org.apache.kafka.streams.kstream.KStream
+import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
 
-import scala.reflect.runtime.universe._
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.TypedValue
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
+import scala.reflect.runtime.universe.TypeTag
 
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer;
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
-import org.apache.kafka.streams.processor.TopologyBuilder
-import java.util.concurrent.atomic.AtomicBoolean
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
 
 /**
  * Executor that runs a Kafka Streams program
  */
-abstract class StreamExecutor { //extends Thread { //TODO: this doesn't need to be a thread
+abstract class StreamExecutor {
   protected val ready = new AtomicBoolean(false)
   type ByteArray = Array[Byte]
   protected type ByteStream = KStream[ByteArray, ByteArray]

@@ -63,7 +63,7 @@ class World(propertyFactory: PropertyFactory,
   private val logger = Logging(context.system, this)
   private lazy val pgClient = new PgCacheLoader()
   private lazy val nodeList = maxVehicles match {
-    case None      => {
+    case None => {
       logger.warning("World is loading all nodes")
       pgClient.getNodes
     }
@@ -83,6 +83,7 @@ class World(propertyFactory: PropertyFactory,
       properties,
       warmCaches = warmVehicleCaches))
     context.watch(actor)
+    logger.debug(s"Created vehicle $nodeId")
     (nodeId, actor)
   }
 
@@ -92,7 +93,11 @@ class World(propertyFactory: PropertyFactory,
   private implicit val ec = context.dispatcher
 
   private def trySend[T](actorRef: ActorRef, message: Any, numAttempts: Int = 1): Future[T] = {
-    val MAX_WAIT_BEFORE_RETRY_MS = 700
+    val MAX_RETRIES = 20
+    val MAX_WAIT_BEFORE_RETRY_MS = 1000
+    if (numAttempts > MAX_RETRIES) {
+      throw new RuntimeException(s"Failed to send message to $actorRef")
+    }
     logger.debug(s"Sending $message to $actorRef")
     val sendFuture = (actorRef ? message).map(_.asInstanceOf[T])
     sendFuture
@@ -122,7 +127,7 @@ class World(propertyFactory: PropertyFactory,
 
   private def startAll(startTime: Timestamp) {
     val startRepliesFuture = Future.sequence {
-      vehicles.map(tup => tryStart(tup._2, Vehicle.StartMessage(startTime)))
+      vehicles.map(tup => tryStart(tup._2, Vehicle.StartMessage(startTime, Some(context.self))))
     }
     val replies = Await.result(startRepliesFuture, Configuration.simStartOffsetMs milliseconds)
     val tooLate = replies.forall(_.asInstanceOf[Vehicle.StartingMessage].eventTime < startTime) == false
@@ -161,8 +166,12 @@ class World(propertyFactory: PropertyFactory,
     }
     case InitSimulation => {
       logger.info("World recieved init message")
-      checkReady()
-      sender ! Ready(vehicles.size)
+      try {
+        checkReady()
+        sender ! Ready(vehicles.size)
+      } catch {
+        case e: Exception => context.system.terminate()
+      }
     }
     case StartSimulation => {
       sender ! Starting()
@@ -177,6 +186,7 @@ class World(propertyFactory: PropertyFactory,
   def started(startTime: Double, numVehicles: Int, finishedVehicles: Set[NodeId] = Set(), supervisor: Option[ActorRef]): Receive = {
     case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
     case Vehicle.SimulationDone(nodeId) => {
+      logger.debug(s"World got finished message from $nodeId")
       val newFinished: Set[NodeId] = finishedVehicles + nodeId
       if (newFinished.size == numVehicles) {
         logger.info("All vehicles completed")
@@ -184,6 +194,8 @@ class World(propertyFactory: PropertyFactory,
           case Some(actorRef) => actorRef ! Finished
           case None           => context.system.terminate()
         }
+      } else {
+        logger.debug(s"${newFinished.size} vehicles finished of $numVehicles")
       }
     }
     case m: Any => {

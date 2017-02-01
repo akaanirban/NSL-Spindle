@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Consumer
 import scala.concurrent.duration._
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.TypedValue
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
 class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerRebalanceListener {
   type PartitionCollection = java.util.Collection[TopicPartition]
