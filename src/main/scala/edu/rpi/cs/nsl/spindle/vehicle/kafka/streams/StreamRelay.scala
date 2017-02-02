@@ -14,6 +14,10 @@ import com.codahale.metrics.MetricRegistry
 import com.codahale.metrics.Histogram
 import com.codahale.metrics.JmxReporter
 import com.codahale.metrics.SharedMetricRegistries
+import java.util.Locale
+import java.io.File
+import com.codahale.metrics.CsvReporter
+import java.util.concurrent.TimeUnit
 
 class StreamRelay(inTopics: Set[String], outTopic: String, protected val config: StreamsConfig) extends StreamExecutor {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -25,8 +29,18 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
   private val totalData: Counter = metrics.counter(s"data-sent-to-$outTopic-from-$uuid")
   private val dataHist: Histogram = metrics.histogram(s"message-sizes-to-$outTopic-from-$uuid")
   // Start reporting JMX metrics
-  private val reporter = JmxReporter.forRegistry(metrics).build
-  reporter.start
+  private val jmxReporter = {
+    val reporter = JmxReporter.forRegistry(metrics).build
+    reporter.start
+    reporter
+  }
+  
+  // Log to csv
+  private val csvReporter = {
+    val reporter = CsvReporter.forRegistry(metrics).formatFor(Locale.US).build(new File("simulation-results"))
+    reporter.start(100, TimeUnit.MILLISECONDS)
+    reporter
+  }
 
   val builder = {
     val builder = new KStreamBuilder()
@@ -45,9 +59,10 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
     logger.info(s"Relay created mapped topics $mappedStreams")
     builder
   }
-  
+
   override def stopStream {
     super.stopStream
-    reporter.stop()
+    jmxReporter.stop
+    csvReporter.stop
   }
 }

@@ -1,8 +1,11 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
+
 trait TopicLookupService {
   type NodeId = Int
-  private def getNodePrefix(node: NodeId): String = s"vehicle-stream-$node"
+  private val globalPrefix = s"sim-${Configuration.simUid}"
+  private def getNodePrefix(node: NodeId): String = s"$globalPrefix-vehicle-stream-$node"
   private def mkTopic(node: NodeId, suffix: String): String = s"${getNodePrefix(node)}-$suffix"
   /**
    * Get output topic for a given vehicle (from which messages would be batched and transmitted)
@@ -21,7 +24,7 @@ trait TopicLookupService {
   def getClusterInput(node: NodeId): String = mkTopic(node, s"-ch-input")
   def getClusterOutput(node: NodeId): String = mkTopic(node, s"-ch-output")
   
-  lazy val middlewareInput = "middleware-input"
+  lazy val middlewareInput = s"$globalPrefix-middleware-input"
 }
 
 object TopicLookupService extends TopicLookupService {}

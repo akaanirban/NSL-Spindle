@@ -46,12 +46,12 @@ object Configuration extends ConfigurationSingleton {
   val simUid = java.util.UUID.randomUUID.toString
 
   object Streams {
-    val commitMs = 500
+    val commitMs = 1000
   }
 
   object Vehicles {
     val maxEnabledNodes = 2 //TODO: at least 500
-    val clusterMemberTable = "self_clusters"
+    val clusterMemberTable = "single_clusterhead"
     val eventsPerSecondMod = 1
     object Sensors {
       private val prefix = "spindle.sim.vehicle.sensors"
