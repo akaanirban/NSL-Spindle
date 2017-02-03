@@ -5,6 +5,8 @@ import scala.collection.JavaConverters.asScalaBufferConverter
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 
+import scala.concurrent.duration._
+
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgDefaults
 
 trait ConfigurationSingleton {
@@ -46,12 +48,16 @@ object Configuration extends ConfigurationSingleton {
   val simUid = java.util.UUID.randomUUID.toString
 
   object Streams {
-    val commitMs = 1000
+    val commitMs = (2 seconds).toMillis
+    val maxBufferRecords = 100
+    val pollMs = (5 minutes).toMillis
+    val sessionTimeout = (1 minutes).toMillis
   }
 
   object Vehicles {
-    val maxEnabledNodes = 2 //TODO: at least 500
+    val maxEnabledNodes = 100 //TODO: at least 500
     val clusterMemberTable = "single_clusterhead"
+   // val clusterMemberTable = "self_clusters"
     val eventsPerSecondMod = 1
     object Sensors {
       private val prefix = "spindle.sim.vehicle.sensors"

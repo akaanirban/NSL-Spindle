@@ -15,6 +15,7 @@ import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 import scala.reflect.runtime.universe.TypeTag
 import java.lang.Thread.UncaughtExceptionHandler
+import org.apache.kafka.clients.consumer.CommitFailedException
 
 /**
  * Executor that runs a Kafka Streams program
@@ -48,7 +49,16 @@ abstract class StreamExecutor {
 
   protected def handleException(id: String, t: Thread, e: Throwable) {
     logger.error(s"Stream $id encountered exception $e")
-    throw e
+    e match {
+      case cfe: CommitFailedException => {
+        logger.error(s"Closing stream $id")
+        stream.close
+        logger.info(s"Restarting stream $id")
+        this.run
+        logger.info(s"Stream $id restarted")
+      }
+      case _ => System.exit(1)
+    }
   }
 
   def run {

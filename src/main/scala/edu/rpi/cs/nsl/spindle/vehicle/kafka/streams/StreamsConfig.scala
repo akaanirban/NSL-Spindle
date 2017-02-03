@@ -4,6 +4,7 @@ import java.util.Properties
 import org.apache.kafka.streams.StreamsConfig
 import org.slf4j.LoggerFactory
 import kafka.consumer.ConsumerConfig
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 
 class StreamConfigException(message: String) extends RuntimeException(message)
 
@@ -52,7 +53,16 @@ case class StreamsConfigBuilder(properties: Properties = new Properties()) {
     this.withProperty(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
   }
   def withZk(zkString: String): StreamsConfigBuilder = this.withProperty(ZOOKEEPER_CONNECT_CONFIG, zkString)
-  def withCommitInterval(intervalMs: Int): StreamsConfigBuilder = this.withProperty(COMMIT_INTERVAL_MS_CONFIG, intervalMs.toString)
-  def withAutoOffset(resetLocation: String = "latest"): StreamsConfigBuilder = this.withProperty(ConsumerConfig.AutoOffsetReset, resetLocation)
+  def withCommitInterval(intervalMs: Long = Configuration.Streams.commitMs): StreamsConfigBuilder = this.withProperty(COMMIT_INTERVAL_MS_CONFIG, intervalMs.toString)
+  def withAutoOffset(resetLocation: String = "latest"): StreamsConfigBuilder = this.withProperty("auto.offset.reset", resetLocation)
+  def withMaxRecords(maxRecords: Int = Configuration.Streams.maxBufferRecords) = this.withProperty(StreamsConfig.BUFFERED_RECORDS_PER_PARTITION_CONFIG, maxRecords.toString)
+  def withPollMs(pollMs: Long = Configuration.Streams.pollMs) = this.withProperty("poll.ms", pollMs.toString)
+  def withSessionTimeoutMs(timeoutMs: Long = Configuration.Streams.sessionTimeout) = this.withProperty("session.timeout.ms", timeoutMs.toString)
+  def withDefaults = {
+    this.withCommitInterval()
+      .withMaxRecords()
+      .withPollMs()
+      .withSessionTimeoutMs()
+  }
   def build: StreamsConfig = new StreamsConfig(properties)
 }

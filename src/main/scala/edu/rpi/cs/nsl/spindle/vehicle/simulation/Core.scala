@@ -33,6 +33,7 @@ trait SimulationConfig {
     val streamsConfigBuilder = StreamsConfigBuilder()
       .withZk(zkString)
       .withServers(kafkaServers)
+      .withDefaults
     new ClientFactory(zkString: String,
       kafkaBaseConfig: KafkaConfig,
       streamsConfigBuilder: StreamsConfigBuilder)
