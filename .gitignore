@@ -3,6 +3,10 @@
 *.log
 
 .classpath
+.ensime
+.ensime_cache/
+
+.idea/
 
 # sbt specific
 .cache*
