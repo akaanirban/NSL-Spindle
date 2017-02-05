@@ -16,6 +16,7 @@ object VehicleConnection {
   case class SetMappers(runningMapperIds: Set[String])
   case class SetClusterHead(clusterHead: NodeId)
   case class Ack()
+  case class CloseConnection()
   def props(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig): Props = Props(new VehicleConnection(inNode, clientFactoryConfig))
 }
 /**
@@ -53,6 +54,7 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
           def run {
             logger.info(s"Stopping stream in $inNode asynchronously")
             relay.stopStream //TODO: debug slowness
+            logger.info(s"Stopped stream in $inNode")
           }
         })
         logger.debug(s"Node $inNode has stopped existing relay")
@@ -86,6 +88,16 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
       (newId == outNode) match {
         case false => replaceRelay(inMappers, newId, relayOpt, sender)
         case _     => {}
+      }
+    }
+    case CloseConnection() => {
+      logger.debug(s"Relay to $outNode shutting down")
+      sender ! Ack()
+      relayOpt match {
+        case Some(streamRelay) => {
+          streamRelay.stopStream
+        }
+        case None => {}
       }
     }
   }

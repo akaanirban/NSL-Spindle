@@ -5,21 +5,13 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
-import scala.reflect.runtime.universe
-import scala.reflect.runtime.universe._
-import scala.reflect.runtime.universe.typeTag
-
-import org.slf4j.LoggerFactory
 
 import akka.actor._
 import akka.actor.Actor._
 import akka.actor.Props
-import akka.dispatch.BoundedMessageQueueSemantics
-import akka.dispatch.RequiresMessageQueue
 import akka.event.Logging
 import akka.pattern.ask
 import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
-import edu.rpi.cs.nsl.spindle.datatypes.VehicleColors
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
 import scala.concurrent.duration._
 import edu.rpi.cs.nsl.spindle.vehicle.Types._
@@ -27,10 +19,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamExecutor
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.EventStore
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.Position
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.TSEntryCache
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.MockSensor
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
@@ -47,6 +37,7 @@ object Vehicle {
   case class StartMessage(startTime: Timestamp, replyWhenDone: Option[ActorRef] = None)
   case class ReadyMessage(nodeId: NodeId)
   case class StartingMessage(nodeId: NodeId, eventTime: Timestamp = System.currentTimeMillis)
+  case class FullShutdown()
   // Sent by world
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
@@ -132,7 +123,7 @@ class Vehicle(nodeId: NodeId,
   private[simulation] def generateMessage(currentSimTime: Timestamp): VehicleMessage = {
     import VehicleTypes._
     import CacheTypes._
-    val readings: Seq[TypedValue[Any]] = ({
+    val readings: Seq[TypedValue[Any]] = {
       val positionSeq = caches(PositionCache)
         .asInstanceOf[TSEntryCache[Position]]
         .getValueOpt(currentSimTime)
@@ -148,7 +139,7 @@ class Vehicle(nodeId: NodeId,
         }
 
       mockSensors.toSeq.map(_.getReading(currentSimTime)) ++ positionSeq
-    }).asInstanceOf[Seq[TypedValue[Any]]]
+    }.asInstanceOf[Seq[TypedValue[Any]]]
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
   }
 
@@ -169,6 +160,7 @@ class Vehicle(nodeId: NodeId,
       .sorted
       .map { case (wallTime, simTime) => TimeMapping(wallTime, simTime) }
     assert(absoluteTimes.head.wallTime == startTime, s"Start time $startTime does not map to ${absoluteTimes.head}")
+    assert(zeroTime <= timestamps.min, s"${timestamps.min} less than zero time $zeroTime")
     // Ensure ascending order
     absoluteTimes
   }
@@ -186,6 +178,8 @@ class Vehicle(nodeId: NodeId,
 
   private trait TemporalDaemon {
     def executeInterval(currentSimTime: Timestamp): Unit
+    def safeShutdown: Unit
+    def fullShutdown {}
   }
 
   private object SensorDaemon extends TemporalDaemon {
@@ -198,22 +192,33 @@ class Vehicle(nodeId: NodeId,
       producer.send(nodeId, message)
       logger.debug(s"$nodeId sent status message")
     }
+    def safeShutdown: Unit = {
+      logger.debug(s"$nodeId shutting down sensor producer")
+      producer.flush
+      producer.close
+      logger.debug(s"$nodeId has shut down sensor producer")
+    }
   }
 
   implicit val connectionActorTimeout = Timeout(2 seconds) //TODO: this should be within 1 second
 
   private object ClusterMembershipDaemon extends TemporalDaemon {
+    private lazy val clusterCacheRef = caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]]
     def executeInterval(currentSimTime: Timestamp) {
-      caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]].getOrPriorOpt(currentSimTime) match {
+      clusterCacheRef.getOrPriorOpt(currentSimTime) match {
         case Some(clusterHead) => {
           logger.info(s"Node $nodeId has cluster head $clusterHead at time $currentSimTime")
           Await.result((clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead)), 2 seconds)
           logger.info(s"Node $nodeId has updated cluster head $clusterHead at time $currentSimTime")
         }
         case None => {
-          logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime")
+          logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime: ${clusterCacheRef.cache}")
         }
       }
+    }
+    def safeShutdown: Unit = {
+      logger.debug(s"$nodeId is shutting down cluster-head relay")
+      clusterHeadConnection ! VehicleConnection.CloseConnection()
     }
   }
 
@@ -256,6 +261,21 @@ class Vehicle(nodeId: NodeId,
       Await.result((clusterHeadConnection ? VehicleConnection.SetMappers(mappers.map(_.funcId).toSet)), Duration.Inf) //TODO: clean up 
       logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
     }
+    private def shutdownReducers: Unit = {
+      logger.debug(s"$nodeId shutting down reducers")
+      prevReducers.values.foreach(_.stopStream)
+    }
+    def safeShutdown: Unit = {
+      logger.debug(s"$nodeId shutting down mappers")
+      prevMappers.values.foreach(_.stopStream)
+      if(Configuration.Vehicles.shutdownReducersWhenComplete) {
+        shutdownReducers
+      }
+    }
+
+    override def fullShutdown: Unit = {
+      shutdownReducers
+    }
   }
 
   private lazy val temporalDaemons = {
@@ -281,6 +301,9 @@ class Vehicle(nodeId: NodeId,
           }
           case None => logger.debug(s"$nodeId done (no replyWhenDone actor specified)")
         }
+        logger.info(s"Vehicle $nodeId performing safe shutdown")
+        temporalDaemons.foreach(_.safeShutdown)
+        logger.debug(s"Vehicle $nodeId completed safe shutdown")
       }
       case Some(nextTime: TimeMapping) => {
         sleepUntil(nextTime.wallTime)
@@ -331,6 +354,10 @@ class Vehicle(nodeId: NodeId,
     case Terminated(clusterHeadConnection) => {
       logger.error(s"Cluster head connection crashed for $nodeId")
       throw new RuntimeException(s"$nodeId clusterhead conn crashed")
+    }
+    case Vehicle.FullShutdown() => {
+      logger.info(s"Vehicle $nodeId is fully shutting down")
+      this.temporalDaemons.foreach(_.fullShutdown)
     }
     case _ => throw new RuntimeException(s"Unknown message on $nodeId")
   }

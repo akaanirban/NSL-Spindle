@@ -1,21 +1,21 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
+import java.io.File
+
 import org.apache.kafka.streams.StreamsConfig
-import org.apache.kafka.streams.processor.TopologyBuilder
-import scala.collection.JavaConverters._
+
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.streams.kstream.KStreamBuilder
 import org.slf4j.LoggerFactory
 import org.apache.kafka.streams.KeyValue
-import java.util.concurrent.atomic.AtomicLong
 import com.codahale.metrics.Counter
-import com.codahale.metrics.MetricRegistry
 import com.codahale.metrics.Histogram
 import com.codahale.metrics.JmxReporter
 import com.codahale.metrics.SharedMetricRegistries
 import java.util.Locale
-import java.io.File
+
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 import com.codahale.metrics.CsvReporter
 import java.util.concurrent.TimeUnit
 
@@ -37,8 +37,8 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
   
   // Log to csv
   private val csvReporter = {
-    val reporter = CsvReporter.forRegistry(metrics).formatFor(Locale.US).build(new File("simulation-results"))
-    reporter.start(100, TimeUnit.MILLISECONDS)
+    val reporter = CsvReporter.forRegistry(metrics).formatFor(Locale.US).build(new File(Configuration.simResultsDir))
+    reporter.start(Configuration.simReportSeconds, TimeUnit.SECONDS)
     reporter
   }
 
@@ -64,5 +64,6 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
     super.stopStream
     jmxReporter.stop
     csvReporter.stop
+    logger.debug(s"Stopped stream relay $inTopics -> $outTopic")
   }
 }

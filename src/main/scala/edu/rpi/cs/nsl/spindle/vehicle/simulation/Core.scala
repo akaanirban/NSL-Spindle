@@ -73,7 +73,7 @@ trait Simulator extends SimulationConfig {
     assert(reply.isInstanceOf[World.Starting])
   }
   protected def finish {
-    logger.info("Waiting to finish")
+    logger.info(s"Waiting to finish. Results stored in ${Configuration.simResultsDir}")
     Await.result(actorSystem.whenTerminated, Duration.Inf)
     logger.info("Finished")
   }

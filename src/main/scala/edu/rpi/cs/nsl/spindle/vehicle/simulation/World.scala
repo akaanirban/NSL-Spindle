@@ -189,10 +189,12 @@ class World(propertyFactory: PropertyFactory,
       logger.debug(s"World got finished message from $nodeId")
       val newFinished: Set[NodeId] = finishedVehicles + nodeId
       if (newFinished.size == numVehicles) {
-        logger.info("All vehicles completed")
+        logger.info(s"All vehicles completed. Alerting $supervisor")
+        vehicles.foreach(_._2 ! Vehicle.FullShutdown())
+        //TODO: wait for all vehicles to shutdown then terminate
         supervisor match {
           case Some(actorRef) => actorRef ! Finished
-          case None           => context.system.terminate()
+          case None           => {} //TODO: context.system.terminate()
         }
       } else {
         logger.debug(s"${newFinished.size} vehicles finished of $numVehicles")
