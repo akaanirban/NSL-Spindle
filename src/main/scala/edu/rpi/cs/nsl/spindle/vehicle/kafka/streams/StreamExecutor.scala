@@ -93,7 +93,7 @@ abstract class StreamExecutor {
 
   def stopStream {
     import scala.concurrent.ExecutionContext.Implicits.global
-    val STOP_WAIT_TIME = 30 seconds
+    val STOP_WAIT_TIME: FiniteDuration = (30 seconds)
     logger.info(s"Stream stopping: $id")
     if(this.started.getAndSet(false) == false) {
       val message = s"Attempting to stop stream that is not started: $id"
