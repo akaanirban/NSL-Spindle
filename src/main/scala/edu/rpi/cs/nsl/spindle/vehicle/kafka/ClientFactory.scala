@@ -37,14 +37,14 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
     if (initTopics) {
       if (kafkaAdmin.topicExists(topic) == false) {
         try {
-        kafkaAdmin.mkTopic(topic) //note: blocking
+          kafkaAdmin.mkTopic(topic) //note: blocking
         } catch {
           case e: TopicExistsException => {
             logger.info(s"Tried to create exsting topic $topic")
           }
         }
-        Thread.sleep(200) //TODO!!!
       }
+      Thread.sleep(400) //TODO: try to avoid sleep statements, at least move to config file
     }
   }
 
@@ -80,5 +80,9 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
     initTopic(outTopic)
     logger.debug(s"Creating relay from $inTopics to $outTopic")
     new StreamRelay(inTopics, outTopic, buildConfig(relayId))
+  }
+
+  def close: Unit = {
+    kafkaAdmin.close
   }
 }

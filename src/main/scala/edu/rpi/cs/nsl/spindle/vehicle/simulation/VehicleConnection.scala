@@ -92,13 +92,13 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
     }
     case CloseConnection() => {
       logger.debug(s"Relay to $outNode shutting down")
-      sender ! Ack()
       relayOpt match {
         case Some(streamRelay) => {
           streamRelay.stopStream
         }
         case None => {}
       }
+      sender ! Ack()
     }
   }
 }

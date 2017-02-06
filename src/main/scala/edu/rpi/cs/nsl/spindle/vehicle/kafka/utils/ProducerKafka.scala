@@ -57,8 +57,9 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
   }
 
   def close {
-    logger.trace(s"Closing producer ${kafkaProducer.metrics.toMap}")
-    kafkaProducer.close(CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)
+    logger.trace(s"Closing producer metrics: ${kafkaProducer.metrics.toMap}")
+    kafkaProducer.close()
+    //kafkaProducer.close(CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)
   }
 }
 
@@ -66,5 +67,11 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
  * Sends only to a single topic
  */
 class SingleTopicProducerKakfa[K: TypeTag, V: TypeTag](topic: String, config: KafkaConfig) extends ProducerKafka[K, V](config) {
+  private val logger = LoggerFactory.getLogger(s"Single Topic Producer $topic")
   def send(key: K, value: V): Future[SendResult] = super.send(topic, key, value)
+  override def close: Unit = {
+    logger.debug(s"Closing kafka producer: $topic")
+    super.close
+    logger.info(s"Kafka producer closed: $topic")
+  }
 }

@@ -43,7 +43,7 @@ trait SimulationConfig {
  * Driver for vehicle simulator
  */
 trait Simulator extends SimulationConfig {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger("Simulator Driver")
   val WORLD_TIMEOUT = 5 minutes
   protected val actorSystem: ActorSystem
   private lazy implicit val ec = actorSystem.dispatcher
@@ -59,7 +59,10 @@ trait Simulator extends SimulationConfig {
 
   protected def clearKafka {
     val admin = new KafkaAdmin(Configuration.zkString)
+    logger.warn("Wiping kafka cluster")
     admin.wipeCluster
+    logger.debug("Closing kafka admin")
+    admin.close
   }
 
   protected def initWorld {
@@ -70,10 +73,29 @@ trait Simulator extends SimulationConfig {
   protected def runSim {
     logger.info("Starting simulation")
     val reply = Await.result(world ? World.StartSimulation(None), Duration.Inf)
+    logger.info("World is starting")
     assert(reply.isInstanceOf[World.Starting])
+  }
+  private def checkFinished: Unit = {
+    Await.result(world ? World.CheckDone(), Duration.Inf) match {
+      case World.Finished() => {
+        logger.info("Simulator has detected that world has finished")
+        actorSystem.stop(world)
+        logger.info("Stopped world. Terminating actor system.")
+        actorSystem.terminate()
+        logger.info("Requested actor system shutdown")
+      }
+      case World.NotFinished() => {
+        Thread.sleep((1 second).toMillis)
+        checkFinished
+      }
+      case m: Any => throw new RuntimeException(s"Unexpected message from world actor: $m")
+    }
   }
   protected def finish {
     logger.info(s"Waiting to finish. Results stored in ${Configuration.simResultsDir}")
+    checkFinished
+    logger.info("Waiting for actor system to finish terminating")
     Await.result(actorSystem.whenTerminated, Duration.Inf)
     logger.info("Finished")
   }
@@ -108,12 +130,17 @@ trait SpeedSumSimulation {
 object Core extends Simulator with SpeedSumSimulation {
   protected val actorSystem = ActorSystem("SpindleSimulator")
 
+  private def waitUserInput: Unit = {
+    println("World initialized. Press ENTER to start")
+    scala.io.StdIn.readLine
+  }
+
   def main(args: Array[String]) {
     clearKafka
     initWorld
-    println("World initialized. Press ENTER to start")
-    scala.io.StdIn.readLine
+    waitUserInput
     runSim
     finish
+    System.exit(0)
   }
 }

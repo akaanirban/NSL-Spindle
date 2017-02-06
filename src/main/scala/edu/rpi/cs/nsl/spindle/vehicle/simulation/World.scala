@@ -1,26 +1,24 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
 import edu.rpi.cs.nsl.spindle.vehicle.Types._
-import akka.actor.ActorLogging
-import akka.actor.Actor
+import akka.actor.{Actor, ActorLogging, ActorRef, Kill, Props, Stash, Terminated}
 import akka.event.Logging
-import akka.actor.Props
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.postgres.PgClient
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.sensors.SensorFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.properties.PropertyFactory
+
 import scala.concurrent.duration._
 import akka.dispatch.RequiresMessageQueue
 import akka.dispatch.BoundedMessageQueueSemantics
-import akka.actor.Stash
 import akka.pattern.ask
 import akka.util.Timeout
+
 import scala.concurrent.Await
-import akka.actor.ActorRef
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.TimeoutException
-import akka.actor.Kill
+
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.PgCacheLoader
@@ -34,6 +32,8 @@ object World {
   case class StartSimulation(supervisor: Option[ActorRef])
   case class Starting()
   case class Finished()
+  case class NotFinished()
+  case class CheckDone()
   def props(propertyFactory: PropertyFactory,
             transformationStoreFactory: TransformationStoreFactory,
             clientFactory: ClientFactory,
@@ -190,19 +190,36 @@ class World(propertyFactory: PropertyFactory,
       val newFinished: Set[NodeId] = finishedVehicles + nodeId
       if (newFinished.size == numVehicles) {
         logger.info(s"All vehicles completed. Alerting $supervisor")
-        vehicles.foreach(_._2 ! Vehicle.FullShutdown())
-        //TODO: wait for all vehicles to shutdown then terminate
+        logger.info("Shutting down vehicles")
+        implicit val shutdownTimeout = Timeout(5 minutes)
+        Await.result(Future.sequence(vehicles.map(_._2.ask(Vehicle.FullShutdown())(shutdownTimeout))), Duration.Inf)
+        logger.info("All vehicles shut down. Terminating vehicle actors.")
+        val vehicleRefs = vehicles.map(_._2)
+        vehicleRefs.foreach(context.unwatch)
+        vehicleRefs.foreach(context.stop)
+        logger.info("Stopped all vehicle actors.")
         supervisor match {
           case Some(actorRef) => actorRef ! Finished
-          case None           => {} //TODO: context.system.terminate()
+          case None           => {
+            logger.warning("World has completed with no supervision")
+          }
         }
+        logger.info("World becoming finished")
+        context.become(finished)
       } else {
         logger.debug(s"${newFinished.size} vehicles finished of $numVehicles")
         context.become(started(startTime, numVehicles, newFinished, supervisor))
       }
     }
+    case CheckDone() => sender ! NotFinished()
+    case Terminated(childActor) => {
+      logger.warning(s"Child actor of world crashed: $childActor")
+    }
     case m: Any => {
       logger.error(s"Got unexpected message: $m")
     }
+  }
+  def finished: Receive = {
+    case CheckDone() => sender ! Finished()
   }
 }

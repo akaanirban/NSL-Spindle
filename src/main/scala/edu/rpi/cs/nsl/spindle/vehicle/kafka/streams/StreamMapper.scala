@@ -37,5 +37,3 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
     builder
   }
 }
-
-//TODO: note - for a vanilla reduce, give everything the same key

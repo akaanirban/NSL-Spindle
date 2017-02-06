@@ -38,6 +38,7 @@ object Vehicle {
   case class ReadyMessage(nodeId: NodeId)
   case class StartingMessage(nodeId: NodeId, eventTime: Timestamp = System.currentTimeMillis)
   case class FullShutdown()
+  case class ShutdownComplete(nodeId: NodeId)
   // Sent by world
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
@@ -218,12 +219,14 @@ class Vehicle(nodeId: NodeId,
     }
     def safeShutdown: Unit = {
       logger.debug(s"$nodeId is shutting down cluster-head relay")
-      clusterHeadConnection ! VehicleConnection.CloseConnection()
+      Await.result((clusterHeadConnection ? VehicleConnection.CloseConnection()), 2 seconds)
+      context.unwatch(clusterHeadConnection)
+      context.stop(clusterHeadConnection)
+      logger.debug(s"$nodeId shut down cluster head relay")
     }
   }
 
   private object MapReduceDaemon extends TemporalDaemon {
-    private lazy val pool = context.dispatcher //TODO: replace with Executors.newCachedThreadPool?
     private var prevMappers: Map[MapperFunc[_, _, _, _], StreamExecutor] = Map()
     private var prevReducers: Map[KvReducerFunc[_, _], StreamExecutor] = Map()
     private def getChanges[T <: TransformationFunc](existing: Set[T], latest: Set[T]) = {
@@ -262,12 +265,14 @@ class Vehicle(nodeId: NodeId,
       logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
     }
     private def shutdownReducers: Unit = {
-      logger.debug(s"$nodeId shutting down reducers")
+      logger.debug(s"Vehicle $nodeId shutting down ${prevReducers.size} reducers")
       prevReducers.values.foreach(_.stopStream)
+      logger.debug(s"Vehicle $nodeId stopped reducers")
     }
     def safeShutdown: Unit = {
-      logger.debug(s"$nodeId shutting down mappers")
+      logger.debug(s"Vehicle $nodeId shutting down ${prevMappers.size} mappers")
       prevMappers.values.foreach(_.stopStream)
+      logger.debug(s"Vehicle $nodeId shut down mappers")
       if(Configuration.Vehicles.shutdownReducersWhenComplete) {
         shutdownReducers
       }
@@ -314,7 +319,7 @@ class Vehicle(nodeId: NodeId,
 
   protected def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {
     logger.info(s"$nodeId will start at epoch $startTime")
-    val timings = mkTimings(startTime)
+    val timings = mkTimings(startTime).take(3) //TODO: remove take!!!
     logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")
     sleepUntil(timings.head.wallTime)
     logger.info(s"Simulation running")
@@ -351,13 +356,19 @@ class Vehicle(nodeId: NodeId,
       logger.info(s"$nodeId got checkReady")
       sender ! Vehicle.ReadyMessage(nodeId)
     }
-    case Terminated(clusterHeadConnection) => {
-      logger.error(s"Cluster head connection crashed for $nodeId")
-      throw new RuntimeException(s"$nodeId clusterhead conn crashed")
+    case Terminated(failedChild) => {
+      logger.error(s"Child actor crashed for Vehicle $nodeId: $failedChild")
+      throw new RuntimeException(s"Vehilce $nodeId child actor crashed")
     }
     case Vehicle.FullShutdown() => {
       logger.info(s"Vehicle $nodeId is fully shutting down")
       this.temporalDaemons.foreach(_.fullShutdown)
+      this.clientFactory.close
+      logger.info(s"Vehicle $nodeId has fully shut down")
+      sender ! Vehicle.ShutdownComplete(nodeId)
+    }
+    case VehicleConnection.Ack() => {
+      logger.debug(s"Vehicle $nodeId got ack")
     }
     case _ => throw new RuntimeException(s"Unknown message on $nodeId")
   }

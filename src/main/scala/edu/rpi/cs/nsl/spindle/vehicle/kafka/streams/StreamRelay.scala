@@ -20,7 +20,7 @@ import com.codahale.metrics.CsvReporter
 import java.util.concurrent.TimeUnit
 
 class StreamRelay(inTopics: Set[String], outTopic: String, protected val config: StreamsConfig) extends StreamExecutor {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger(s"Stream Relay $inTopics -> $outTopic")
   private val deserializer = new ByteArrayDeserializer()
   private val serializer = new ByteArraySerializer()
   private val sourceName = "in-topics"
@@ -64,6 +64,8 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
     super.stopStream
     jmxReporter.stop
     csvReporter.stop
-    logger.debug(s"Stopped stream relay $inTopics -> $outTopic")
+    val message = s"Stopped stream relay $inTopics -> $outTopic"
+    logger.debug(message)
+    System.err.println(message)
   }
 }

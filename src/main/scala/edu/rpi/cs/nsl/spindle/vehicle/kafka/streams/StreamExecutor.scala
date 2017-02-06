@@ -1,6 +1,5 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
-import java.util.concurrent.atomic.AtomicBoolean
 
 import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.KafkaStreams
@@ -21,10 +20,9 @@ import org.apache.kafka.clients.consumer.CommitFailedException
  * Executor that runs a Kafka Streams program
  */
 abstract class StreamExecutor {
-  protected val ready = new AtomicBoolean(false)
   type ByteArray = Array[Byte]
   protected type ByteStream = KStream[ByteArray, ByteArray]
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger("Stream executor")
   protected val builder: TopologyBuilder
   protected val config: StreamsConfig
   private val MAX_WAIT_READY_ITERATIONS = 20
@@ -57,13 +55,18 @@ abstract class StreamExecutor {
         this.run
         logger.info(s"Stream $id restarted")
       }
-      case _ => System.exit(1)
+      case e: Any => {
+        logger.error(s"Unknown exception in stream executor. Killing process")
+        e.printStackTrace(System.err)
+        System.exit(1)
+      }
     }
   }
 
+  private lazy val id: String = config.getString(StreamsConfig.APPLICATION_ID_CONFIG)
+
   def run {
-    assert(this.ready.get == false)
-    val id = config.getString(StreamsConfig.APPLICATION_ID_CONFIG)
+
     logger.debug(s"Building stream $id")
     stream = new KafkaStreams(builder, config)
     logger.info(s"Starting stream $id")
@@ -75,23 +78,21 @@ abstract class StreamExecutor {
 
     stream.start
 
-    logger.error(s"Stream $id has started")
-    this.ready.set(true)
+    logger.info(s"Stream $id has started")
+    System.err.println(s"Stream $id has started") //TODO: remove
   }
 
   def stopStream {
-    def waitReady(iterations: Int = 0) {
-      if (this.ready.get == false) {
-        if (iterations > MAX_WAIT_READY_ITERATIONS) {
-          throw new RuntimeException(s"Cannot close executor because executor never came online")
-        }
-        logger.debug(s"Stream executor waiting to become ready before stopping")
-        Thread.sleep(100)
-        waitReady(iterations + 1)
+    logger.info(s"Stream stopping: ${config.getString(StreamsConfig.APPLICATION_ID_CONFIG)}")
+    try {
+      stream.close()
+      stream.cleanUp()
+    } catch {
+      case badState: IllegalStateException => {
+        logger.error(s"Failed to stop stream: $id due to state error $badState")
       }
     }
-    logger.info(s"Stream stopping: ${config.getString(StreamsConfig.APPLICATION_ID_CONFIG)}")
-    stream.close
+    System.err.println(s"Stream stopped: $id")
   }
 }
 
