@@ -8,13 +8,20 @@ import org.apache.kafka.streams.StreamsConfig
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
-
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
+
 import scala.reflect.runtime.universe.TypeTag
 import java.lang.Thread.UncaughtExceptionHandler
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+
+import akka.pattern.AskTimeoutException
 import org.apache.kafka.clients.consumer.CommitFailedException
+
+import scala.concurrent._
+import scala.concurrent.duration._
 
 /**
  * Executor that runs a Kafka Streams program
@@ -26,6 +33,7 @@ abstract class StreamExecutor {
   protected val builder: TopologyBuilder
   protected val config: StreamsConfig
   private val MAX_WAIT_READY_ITERATIONS = 20
+  private val started: AtomicBoolean = new AtomicBoolean(false)
 
   protected val byteSerde = Serdes.ByteArray
 
@@ -76,17 +84,44 @@ abstract class StreamExecutor {
       }
     })
 
-    stream.start
+    stream.start()
+    this.started.set(true)
 
     logger.info(s"Stream $id has started")
     System.err.println(s"Stream $id has started") //TODO: remove
   }
 
   def stopStream {
-    logger.info(s"Stream stopping: ${config.getString(StreamsConfig.APPLICATION_ID_CONFIG)}")
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val STOP_WAIT_TIME = 30 seconds
+    logger.info(s"Stream stopping: $id")
+    if(this.started.getAndSet(false) == false) {
+      val message = s"Attempting to stop stream that is not started: $id"
+      System.err.println(message)
+      logger.error(message)
+      throw new RuntimeException(message)
+    }
     try {
-      stream.close()
-      stream.cleanUp()
+      val closeFuture: Future[Boolean] = Future {
+        blocking {
+          logger.info(s"Calling close on stream $id")
+          stream.close()
+          true
+        }
+      }
+      val timeoutFuture = Future[Boolean] {
+        blocking {
+          Thread.sleep(STOP_WAIT_TIME.toMillis)
+          false
+        }
+      }
+      val closed: Boolean = Await.result(Future.firstCompletedOf(Seq(closeFuture, timeoutFuture)), Duration.Inf)
+      if(closed) {
+        logger.info(s"Cleaning up closed stream $id")
+        stream.cleanUp()
+      } else {
+        logger.error(s"Attempt to close stream timed out $id")
+      }
     } catch {
       case badState: IllegalStateException => {
         logger.error(s"Failed to stop stream: $id due to state error $badState")

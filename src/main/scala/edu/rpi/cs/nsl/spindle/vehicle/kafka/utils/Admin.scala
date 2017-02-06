@@ -16,6 +16,7 @@ import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
 import kafka.cluster.Broker
 
+
 class KafkaAdmin(zkString: String) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -101,7 +102,7 @@ class KafkaAdmin(zkString: String) {
   }
 
   def close {
-    zkUtils.close
     zkClient.close
+    zkUtils.close
   }
 }

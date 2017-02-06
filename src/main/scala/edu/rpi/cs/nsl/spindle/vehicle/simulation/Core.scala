@@ -63,6 +63,8 @@ trait Simulator extends SimulationConfig {
     admin.wipeCluster
     logger.debug("Closing kafka admin")
     admin.close
+    logger.info("Waiting for kafka to settle")
+    Thread.sleep((10 seconds).toMillis)
   }
 
   protected def initWorld {
@@ -106,9 +108,10 @@ trait SpeedSumSimulation {
   val baseId = "getSpeed"
   val mapperBaseId = s"$baseId-mapper"
   val reducerBaseId = s"$baseId-reducer"
+  private def uuid = java.util.UUID.randomUUID.toString
   protected val transformationStoreFactory: TransformationStoreFactory = new GenerativeStaticTransformationFactory(nodeId => {
     val mapper = {
-      val mapperId = s"$mapperBaseId-$nodeId"
+      val mapperId = s"$mapperBaseId-$nodeId-$uuid"
       val inTopic = TopicLookupService.getVehicleStatus(nodeId)
       val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
       MapperFunc[Any, VehicleMessage, String, Any](mapperId, inTopic, outTopic, (_, v) => {
@@ -116,7 +119,7 @@ trait SpeedSumSimulation {
       })
     }
     val reducer = {
-      val reducerId = s"$reducerBaseId-$nodeId"
+      val reducerId = s"$reducerBaseId-$nodeId-$uuid"
       val inTopic = TopicLookupService.getClusterInput(nodeId)
       val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
       KvReducerFunc[String, Double](reducerId, inTopic, outTopic, (a, b) => {
@@ -133,6 +136,12 @@ object Core extends Simulator with SpeedSumSimulation {
   private def waitUserInput: Unit = {
     println("World initialized. Press ENTER to start")
     scala.io.StdIn.readLine
+  }
+
+  private def waitThenStart: Unit = {
+    val WAIT_TIME = (5 seconds)
+    println(s"World initialized. Auto starting in $WAIT_TIME")
+    Thread.sleep(WAIT_TIME.toMillis)
   }
 
   def main(args: Array[String]) {

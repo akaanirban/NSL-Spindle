@@ -66,7 +66,7 @@ object Configuration extends ConfigurationSingleton {
   }
 
   object Vehicles {
-    val maxEnabledNodes = 1 //TODO: at least 500
+    val maxEnabledNodes = 2 //TODO: at least 500
     val clusterMemberTable = "single_clusterhead"
     val shutdownReducersWhenComplete: Boolean = false //TODO: ensure each vehicle's clusterhead remains online
    // val clusterMemberTable = "self_clusters"

@@ -218,11 +218,11 @@ class Vehicle(nodeId: NodeId,
       }
     }
     def safeShutdown: Unit = {
-      logger.debug(s"$nodeId is shutting down cluster-head relay")
+      logger.debug(s"Vehicle $nodeId is shutting down cluster-head relay")
       Await.result((clusterHeadConnection ? VehicleConnection.CloseConnection()), 2 seconds)
       context.unwatch(clusterHeadConnection)
       context.stop(clusterHeadConnection)
-      logger.debug(s"$nodeId shut down cluster head relay")
+      logger.debug(s"Vehicle $nodeId shut down cluster head relay")
     }
   }
 
@@ -253,7 +253,7 @@ class Vehicle(nodeId: NodeId,
       prevReducers = nextReducers
     }
     def executeInterval(currentSimTime: Timestamp) {
-      logger.debug(s"$nodeId mapreduce daemon updating for $currentSimTime")
+      logger.debug(s"$nodeId map/reduce daemon updating for $currentSimTime")
       val ActiveTransformations(mappers, reducers) = transformationStore
         .getActiveTransformations(currentSimTime)
       logger.debug(s"$nodeId updating mappers")
@@ -265,12 +265,16 @@ class Vehicle(nodeId: NodeId,
       logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
     }
     private def shutdownReducers: Unit = {
-      logger.debug(s"Vehicle $nodeId shutting down ${prevReducers.size} reducers")
-      prevReducers.values.foreach(_.stopStream)
+      logger.debug(s"Vehicle $nodeId shutting down ${prevReducers.size} reducers: $prevReducers")
+      prevReducers.values.foreach{reducer =>
+        System.err.println(s"Vehicle $nodeId closing reducer $reducer")
+        reducer.stopStream
+        System.err.println(s"Vehicle $nodeId closed reducer $reducer")
+      }
       logger.debug(s"Vehicle $nodeId stopped reducers")
     }
     def safeShutdown: Unit = {
-      logger.debug(s"Vehicle $nodeId shutting down ${prevMappers.size} mappers")
+      logger.debug(s"Vehicle $nodeId shutting down ${prevMappers.size} mappers: $prevMappers")
       prevMappers.values.foreach(_.stopStream)
       logger.debug(s"Vehicle $nodeId shut down mappers")
       if(Configuration.Vehicles.shutdownReducersWhenComplete) {
