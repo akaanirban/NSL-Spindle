@@ -73,8 +73,9 @@ trait Simulator extends SimulationConfig {
     assert(reply.isInstanceOf[World.Ready], s"Got unexpected world message $reply")
   }
   protected def runSim {
+    val WORLD_DONE_TIMEOUT = (10 minutes)
     logger.info("Starting simulation")
-    val reply = Await.result(world ? World.StartSimulation(None), Duration.Inf)
+    val reply = Await.result(world.ask(World.StartSimulation(None))(WORLD_DONE_TIMEOUT), Duration.Inf)
     logger.info("World is starting")
     assert(reply.isInstanceOf[World.Starting])
   }

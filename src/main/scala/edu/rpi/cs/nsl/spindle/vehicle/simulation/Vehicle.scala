@@ -209,7 +209,7 @@ class Vehicle(nodeId: NodeId,
       clusterCacheRef.getOrPriorOpt(currentSimTime) match {
         case Some(clusterHead) => {
           logger.info(s"Node $nodeId has cluster head $clusterHead at time $currentSimTime")
-          Await.result((clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead)), 2 seconds)
+          Await.result((clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead)), Duration.Inf)
           logger.info(s"Node $nodeId has updated cluster head $clusterHead at time $currentSimTime")
         }
         case None => {
@@ -218,8 +218,9 @@ class Vehicle(nodeId: NodeId,
       }
     }
     def safeShutdown: Unit = {
+      val shutdownTimeout = Timeout(Configuration.Vehicles.shutdownTimeout)
       logger.debug(s"Vehicle $nodeId is shutting down cluster-head relay")
-      Await.result((clusterHeadConnection ? VehicleConnection.CloseConnection()), 2 seconds)
+      Await.result((clusterHeadConnection.ask(VehicleConnection.CloseConnection())(shutdownTimeout)), Duration.Inf)
       context.unwatch(clusterHeadConnection)
       context.stop(clusterHeadConnection)
       logger.debug(s"Vehicle $nodeId shut down cluster head relay")
@@ -323,7 +324,7 @@ class Vehicle(nodeId: NodeId,
 
   protected def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {
     logger.info(s"$nodeId will start at epoch $startTime")
-    val timings = mkTimings(startTime)
+    val timings = mkTimings(startTime).take(3)//TODO: remove take (take is for debugging only)
     logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")
     sleepUntil(timings.head.wallTime)
     logger.info(s"Simulation running")

@@ -191,7 +191,7 @@ class World(propertyFactory: PropertyFactory,
       if (newFinished.size == numVehicles) {
         logger.info(s"All vehicles completed. Alerting $supervisor")
         logger.info("Shutting down vehicles")
-        implicit val shutdownTimeout = Timeout(8 minutes)
+        implicit val shutdownTimeout = Timeout(Configuration.Vehicles.shutdownTimeout * 2)
         Await.result(Future.sequence(vehicles.map(_._2.ask(Vehicle.FullShutdown())(shutdownTimeout))), Duration.Inf)
         logger.info("All vehicles shut down. Terminating vehicle actors.")
         val vehicleRefs = vehicles.map(_._2)
