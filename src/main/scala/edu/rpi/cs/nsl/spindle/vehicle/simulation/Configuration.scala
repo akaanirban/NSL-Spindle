@@ -47,14 +47,23 @@ object Configuration extends ConfigurationSingleton {
   // Uniquely identifies the current job
   val simUid = java.util.UUID.randomUUID.toString
 
+  private val resultsRoot = "simulation-results"
+  private lazy val resultsName = s"${Vehicles.clusterMemberTable}_${Vehicles.maxEnabledNodes}_${System.currentTimeMillis}"
   val simResultsDir: String =  {
-    val root = "simulation-results"
-    val path = s"$root/${Vehicles.clusterMemberTable}_${Vehicles.maxEnabledNodes}_${System.currentTimeMillis}"
+    val path = s"$resultsRoot/$resultsName"
     val file = new File(path)
     if(file.exists() == false) {
       assert(file.mkdirs(), s"Failed to make directory $path")
     }
     path
+  }
+  val simResultsFinishedDir: String = {
+    val path = s"$resultsRoot/completed"
+    val file = new File(path)
+    if(file.exists == false) {
+      file.mkdirs()
+    }
+    s"$path/${Vehicles.clusterMemberTable}_${Vehicles.maxEnabledNodes}_${System.currentTimeMillis}"
   }
   val simReportSeconds = 10
 

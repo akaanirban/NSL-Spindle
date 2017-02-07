@@ -1,5 +1,8 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import java.io.File
+import java.nio.file.Files
+
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.pattern.ask
@@ -11,6 +14,7 @@ import akka.util.Timeout
 
 import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
+
 import scala.util.Success
 import scala.concurrent.Await
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
@@ -18,7 +22,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransform
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
-import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
+import edu.rpi.cs.nsl.spindle.datatypes.{Vehicle => VehicleMessage}
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
@@ -145,12 +149,19 @@ object Core extends Simulator with SpeedSumSimulation {
     Thread.sleep(WAIT_TIME.toMillis)
   }
 
+  private def moveResults: Unit = {
+    val completedDir = new File(Configuration.simResultsFinishedDir)
+    val resultsDir = new File(Configuration.simResultsDir)
+    Files.move(resultsDir.toPath, completedDir.toPath)
+  }
+
   def main(args: Array[String]) {
     clearKafka
     initWorld
-    waitUserInput
+    waitThenStart
     runSim
     finish
+    moveResults
     System.exit(0)
   }
 }

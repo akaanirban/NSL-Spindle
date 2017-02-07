@@ -61,9 +61,12 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
   }
 
   override def stopStream {
+    csvReporter.stop()
+    csvReporter.close()
+    logger.info(s"Shut down reporters for $inTopics -> $outTopic")
     super.stopStream
-    jmxReporter.stop
-    csvReporter.stop
+    jmxReporter.stop()
+    jmxReporter.close()
     val message = s"Stopped stream relay $inTopics -> $outTopic"
     logger.debug(message)
     System.err.println(message)
