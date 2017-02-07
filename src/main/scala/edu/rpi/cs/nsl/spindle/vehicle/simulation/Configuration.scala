@@ -75,14 +75,17 @@ object Configuration extends ConfigurationSingleton {
   }
 
   object Vehicles {
+    private val vehiclePrefix = "spindle.sim.vehicle"
     val shutdownTimeout: FiniteDuration = (5 minutes)
-    val maxEnabledNodes = 5 //TODO: at least 500
-    val clusterMemberTable = "single_clusterhead"
+    //val maxEnabledNodes = 5 //TODO: at least 500
     val shutdownReducersWhenComplete: Boolean = false //TODO: ensure each vehicle's clusterhead remains online
+    //val clusterMemberTable = "single_clusterhead"
    // val clusterMemberTable = "self_clusters"
+    val clusterMemberTable: String = conf.getString(s"$vehiclePrefix.cluster.member.table")
+    val maxEnabledNodes: Int = conf.getInt(s"$vehiclePrefix.max.vehicles")
     val eventsPerSecondMod = 1
     object Sensors {
-      private val prefix = "spindle.sim.vehicle.sensors"
+      private val prefix = s"$vehiclePrefix.sensors"
       //TODO: load json, use beans, etc...
       val singleValSensors = {
         val singleValNames: List[String] = conf.getStringList(s"$prefix.singlevaluesensor.names").asScala.toList
