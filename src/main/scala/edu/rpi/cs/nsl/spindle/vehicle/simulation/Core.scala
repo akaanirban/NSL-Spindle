@@ -152,16 +152,18 @@ object Core extends Simulator with SpeedSumSimulation {
   private def moveResults: Unit = {
     val completedDir = new File(Configuration.simResultsFinishedDir)
     val resultsDir = new File(Configuration.simResultsDir)
-    Files.move(resultsDir.toPath, completedDir.toPath)
+    Files.move(resultsDir.toPath, completedDir.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
   }
 
   def main(args: Array[String]) {
+    println(s"Starting sim ${Configuration.simUid}")
     clearKafka
     initWorld
     waitThenStart
     runSim
     finish
     moveResults
+    println("Program Finished. Exiting NSL-Spindle Simulator.")
     System.exit(0)
   }
 }

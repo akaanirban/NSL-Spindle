@@ -324,7 +324,13 @@ class Vehicle(nodeId: NodeId,
 
   protected def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {
     logger.info(s"$nodeId will start at epoch $startTime")
-    val timings = mkTimings(startTime)
+    val timings = {
+      val fullTimings = mkTimings(startTime)
+      Configuration.Vehicles.maxIterations match {
+        case None => fullTimings
+        case Some(maxIteration) => fullTimings.take(maxIteration)
+      }
+    }
     logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")
     sleepUntil(timings.head.wallTime)
     logger.info(s"Simulation running")

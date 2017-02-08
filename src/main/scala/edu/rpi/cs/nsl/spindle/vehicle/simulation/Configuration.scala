@@ -45,7 +45,7 @@ object Configuration extends ConfigurationSingleton {
 
   val simStartOffsetMs = 5 * 1000
   // Uniquely identifies the current job
-  val simUid = java.util.UUID.randomUUID.toString
+  val simUid = conf.getOpt[String]("simulation.uid").getOrElse(java.util.UUID.randomUUID.toString)
 
   private val resultsRoot = "simulation-results"
   private lazy val resultsName = s"${Vehicles.clusterMemberTable}_${Vehicles.maxEnabledNodes}_${System.currentTimeMillis}"
@@ -57,13 +57,20 @@ object Configuration extends ConfigurationSingleton {
     }
     path
   }
-  val simResultsFinishedDir: String = {
-    val path = s"$resultsRoot/completed"
-    val file = new File(path)
-    if(file.exists == false) {
-      file.mkdirs()
+  val simResultsFinishedDir: String = conf.getOpt[String]("simulation.results.dir") match {
+    case None => {
+      val path = s"$resultsRoot/completed"
+      val file = new File(path)
+      if (file.exists == false) {
+        file.mkdirs()
+      }
+      s"$path/${Vehicles.clusterMemberTable}_${Vehicles.maxEnabledNodes}_${System.currentTimeMillis}"
     }
-    s"$path/${Vehicles.clusterMemberTable}_${Vehicles.maxEnabledNodes}_${System.currentTimeMillis}"
+    case Some(path) => {
+      val file = new File(path)
+      file.mkdirs()
+      path
+    }
   }
   val simReportSeconds = 10
 
@@ -79,6 +86,7 @@ object Configuration extends ConfigurationSingleton {
     val shutdownTimeout: FiniteDuration = (5 minutes)
     //val maxEnabledNodes = 5 //TODO: at least 500
     val shutdownReducersWhenComplete: Boolean = false //TODO: ensure each vehicle's clusterhead remains online
+    val maxIterations: Option[Int] = conf.getOpt[Int](s"$vehiclePrefix.max.iterations")
     //val clusterMemberTable = "single_clusterhead"
    // val clusterMemberTable = "self_clusters"
     val clusterMemberTable: String = conf.getString(s"$vehiclePrefix.cluster.member.table")
