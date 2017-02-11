@@ -1,13 +1,14 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations
 
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes.{Lat, Lon}
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamKVReducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamMapper
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.TypedStreamExecutor
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamExecutor
 import org.slf4j.LoggerFactory
+
 import scala.reflect.runtime.universe._
 
 abstract class TransformationFunc(val funcId: String, inTopic: String, outTopic: String) {
@@ -29,7 +30,10 @@ abstract class TransformationFunc(val funcId: String, inTopic: String, outTopic:
   def getTransformExecutor(clientFactory: ClientFactory): StreamExecutor
 }
 
-case class KvReducerFunc[K: TypeTag, V: TypeTag](override val funcId: String, inTopic: String, outTopic: String, reduceFunc: (V, V) => V)
+case class KvReducerFunc[K: TypeTag, V: TypeTag](override val funcId: String,
+                                                 inTopic: String,
+                                                 outTopic: String,
+                                                 reduceFunc: (V, V) => V)
     extends TransformationFunc(funcId, inTopic, outTopic) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   def getStreamReducer(clientFactory: ClientFactory): StreamKVReducer[K, V] = {
@@ -39,7 +43,10 @@ case class KvReducerFunc[K: TypeTag, V: TypeTag](override val funcId: String, in
   def getTransformExecutor(clientFactory: ClientFactory): StreamExecutor = getStreamReducer(clientFactory)
 }
 
-case class MapperFunc[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](override val funcId: String, inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1))
+case class MapperFunc[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](override val funcId: String,
+                                                                        inTopic: String,
+                                                                        outTopic: String,
+                                                                        mapFunc: (K, V) => (K1, V1))
     extends TransformationFunc(funcId, inTopic, outTopic) {
   def getStreamMapper(clientFactory: ClientFactory): StreamMapper[K, V, K1, V1] = {
     clientFactory.mkMapper(inTopic, outTopic, mapFunc, funcId)
@@ -50,7 +57,7 @@ case class MapperFunc[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](override
 case class ActiveTransformations(mappers: Iterable[MapperFunc[_, _, _, _]], reducers: Iterable[KvReducerFunc[_, _]])
 
 abstract class TransformationStore(nodeId: NodeId) {
-  def getActiveTransformations(timestamp: Timestamp): ActiveTransformations
+  def getActiveTransformations(timestamp: Timestamp, position: (Lat, Lon)): ActiveTransformations
 }
 
 abstract class TransformationStoreFactory {

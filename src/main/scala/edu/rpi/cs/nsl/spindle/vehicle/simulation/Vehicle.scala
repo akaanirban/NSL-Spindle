@@ -5,14 +5,13 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
-
 import akka.actor._
-import akka.actor.Actor._
 import akka.actor.Props
 import akka.event.Logging
 import akka.pattern.ask
-import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleMessage }
+import edu.rpi.cs.nsl.spindle.datatypes.{Vehicle => VehicleMessage}
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
+
 import scala.concurrent.duration._
 import edu.rpi.cs.nsl.spindle.vehicle.Types._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
@@ -72,8 +71,6 @@ object SchedulerUtils { //TODO: remove
 
 /**
  * Simulates an individual vehicle
- *
- * @todo - have real-world "vehicle" talk to simulator wrapper
  *
  * @todo - convert "sensors" to TSEntryCache? (refactor to expect data sometimes to be generated)
  *
@@ -153,14 +150,13 @@ class Vehicle(nodeId: NodeId,
     val zeroTime = eventStore.getMinSimTime
     val offsets = timestamps.map(_ - zeroTime)
     assert(offsets.length == timestamps.length)
-    assert(offsets(0) == 0)
     val absoluteTimes = offsets
       .map(_ + startTime)
       .sorted
       .zip(timestamps)
       .sorted
       .map { case (wallTime, simTime) => TimeMapping(wallTime, simTime) }
-    assert(absoluteTimes.head.wallTime == startTime, s"Start time $startTime does not map to ${absoluteTimes.head}")
+    assert(absoluteTimes.head.wallTime >= startTime, s"Start time $startTime does not map to ${absoluteTimes.head}")
     assert(zeroTime <= timestamps.min, s"${timestamps.min} less than zero time $zeroTime")
     // Ensure ascending order
     absoluteTimes
@@ -186,9 +182,9 @@ class Vehicle(nodeId: NodeId,
   private object SensorDaemon extends TemporalDaemon {
     private lazy val outTopic = TopicLookupService.getVehicleStatus(nodeId)
     private val producer = clientFactory.mkProducer[NodeId, VehicleMessage](outTopic)
-    def executeInterval(currentSimTime: Timestamp) {
+    def executeInterval(currentSimTime: Timestamp): Unit = {
       logger.debug(s"$nodeId executing sensor daemon for $currentSimTime")
-      val message = generateMessage(currentSimTime)
+      val message: VehicleMessage = generateMessage(currentSimTime)
       logger.debug(s"$nodeId generated message $message")
       producer.send(nodeId, message)
       logger.debug(s"$nodeId sent status message")
@@ -255,8 +251,12 @@ class Vehicle(nodeId: NodeId,
     }
     def executeInterval(currentSimTime: Timestamp) {
       logger.debug(s"$nodeId map/reduce daemon updating for $currentSimTime")
+      val (lat, lon) = {
+        val message = generateMessage(currentSimTime)
+        (message.lat, message.lon)
+      }
       val ActiveTransformations(mappers, reducers) = transformationStore
-        .getActiveTransformations(currentSimTime)
+        .getActiveTransformations(currentSimTime, (lat, lon))
       logger.debug(s"$nodeId updating mappers")
       updateMappers(mappers)
       logger.debug(s"$nodeId updating reducers")

@@ -1,5 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations
 
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes.{Lat, Lon}
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 
@@ -8,7 +9,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
  */
 class StaticTransformationStore(nodeId: NodeId, transformations: ActiveTransformations)
     extends TransformationStore(nodeId) {
-  def getActiveTransformations(timestamp: Timestamp): ActiveTransformations = transformations
+  def getActiveTransformations(timestamp: Timestamp, position: (Lat, Lon)): ActiveTransformations = transformations
 }
 
 abstract class StaticTransformationFactory

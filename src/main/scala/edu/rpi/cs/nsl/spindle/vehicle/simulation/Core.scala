@@ -73,7 +73,7 @@ trait Simulator extends SimulationConfig {
 
   protected def initWorld {
     logger.info("Initializing world")
-    val reply = Await.result(world ? World.InitSimulation, Duration.Inf)
+    val reply = Await.result(world ? World.InitSimulation(), Duration.Inf)
     assert(reply.isInstanceOf[World.Ready], s"Got unexpected world message $reply")
   }
   protected def runSim {

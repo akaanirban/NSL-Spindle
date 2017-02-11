@@ -23,8 +23,11 @@ import org.apache.kafka.clients.consumer.CommitFailedException
 import scala.concurrent._
 import scala.concurrent.duration._
 
+
 /**
  * Executor that runs a Kafka Streams program
+  *
+  * @todo - filter messages that arrive before specified time
  */
 abstract class StreamExecutor {
   type ByteArray = Array[Byte]

@@ -24,14 +24,6 @@ class PgCacheLoader(config: PgConfig = PgDefaults.config) extends PgClient(confi
     val positionCache = new TSEntryCache[Position](positionQuery.loadReadings(nodeId))
     val clusterHeadCache = new TSEntryCache[NodeId](clusterHeadQuery.loadClusters(nodeId))
     val cacheMap = Map(PositionCache -> positionCache, ClusterCache -> clusterHeadCache)
-    /*val timestamps = cacheMap
-      .values
-      .map(_.getTimestamps.toSet)
-      .reduce(_ ++ _)
-      // Nothing must come before first position reading is available
-      .filterNot(_ < positionCache.getTimestamps.min)
-      .toSeq
-      .sorted*/
     val timestamps = positionCache.getTimestamps.toSeq.sorted
     assert(timestamps.head < timestamps.last)
     logger.debug(s"Created cache for $nodeId")

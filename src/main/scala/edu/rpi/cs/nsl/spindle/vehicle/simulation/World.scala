@@ -150,7 +150,7 @@ class World(propertyFactory: PropertyFactory,
   }
 
   private def checkReady() {
-    logger.debug("Initializing vehicles and sending checkReady")
+    logger.debug(s"Initializing vehicles and sending checkReady to ${vehicles.size} vehicles")
     vehicles.foreach {
       case (nodeId, actorRef) =>
         logger.debug(s"Doing tryCheck to $nodeId")
@@ -160,14 +160,15 @@ class World(propertyFactory: PropertyFactory,
   }
 
   def initializing: Receive = {
-    case Ping => {
+    case Ping() => {
       logger.info("Got ping")
       sender ! Ping
     }
-    case InitSimulation => {
+    case InitSimulation() => {
       logger.info("World recieved init message")
       try {
         checkReady()
+        logger.debug("Replying with Ready to init message")
         sender ! Ready(vehicles.size)
       } catch {
         case e: Exception => context.system.terminate()

@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 
 class JdbcQuery(connection: Connection, statement: String) {
   private val logger = LoggerFactory.getLogger(this.getClass)
+  logger.debug(s"Created query with connection $connection")
   private val preparedStatement = {
     logger.trace(s"Preparing statement $statement")
     connection.prepareStatement(statement)
