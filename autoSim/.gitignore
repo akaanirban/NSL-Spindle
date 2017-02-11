@@ -1,0 +1,4 @@
+logs/*
+!logs/.placeholder
+dist/
+node_modules/
