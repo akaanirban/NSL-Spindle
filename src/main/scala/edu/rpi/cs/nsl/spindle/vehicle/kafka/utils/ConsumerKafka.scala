@@ -79,10 +79,16 @@ class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
         case Some(list) => list.map(record => (record.key, record.value))
         case None       => List()
       }
-    rawData.map {
-      case (k, v) =>
-        (ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
-    }
+
+    rawData
+      // Remove canaries
+      .filterNot{case(k,_) =>
+        ObjectSerializer.deserialize[TypedValue[Any]](k).isCanary
+      }
+      .map {
+        case (k, v) =>
+          (ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
+      }
   }
 
   /**

@@ -4,7 +4,7 @@ import scala.reflect.runtime.universe._
 /**
  * Wraps a value to prevent type erasure
  */
-case class TypedValue[T: TypeTag](value: T, creationEpoch: Long = System.currentTimeMillis()) {
+case class TypedValue[T: TypeTag](value: T, creationEpoch: Long = System.currentTimeMillis(), isCanary: Boolean = false) {
   def getTypeString: String = typeTag[T].toString
 }
 

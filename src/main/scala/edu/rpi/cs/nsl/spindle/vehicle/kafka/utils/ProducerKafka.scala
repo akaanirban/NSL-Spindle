@@ -31,10 +31,10 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
 
   logger.trace(s"Created producer with config ${config.properties}")
 
-  override def send(topic: String, key: K, value: V): Future[SendResult] = {
+  def sendKafka(topic: String, key: K, value: V, isCanary: Boolean = false): Future[SendResult] = {
     logger.debug(s"Sending ($key, $value) to $topic")
-    val serKey: ByteArray = ObjectSerializer.serialize(TypedValue[K](key))
-    val serVal: ByteArray = ObjectSerializer.serialize(TypedValue[V](value))
+    val serKey: ByteArray = ObjectSerializer.serialize(TypedValue[K](key, isCanary = isCanary))
+    val serVal: ByteArray = ObjectSerializer.serialize(TypedValue[V](value, isCanary = isCanary))
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)
     logger.debug(s"Generated producer record $producerRecord")
     val jFuture = kafkaProducer.send(producerRecord)
@@ -51,6 +51,8 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
       }
     }
   }
+
+  override def send(topic: String, key: K, value: V): Future[SendResult] = sendKafka(topic, key, value)
 
   def flush {
     kafkaProducer.flush

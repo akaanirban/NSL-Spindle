@@ -42,11 +42,19 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
 
   private var stream: KafkaStreams = _
 
+
   protected def deserializeAndFilter[K: TypeTag, V: TypeTag](inStream: ByteStream): KStream[K, V] = {
-    val typedStream: KStream[TypedValue[K], TypedValue[V]] = inStream.map { (k, v) =>
-      //new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
-      new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k), ObjectSerializer.deserialize[TypedValue[V]](v))
-    }
+    val typedStream: KStream[TypedValue[K], TypedValue[V]] = inStream
+      .filterNot{(k,_) =>
+        val msg = ObjectSerializer.deserialize[TypedValue[Any]](k)
+        System.err.println(s"Checking if canary $msg")
+        msg.isCanary
+      }
+      .map { (k, v) =>
+        val msg = new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k), ObjectSerializer.deserialize[TypedValue[V]](v))
+        System.err.println(s"Deserialized message $msg")
+        msg
+      }
 
     val filteredStream = startEpochOpt match {
       case None => typedStream
@@ -150,7 +158,8 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
   }
 }
 
-abstract class TypedStreamExecutor[K: TypeTag, V: TypeTag] extends StreamExecutor {
+abstract class TypedStreamExecutor[K: TypeTag, V: TypeTag](startEpochOpt: Option[Long] = None)
+  extends StreamExecutor(startEpochOpt) {
   protected val keySerde = new KafkaSerde[TypedValue[K]]
   protected val valueSerde = new KafkaSerde[TypedValue[V]]
 }

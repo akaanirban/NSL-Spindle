@@ -20,8 +20,9 @@ import scala.reflect.runtime.universe._
 class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String,
                                  outTopic: String,
                                  mapFunc: (K, V) => (K1, V1),
-                                 protected val config: StreamsConfig)
-    extends StreamExecutor {
+                                 protected val config: StreamsConfig,
+                                 startEpochOpt: Option[Long] = None)
+    extends StreamExecutor(startEpochOpt) {
   private val logger = LoggerFactory.getLogger(s"StreamMapper $inTopic -> $outTopic")
   protected val builder = {
     logger.debug(s"Configuring mapper builder for $inTopic to $outTopic")

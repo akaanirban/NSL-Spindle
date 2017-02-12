@@ -34,6 +34,7 @@ class ClientFactory(zkString: String,
   private lazy val producerConfig = kafkaBaseConfig.withProducerDefaults
   private lazy val kafkaAdmin = new KafkaAdmin(zkString)
   private def buildConfig(id: String) = streamsConfigBuilder.withId(id).build
+  private lazy val canaryProducer = new ProducerKafka[Any, Any](producerConfig)
 
   private def initTopic(topic: String): Unit = {
     assert(topic != null, "Topic is null")
@@ -47,6 +48,7 @@ class ClientFactory(zkString: String,
           }
         }
       }
+      canaryProducer.sendKafka(topic, None, None, isCanary = true)
       Thread.sleep(400) //TODO: try to avoid sleep statements, at least move to config file
     }
   }
@@ -56,7 +58,6 @@ class ClientFactory(zkString: String,
   /**
    * Make a simple Kafka producer
    *
-   * @todo - Automatically create topic if not exists
    */
   def mkProducer[K: TypeTag, V: TypeTag](outTopic: String): SingleTopicProducerKakfa[K, V] = {
     initTopic(outTopic)

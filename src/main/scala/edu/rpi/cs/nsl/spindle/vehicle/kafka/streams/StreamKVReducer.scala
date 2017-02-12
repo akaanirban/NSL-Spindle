@@ -18,8 +18,9 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
                                               outTopic: String,
                                               reduceFunc: (V, V) => V,
                                               intermediateConfig: StreamsConfig,
-                                              clientFactory: ClientFactory)
-    extends TypedStreamExecutor[K, V] {
+                                              clientFactory: ClientFactory,
+                                              startEpochOpt: Option[Long] = None)
+    extends TypedStreamExecutor[K, V](startEpochOpt) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   protected val config = {
     logger.debug("Setting default serde")

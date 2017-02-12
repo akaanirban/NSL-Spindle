@@ -21,8 +21,17 @@ import scala.reflect.runtime.universe._
  * @see [[https://github.com/confluentinc/examples/blob/10eafe95a972bf18b9f681129404044ef36ee8cc
  * /kafka-streams/src/main/java/io/confluent/examples/streams/SumLambdaExample.java#L116 Confluent Reduce Example]]
  */
-class StreamReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig, clientFactory: ClientFactory)
-    extends StreamKVReducer[K, V](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, intermediateConfig: StreamsConfig, clientFactory) {
+class StreamReducer[K: TypeTag, V: TypeTag](inTopic: String,
+                                            outTopic: String,
+                                            reduceFunc: (V, V) => V,
+                                            intermediateConfig: StreamsConfig,
+                                            clientFactory: ClientFactory,
+                                            startEpochOpt: Option[Long] = None)
+    extends StreamKVReducer[K, V](inTopic: String,
+      outTopic: String,
+      reduceFunc: (V, V) => V,
+      intermediateConfig: StreamsConfig,
+      clientFactory, startEpochOpt) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   logger.info(s"Creating reducer from $inTopic -> $outTopic")
