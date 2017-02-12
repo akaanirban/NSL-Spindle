@@ -6,7 +6,7 @@ ENV simdir $vehicledir/autoSim
 
 COPY . $workdir/
 
-RUN cd $vehicledir && sbt update && cd -
+RUN cd $vehicledir && sbt update && sbt compile && cd -
 
 # Install NodeJs
 RUN apt-get install -y sudo
@@ -15,4 +15,6 @@ RUN sudo apt-get install -y nodejs
 RUN npm install -g yarn
 RUN cd $simdir && yarn
 
-WORKDIR $workdir
+WORKDIR $simdir
+
+ENTRYPOINT ["yarn", "start"]
