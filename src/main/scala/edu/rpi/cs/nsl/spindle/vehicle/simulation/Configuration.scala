@@ -79,20 +79,22 @@ object Configuration extends ConfigurationSingleton {
     val maxBufferRecords = 100
     val pollMs = (5 minutes).toMillis
     val sessionTimeout = (1 minutes).toMillis
-    val reduceWindowSizeMs = (1 minutes).toMillis
+    val reduceWindowSizeMs: Long = conf.getLong("spindle.sim.streams.reduce.window.ms")
   }
 
   object Vehicles {
     private val vehiclePrefix = "spindle.sim.vehicle"
     val shutdownTimeout: FiniteDuration = (5 minutes)
-    //val maxEnabledNodes = 5 //TODO: at least 500
+
     val shutdownReducersWhenComplete: Boolean = false //TODO: ensure each vehicle's clusterhead remains online
     val maxIterations: Option[Int] = conf.getOpt[Int](s"$vehiclePrefix.max.iterations")
-    //val clusterMemberTable = "single_clusterhead"
-   // val clusterMemberTable = "self_clusters"
+
     val clusterMemberTable: String = conf.getString(s"$vehiclePrefix.cluster.member.table")
     val maxEnabledNodes: Int = conf.getInt(s"$vehiclePrefix.max.vehicles")
     val eventsPerSecondMod = 1
+
+    val mapReduceConfigName: String = conf.getString("spindle.sim.vehicle.mapreduce.config.name")
+
     object Sensors {
       private val prefix = s"$vehiclePrefix.sensors"
       //TODO: load json, use beans, etc...

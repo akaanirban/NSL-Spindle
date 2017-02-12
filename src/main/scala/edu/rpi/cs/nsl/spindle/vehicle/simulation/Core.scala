@@ -109,6 +109,7 @@ trait Simulator extends SimulationConfig {
 }
 
 trait SpeedSumSimulation {
+  assert(Configuration.Vehicles.mapReduceConfigName == "speedSum")
   import VehicleTypes.MPH
   val baseId = "getSpeed"
   val mapperBaseId = s"$baseId-mapper"

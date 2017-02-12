@@ -69,15 +69,17 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
 
 
 class StreamBatcherSupplier[K: TypeTag, V: TypeTag](outTopic: String, clientFactory: ClientFactory) extends ProcessorSupplier[Windowed[K],V] {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   override def get: Processor[Windowed[K],V] = {
     val producer = clientFactory.mkProducer[K,V](outTopic)
+    logger.info(s"Creating stream batcher for topic $outTopic")
     new StreamBatcher[K,V](producer)
   }
 }
 
 class StreamBatcher[K: TypeTag, V: TypeTag](producer: SingleTopicProducerKakfa[K,V]) extends Processor[Windowed[K], V] {
  //TODO: see neitszche soln http://stackoverflow.com/questions/39104352/kstream-batch-process-windows
-  //private var seenWindows: KeyValueStore[Long, Integer] = _
+  private val logger = LoggerFactory.getLogger("StreamBatcher")
   private val seenWindows = scala.collection.mutable.Set[Long]() //TODO: use state store
   private val outputBuffer= scala.collection.mutable.Map[Windowed[K], V]()
   private var context: ProcessorContext = _
@@ -85,11 +87,12 @@ class StreamBatcher[K: TypeTag, V: TypeTag](producer: SingleTopicProducerKakfa[K
   override def init(context: ProcessorContext): Unit = {
     this.context = context
     context.schedule(Configuration.Streams.reduceWindowSizeMs)
+    logger.info(s"Initialized batcher to run every ${Configuration.Streams.reduceWindowSizeMs} ms")
     //this.seenWindows = mkStore(context)
   }
 
   override def punctuate(timestamp: Long): Unit = {
-    System.err.println(s"Punctuating $timestamp")
+    logger.debug(s"Punctuating $timestamp")
     val outputCandidates: Seq[(K, V)] = outputBuffer
       // Get passed windows
       .filterKeys(_.window().end < System.currentTimeMillis())
@@ -99,13 +102,13 @@ class StreamBatcher[K: TypeTag, V: TypeTag](producer: SingleTopicProducerKakfa[K
         }
         .map{case(k,v) =>
           seenWindows.add(k)
-          System.err.println(s"Updated seen windows: $seenWindows")
+          logger.debug(s"Updated seen windows: $seenWindows")
           v
         }
         .toSeq
     // Output results
     outputCandidates.foreach{case (k,v) =>
-      System.err.println(s"Batcher forwarding $k -> $v")
+      logger.info(s"Batcher forwarding $k -> $v")
       producer.send(k,v)
     }
     context.commit()
@@ -113,7 +116,7 @@ class StreamBatcher[K: TypeTag, V: TypeTag](producer: SingleTopicProducerKakfa[K
   }
 
   def process(key: Windowed[K], value: V): Unit = {
-    System.err.println(s"Processing $key -> $value")
+    logger.debug(s"Processing $key -> $value")
     outputBuffer.put(key, value)
   }
 

@@ -22,7 +22,7 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
                                  mapFunc: (K, V) => (K1, V1),
                                  protected val config: StreamsConfig)
     extends StreamExecutor {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger(s"StreamMapper $inTopic -> $outTopic")
   protected val builder = {
     logger.debug(s"Configuring mapper builder for $inTopic to $outTopic")
     val builder = new KStreamBuilder
@@ -30,6 +30,7 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
     val deserializedStream: KStream[K, V] = deserialize(inStream)
     val mappedStream: KStream[K1, V1] = deserializedStream.map { (k, v) =>
       val (k1, v1) = mapFunc(k, v)
+      logger.debug(s"Mapping $k, $v -> $k1, $v1")
       new KeyValue(k1, v1)
     }
     val serializedStream: ByteStream = serialize(mappedStream)

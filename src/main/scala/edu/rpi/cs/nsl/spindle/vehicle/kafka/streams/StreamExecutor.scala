@@ -50,7 +50,6 @@ abstract class StreamExecutor {
 
   protected def serialize[K: TypeTag, V: TypeTag](objStream: KStream[K, V]): ByteStream = {
     objStream.map { (k, v) =>
-      System.err.println(s"Serializing ${k.getClass} -> $v")
       new KeyValue(ObjectSerializer.serialize(TypedValue[K](k)), ObjectSerializer.serialize(TypedValue[V](v)))
     }
   }
@@ -133,7 +132,7 @@ abstract class StreamExecutor {
         logger.error(s"Failed to stop stream: $id due to state error $badState")
       }
     }
-    System.err.println(s"Stream stopped: $id")
+    logger.info(s"Stream stopped: $id")
   }
 }
 
