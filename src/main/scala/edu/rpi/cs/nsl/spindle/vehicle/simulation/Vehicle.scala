@@ -2,8 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import akka.actor._
 import akka.actor.Props
@@ -29,6 +28,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationF
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import akka.util.Timeout
 import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
+import scala.concurrent.blocking
 
 case class Ping()
 
@@ -178,26 +178,31 @@ class Vehicle(nodeId: NodeId,
   }
 
   private trait TemporalDaemon {
-    def executeInterval(currentSimTime: Timestamp): Unit
-    def safeShutdown: Unit
-    def fullShutdown {}
+    def executeInterval(currentSimTime: Timestamp): Future[Any]
+    def safeShutdown: Future[Any]
+    def fullShutdown: Future[Any] = Future.successful(None)
   }
 
   private object SensorDaemon extends TemporalDaemon {
     private lazy val outTopic = TopicLookupService.getVehicleStatus(nodeId)
     private val producer = clientFactory.mkProducer[NodeId, VehicleMessage](outTopic)
-    def executeInterval(currentSimTime: Timestamp): Unit = {
+    def executeInterval(currentSimTime: Timestamp): Future[Any] = {
       logger.debug(s"$nodeId executing sensor daemon for $currentSimTime")
       val message: VehicleMessage = generateMessage(currentSimTime)
       logger.debug(s"$nodeId generated message $message")
-      producer.send(nodeId, message)
+      val future = producer.send(nodeId, message)
       logger.debug(s"$nodeId sent status message")
+      future
     }
-    def safeShutdown: Unit = {
+    def safeShutdown: Future[Any] = {
       logger.debug(s"$nodeId shutting down sensor producer")
-      producer.flush
-      producer.close
-      logger.debug(s"$nodeId has shut down sensor producer")
+      Future {
+        blocking {
+          producer.flush
+          producer.close
+          logger.debug(s"$nodeId has shut down sensor producer")
+        }
+      }
     }
   }
 
@@ -205,25 +210,29 @@ class Vehicle(nodeId: NodeId,
 
   private object ClusterMembershipDaemon extends TemporalDaemon {
     private lazy val clusterCacheRef = caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]]
-    def executeInterval(currentSimTime: Timestamp) {
+    def executeInterval(currentSimTime: Timestamp): Future[Any] = {
       clusterCacheRef.getOrPriorOpt(currentSimTime) match {
         case Some(clusterHead) => {
           logger.info(s"Node $nodeId has cluster head $clusterHead at time $currentSimTime")
-          Await.result((clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead)), Duration.Inf)
+          val future = (clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead))
           logger.info(s"Node $nodeId has updated cluster head $clusterHead at time $currentSimTime")
+          future.map(_ => None)
         }
         case None => {
           logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime: ${clusterCacheRef.cache}")
+          Future.successful(None)
         }
       }
     }
-    def safeShutdown: Unit = {
+    def safeShutdown: Future[Any] = {
       val shutdownTimeout = Timeout(Configuration.Vehicles.shutdownTimeout)
       logger.debug(s"Vehicle $nodeId is shutting down cluster-head relay")
-      Await.result((clusterHeadConnection.ask(VehicleConnection.CloseConnection())(shutdownTimeout)), Duration.Inf)
-      context.unwatch(clusterHeadConnection)
-      context.stop(clusterHeadConnection)
-      logger.debug(s"Vehicle $nodeId shut down cluster head relay")
+      val downFuture = (clusterHeadConnection.ask(VehicleConnection.CloseConnection())(shutdownTimeout))
+      downFuture.map {_ =>
+        context.unwatch(clusterHeadConnection)
+        context.stop(clusterHeadConnection)
+        logger.debug(s"Vehicle $nodeId shut down cluster head relay")
+      }
     }
   }
 
@@ -237,7 +246,8 @@ class Vehicle(nodeId: NodeId,
     }
     private def updateTransformers[T <: TransformationFunc](toRun: Iterable[T], prevMap: Map[T, StreamExecutor]): Map[T, StreamExecutor] = {
       val (toRemove, toAdd) = getChanges(prevMap.keySet, toRun.toSet)
-      toRemove.map(prevMap(_)).foreach(_.stopStream)
+      val removeFuture = Future.sequence(toRemove.map(prevMap(_)).map(_.stopStream))
+      //TODO: convert async
       val newTransformers = toAdd.map(func => (func -> func.getTransformExecutor(clientFactory))).toMap
       newTransformers.values.foreach(_.run)
       newTransformers.values.foreach(transformer => logger.debug(s"Launched executor $transformer"))
@@ -253,7 +263,7 @@ class Vehicle(nodeId: NodeId,
       assert(nextReducers.keySet equals reducers.toSet)
       prevReducers = nextReducers
     }
-    def executeInterval(currentSimTime: Timestamp) {
+    def executeInterval(currentSimTime: Timestamp): Future[Any] = {
       logger.debug(s"$nodeId map/reduce daemon updating for $currentSimTime")
       val (lat, lon) = {
         val message = generateMessage(currentSimTime)
@@ -266,28 +276,32 @@ class Vehicle(nodeId: NodeId,
       logger.debug(s"$nodeId updating reducers")
       updateReducers(reducers)
       logger.debug(s"$nodeId updating cluster head connection with map/reduce changes")
-      Await.result((clusterHeadConnection ? VehicleConnection.SetMappers(mappers.map(_.funcId).toSet)), Duration.Inf) //TODO: clean up 
+      val future = (clusterHeadConnection ? VehicleConnection.SetMappers(mappers.map(_.funcId).toSet))
       logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
+      future.map(_ => None)
     }
-    private def shutdownReducers: Unit = {
+    private def shutdownReducers: Future[Any] = {
       logger.debug(s"Vehicle $nodeId shutting down ${prevReducers.size} reducers: $prevReducers")
-      prevReducers.values.foreach{reducer =>
-        System.err.println(s"Vehicle $nodeId closing reducer $reducer")
-        reducer.stopStream
-        System.err.println(s"Vehicle $nodeId closed reducer $reducer")
-      }
-      logger.debug(s"Vehicle $nodeId stopped reducers")
+      Future{blocking {
+        prevReducers.values.foreach { reducer =>
+          System.err.println(s"Vehicle $nodeId closing reducer $reducer")
+          reducer.stopStream
+          System.err.println(s"Vehicle $nodeId closed reducer $reducer")
+        }
+        logger.debug(s"Vehicle $nodeId stopped reducers")
+      }}
     }
-    def safeShutdown: Unit = {
+    def safeShutdown: Future[Any] = {
       logger.debug(s"Vehicle $nodeId shutting down ${prevMappers.size} mappers: $prevMappers")
-      prevMappers.values.foreach(_.stopStream)
-      logger.debug(s"Vehicle $nodeId shut down mappers")
-      if(Configuration.Vehicles.shutdownReducersWhenComplete) {
-        shutdownReducers
+      val shutdownFuture = Future.sequence(prevMappers.values.map(_.stopStream))
+      logger.debug(s"Vehicle $nodeId scheduled shut down mappers")
+      Configuration.Vehicles.shutdownReducersWhenComplete match {
+        case true => shutdownFuture.flatMap(_ => shutdownReducers)
+        case false => shutdownFuture
       }
     }
 
-    override def fullShutdown: Unit = {
+    override def fullShutdown: Future[Any] = {
       shutdownReducers
     }
   }
@@ -297,16 +311,20 @@ class Vehicle(nodeId: NodeId,
     Seq(SensorDaemon, MapReduceDaemon, ClusterMembershipDaemon)
   }
 
-  private def executeInterval(currentSimTime: Timestamp) {
+  private def executeInterval(currentSimTime: Timestamp): Future[Any] = {
     logger.info(s"$nodeId executing for $currentSimTime: $temporalDaemons")
-    temporalDaemons.foreach(_.executeInterval(currentSimTime))
+    //temporalDaemons.foreach(_.executeInterval(currentSimTime))
+    temporalDaemons.foldLeft(Future.successful(None).asInstanceOf[Future[Any]]){case (prevFuture, daemon) =>
+      logger.debug(s"$nodeId prev daemon completed. executing $daemon")
+      prevFuture.flatMap(_ => daemon.executeInterval(currentSimTime))
+    }
   }
 
   private def tick(timings: Seq[TimeMapping], replyWhenDone: Option[ActorRef]) {
     logger.info(s"Vehicle ticking")
-    executeInterval(timings.head.simTime)
+    val execFuture = executeInterval(timings.head.simTime)
     val remainingTimings = timings.tail
-    remainingTimings.headOption match {
+    execFuture.map(_=> remainingTimings.headOption match {
       case None => {
         logger.info(s"Vehicle $nodeId has finished at $currentTime")
         replyWhenDone match {
@@ -317,14 +335,15 @@ class Vehicle(nodeId: NodeId,
           case None => logger.debug(s"$nodeId done (no replyWhenDone actor specified)")
         }
         logger.info(s"Vehicle $nodeId performing safe shutdown")
-        temporalDaemons.foreach(_.safeShutdown)
-        logger.debug(s"Vehicle $nodeId completed safe shutdown")
+        Future.sequence(temporalDaemons.map(_.safeShutdown)).map{_ =>
+          logger.debug(s"Vehicle $nodeId completed safe shutdown")
+        }
       }
       case Some(nextTime: TimeMapping) => {
         context.system.scheduler
           .scheduleOnce(sleepUntil(nextTime.wallTime), self, Vehicle.Tick(remainingTimings, replyWhenDone))
       }
-    }
+    })
   }
 
   protected def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {

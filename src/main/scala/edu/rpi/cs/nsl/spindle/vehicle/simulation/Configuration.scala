@@ -43,7 +43,7 @@ object Configuration extends ConfigurationSingleton {
     val readOnly = conf.getOpt[Boolean]("postgres.readOnly").getOrElse(PgDefaults.readOnly)
   }
 
-  val simStartOffsetMs = 5 * 1000
+  val simStartOffsetMs = 5 * 1000 + (100 * Vehicles.maxEnabledNodes)
   // Uniquely identifies the current job
   val simUid = conf.getOpt[String]("simulation.uid").getOrElse(java.util.UUID.randomUUID.toString)
 

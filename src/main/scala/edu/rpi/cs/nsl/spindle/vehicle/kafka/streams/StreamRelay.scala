@@ -3,7 +3,6 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 import java.io.File
 
 import org.apache.kafka.streams.StreamsConfig
-
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.streams.kstream.KStreamBuilder
@@ -18,6 +17,8 @@ import java.util.Locale
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
 import com.codahale.metrics.CsvReporter
 import java.util.concurrent.TimeUnit
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class StreamRelay(inTopics: Set[String], outTopic: String, protected val config: StreamsConfig) extends StreamExecutor {
   private val logger = LoggerFactory.getLogger(s"Stream Relay $inTopics -> $outTopic")
@@ -60,15 +61,16 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
     builder
   }
 
-  override def stopStream {
+  override def stopStream: Future[Any] = {
     csvReporter.stop()
     csvReporter.close()
     logger.info(s"Shut down reporters for $inTopics -> $outTopic")
-    super.stopStream
-    jmxReporter.stop()
-    jmxReporter.close()
-    val message = s"Stopped stream relay $inTopics -> $outTopic"
-    logger.debug(message)
-    System.err.println(message)
+    super.stopStream.map {_ =>
+      jmxReporter.stop()
+      jmxReporter.close()
+      val message = s"Stopped stream relay $inTopics -> $outTopic"
+      logger.debug(message)
+      System.err.println(message)
+    }
   }
 }

@@ -118,43 +118,17 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
     System.err.println(s"Stream $id has started") //TODO: remove
   }
 
-  def stopStream {
+  def stopStream: Future[Any] = {
     import scala.concurrent.ExecutionContext.Implicits.global
     val STOP_WAIT_TIME: FiniteDuration = (30 seconds)
     logger.info(s"Stream stopping: $id")
-    if(this.started.getAndSet(false) == false) {
-      val message = s"Attempting to stop stream that is not started: $id"
-      System.err.println(message)
-      logger.error(message)
-      throw new RuntimeException(message)
-    }
-    try {
-      val closeFuture: Future[Boolean] = Future {
-        blocking {
-          logger.info(s"Calling close on stream $id")
-          stream.close()
-          true
-        }
-      }
-      val timeoutFuture = Future[Boolean] {
-        blocking {
-          Thread.sleep(STOP_WAIT_TIME.toMillis)
-          false
-        }
-      }
-      val closed: Boolean = Await.result(Future.firstCompletedOf(Seq(closeFuture, timeoutFuture)), Duration.Inf)
-      if(closed) {
-        logger.info(s"Cleaning up closed stream $id")
-        stream.cleanUp()
-      } else {
-        logger.error(s"Attempt to close stream timed out $id")
-      }
-    } catch {
-      case badState: IllegalStateException => {
-        logger.error(s"Failed to stop stream: $id due to state error $badState")
+    Future {
+      blocking {
+        logger.info(s"Calling close on stream $id")
+        stream.close()
+        true
       }
     }
-    logger.info(s"Stream stopped: $id")
   }
 }
 
