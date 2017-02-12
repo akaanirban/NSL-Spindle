@@ -25,10 +25,11 @@ const _mkSimConfigs = `CREATE TABLE IF NOT EXISTS sim_configs(
   configId SERIAL PRIMARY KEY,
   clusterTable varchar(100) NOT NULL,
   numNodes INT NOT NULL,
-  maxIterations INT NOT NULL DEFAULT 20,
+  windowSizeMs BIGINT NOT NULL, 
+  maxIterations INT NOT NULL DEFAULT 20000,
+  --Name of map reduce configuration--
   mapReduceName varchar(500) NOT NULL,
-  description text,
-  UNIQUE(clusterTable, numNodes, mapReduceName, maxIterations)
+  description text
 )`;
 
 const _tables = {
@@ -57,6 +58,8 @@ const _getLeastTested = `
     GROUP BY cfg.configId) as cnts
   INNER JOIN sim_configs cfg
     ON cfg.configId = cnts.configId
+    -- NOTE: filter inadequate iteration count --
+  WHERE cfg.maxiterations > 50
   ORDER BY cnts.runcount asc
 `;
 
