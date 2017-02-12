@@ -10,6 +10,7 @@ const config = {
     targetArn: 'arn:aws:sns:us-east-1:500518139216:nsl-spindle-sim',
   },
   s3Bucket: 'spindle-results',
+  maxVehicles: process.env.MAX_VEHICLES || 10000,
   pgConnection: 'postgres://postgres:spindle@ec2-184-73-126-96.compute-1.amazonaws.com:5432/postgres' 
 };
 

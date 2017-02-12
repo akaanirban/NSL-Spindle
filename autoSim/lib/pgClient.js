@@ -59,7 +59,7 @@ const _getLeastTested = `
   INNER JOIN sim_configs cfg
     ON cfg.configId = cnts.configId
     -- NOTE: filter inadequate iteration count --
-  WHERE cfg.maxiterations > 50
+  WHERE cfg.maxiterations > 50 and cfg.numnodes <= ${config.maxVehicles}
   ORDER BY cnts.runcount asc
 `;
 
