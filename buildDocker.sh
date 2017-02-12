@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t wkronmiller/nsl-spindle-simulator .
+docker build -t wkronmiller/nsl-spindle-simulator:latest .
