@@ -204,10 +204,13 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
   private val SEND_SLEEP_TIME = 2 second
   private def getPool: ExecutorService = { Executors.newCachedThreadPool }
 
-  def getStreamsConfig(id: String) = StreamsConfigBuilder()
-    .withId(id)
+  private def getStreamsConfigBuilder = StreamsConfigBuilder()
     .withServers(baseConfig.properties.getProperty("bootstrap.servers"))
     .withZk(zkString)
+
+  def getStreamsConfig(id: String) = getStreamsConfigBuilder.withId(id)
+
+  private val clientFactory = new ClientFactory(zkString, baseConfig, getStreamsConfigBuilder)
 
   private def sendContinuously[K, V](topic: String, key: K, value: V, producer: ProducerKafka[K, V])(implicit pool: ExecutorService) {
     pool.execute(new Runnable {
@@ -313,8 +316,8 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
     }
 
     val reducer = reducerType match {
-      case ReducerType.KV   => new StreamKVReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testKVReducer").build)
-      case ReducerType.Full => new StreamReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, getStreamsConfig("testFullReducer").build)
+      case ReducerType.KV   => clientFactory.mkKvReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc = reducerFunc, "testKVReducer")
+      case ReducerType.Full => clientFactory.mkReducer[TestObj, TestObj](inTopic, outTopic, reduceFunc=reducerFunc, "testFullReducer")
       case _                => throw new RuntimeException(s"Unrecognized reducer type $reducerName")
     }
 
@@ -337,7 +340,8 @@ class KafkaStreamsTestFixtures(baseConfig: KafkaConfig, kafkaAdmin: KafkaAdmin, 
 
     val outMessageFuture = subscribeAtLeastOnce(outTopic, consumer).map(msg => seekSubstring(List(msg)))
 
-    val (recvdKey, recvdValue) = Await.result(outMessageFuture, 1 minutes)
+    val waitTime = 10 minutes //TODO: get from config
+    val (recvdKey, recvdValue) = Await.result(outMessageFuture, waitTime)
 
     logger.info(s"Got message ${recvdValue.testVal}")
     (pool, consumer, reducer)

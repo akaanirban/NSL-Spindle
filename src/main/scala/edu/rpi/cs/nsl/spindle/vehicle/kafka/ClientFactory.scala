@@ -23,7 +23,10 @@ case class ClientFactoryConfig(zkString: String, kafkaBaseConfig: KafkaConfig, s
  *
  * @todo - refactor interface to take shared config vlaues (zk string, brokers, id)
  */
-class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean = true) {
+class ClientFactory(zkString: String,
+                    kafkaBaseConfig: KafkaConfig,
+                    streamsConfigBuilder: StreamsConfigBuilder,
+                    initTopics: Boolean = true) {
   def this(config: ClientFactoryConfig) {
     this(config.zkString: String, config.kafkaBaseConfig: KafkaConfig, config.streamsConfigBuilder: StreamsConfigBuilder, config.initTopics: Boolean)
   }
@@ -62,12 +65,12 @@ class ClientFactory(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfi
   def mkReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamReducer[K, V] = {
     initTopic(inTopic)
     initTopic(outTopic)
-    new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId))
+    new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this)
   }
   def mkKvReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamKVReducer[K, V] = {
     initTopic(inTopic)
     initTopic(outTopic)
-    new StreamKVReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId))
+    new StreamKVReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this)
   }
   def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String): StreamMapper[K, V, K1, V1] = {
     initTopic(inTopic)

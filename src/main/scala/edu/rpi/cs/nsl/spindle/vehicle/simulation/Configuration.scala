@@ -79,6 +79,7 @@ object Configuration extends ConfigurationSingleton {
     val maxBufferRecords = 100
     val pollMs = (5 minutes).toMillis
     val sessionTimeout = (1 minutes).toMillis
+    val reduceWindowSizeMs = (1 minutes).toMillis
   }
 
   object Vehicles {

@@ -43,7 +43,7 @@ class KafkaUtilSpecDocker extends FlatSpec with BeforeAndAfterAll {
     sharedTests.testStreamMapper
   }
 
-  it should "perform reduceByKey operations" in {
+  it should "perform reduceByKey operations" taggedAs(UnderConstructionTest) in {
     sharedTests.testKVReducer
   }
 

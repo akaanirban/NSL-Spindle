@@ -59,8 +59,8 @@ class WorldActorSpecDocker extends TestKit(ActorSystem("WorldActorSpec"))
       implicit val timeout = Timeout(10 minutes)
       within(30 minutes) {
         logger.debug("Sending init message")
-        assert(Await.result(nopWorld ? World.InitSimulation, waitTime).asInstanceOf[World.Ready].numVehicles == numVehicles)
-        assert(Await.result(nopWorld ? World.StartSimulation, waitTime).isInstanceOf[World.Starting])
+        assert(Await.result(nopWorld ? World.InitSimulation(), waitTime).asInstanceOf[World.Ready].numVehicles == numVehicles)
+        assert(Await.result(nopWorld ? World.StartSimulation(None), waitTime).isInstanceOf[World.Starting])
       }
     }
   }

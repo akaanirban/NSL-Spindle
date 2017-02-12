@@ -1,14 +1,14 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
-import org.apache.kafka.streams.StreamsConfig
-import org.apache.kafka.streams.kstream.KStream
-import org.apache.kafka.streams.kstream.KStreamBuilder
+import org.apache.kafka.streams.{KeyValue, StreamsConfig}
+import org.apache.kafka.streams.kstream._
 import org.slf4j.LoggerFactory
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
-import org.apache.kafka.streams.KeyValue
-import org.apache.kafka.streams.kstream.Reducer
-import org.apache.kafka.streams.kstream.KTable
-import org.apache.kafka.streams.kstream.KGroupedStream
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.SingleTopicProducerKakfa
+import org.apache.kafka.streams.kstream.internals.TimeWindow
+import org.apache.kafka.streams.processor.{AbstractProcessor, Processor, ProcessorContext, ProcessorSupplier}
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
+
 import scala.reflect.runtime.universe._
 
 /**
@@ -17,7 +17,8 @@ import scala.reflect.runtime.universe._
 class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
                                               outTopic: String,
                                               reduceFunc: (V, V) => V,
-                                              intermediateConfig: StreamsConfig)
+                                              intermediateConfig: StreamsConfig,
+                                              clientFactory: ClientFactory)
     extends TypedStreamExecutor[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   protected val config = {
@@ -34,23 +35,89 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
   }
   protected def mkRandTopic = java.util.UUID.randomUUID.toString
   protected val reduceTableName = mkRandTopic
+
+  private val windowRetentionMs = 2L * (Configuration.Streams.reduceWindowSizeMs.toLong +
+    Configuration.Streams.commitMs.toLong)
+
+  protected val reduceWindows: Windows[TimeWindow] = TimeWindows
+    .of(Configuration.Streams.reduceWindowSizeMs)
+    .advanceBy(Configuration.Streams.reduceWindowSizeMs)
+    .until(windowRetentionMs)
   protected val builder = {
     logger.debug(s"Creating ReduceByKey builder for $inTopic to $outTopic")
     val builder = new KStreamBuilder
     val inStream: ByteStream = builder.stream(byteSerde, byteSerde, inTopic)
     val deserializedStream: KStream[K, V] = deserialize(inStream)
-    val reducedStream: KStream[K, V] = deserializedStream
+
+    val reducedWindowedStreamName = s"windowed-reduced-${mkRandTopic}"
+    val reducedWindowedStream: KStream[Windowed[K], V] = deserializedStream
       .groupByKey
-      .reduce(reducer, reduceTableName)
-      .toStream
-    //TODO: tag with reducer function ID
-    val serializedStream: ByteStream = serialize(reducedStream)
-    writeOut(serializedStream, outTopic)
+      .reduce(reducer, reduceWindows, reduceTableName)//TODO: wait for watermark then publish
+      .toStream()
+
+    val batcherSupplier = new StreamBatcherSupplier[K,V](outTopic, clientFactory)
+    reducedWindowedStream.process(batcherSupplier)
+
     builder
   }
 
   override def handleException(id: String, t: Thread, e: Throwable) {
     logger.error(s"Stream reducer $inTopic -> $outTopic failed")
     super.handleException(id, t, e)
+  }
+}
+
+
+class StreamBatcherSupplier[K: TypeTag, V: TypeTag](outTopic: String, clientFactory: ClientFactory) extends ProcessorSupplier[Windowed[K],V] {
+  override def get: Processor[Windowed[K],V] = {
+    val producer = clientFactory.mkProducer[K,V](outTopic)
+    new StreamBatcher[K,V](producer)
+  }
+}
+
+class StreamBatcher[K: TypeTag, V: TypeTag](producer: SingleTopicProducerKakfa[K,V]) extends Processor[Windowed[K], V] {
+ //TODO: see neitszche soln http://stackoverflow.com/questions/39104352/kstream-batch-process-windows
+  //private var seenWindows: KeyValueStore[Long, Integer] = _
+  private val seenWindows = scala.collection.mutable.Set[Long]() //TODO: use state store
+  private val outputBuffer= scala.collection.mutable.Map[Windowed[K], V]()
+  private var context: ProcessorContext = _
+
+  override def init(context: ProcessorContext): Unit = {
+    this.context = context
+    context.schedule(Configuration.Streams.reduceWindowSizeMs)
+    //this.seenWindows = mkStore(context)
+  }
+
+  override def punctuate(timestamp: Long): Unit = {
+    System.err.println(s"Punctuating $timestamp")
+    val outputCandidates: Seq[(K, V)] = outputBuffer
+      // Get passed windows
+      .filterKeys(_.window().end < System.currentTimeMillis())
+      .map(kv => (kv._1.window().end(), (kv._1.key, kv._2)))
+        .filterNot{case (k,_)=>
+            seenWindows.contains(k)
+        }
+        .map{case(k,v) =>
+          seenWindows.add(k)
+          System.err.println(s"Updated seen windows: $seenWindows")
+          v
+        }
+        .toSeq
+    // Output results
+    outputCandidates.foreach{case (k,v) =>
+      System.err.println(s"Batcher forwarding $k -> $v")
+      producer.send(k,v)
+    }
+    context.commit()
+    //TODO: use window expiration config to remove old seenWindows values
+  }
+
+  def process(key: Windowed[K], value: V): Unit = {
+    System.err.println(s"Processing $key -> $value")
+    outputBuffer.put(key, value)
+  }
+
+  override def close(): Unit = {
+    //seenWindows.close()
   }
 }

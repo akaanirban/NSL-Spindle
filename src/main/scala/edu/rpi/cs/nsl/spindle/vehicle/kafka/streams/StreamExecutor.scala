@@ -5,7 +5,7 @@ import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.StreamsConfig
-import org.apache.kafka.streams.kstream.KStream
+import org.apache.kafka.streams.kstream.{KStream, Windowed}
 import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.TypedValue
@@ -49,7 +49,10 @@ abstract class StreamExecutor {
   }
 
   protected def serialize[K: TypeTag, V: TypeTag](objStream: KStream[K, V]): ByteStream = {
-    objStream.map { (k, v) => new KeyValue(ObjectSerializer.serialize(TypedValue[K](k)), ObjectSerializer.serialize(TypedValue[V](v))) }
+    objStream.map { (k, v) =>
+      System.err.println(s"Serializing ${k.getClass} -> $v")
+      new KeyValue(ObjectSerializer.serialize(TypedValue[K](k)), ObjectSerializer.serialize(TypedValue[V](v)))
+    }
   }
 
   protected def writeOut(outStream: ByteStream, outTopic: String) = {
