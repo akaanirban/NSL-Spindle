@@ -29,7 +29,7 @@ import scala.concurrent.duration._
   *
   * @todo - filter messages that arrive before specified time
  */
-abstract class StreamExecutor {
+abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
   type ByteArray = Array[Byte]
   protected type ByteStream = KStream[ByteArray, ByteArray]
   private val logger = LoggerFactory.getLogger("Stream executor")
@@ -42,9 +42,23 @@ abstract class StreamExecutor {
 
   private var stream: KafkaStreams = _
 
-  protected def deserialize[K: TypeTag, V: TypeTag](inStream: ByteStream): KStream[K, V] = {
-    inStream.map { (k, v) =>
-      new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
+  protected def deserializeAndFilter[K: TypeTag, V: TypeTag](inStream: ByteStream): KStream[K, V] = {
+    val typedStream: KStream[TypedValue[K], TypedValue[V]] = inStream.map { (k, v) =>
+      //new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
+      new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k), ObjectSerializer.deserialize[TypedValue[V]](v))
+    }
+
+    val filteredStream = startEpochOpt match {
+      case None => typedStream
+      case Some(startEpoch) => {
+        typedStream.filter{(k,v) =>
+          logger.debug(s"Filtering start times before $startEpoch")
+          k.creationEpoch >= startEpoch && v.creationEpoch >= startEpoch
+        }
+      }
+    }
+    filteredStream.map{(k,v) =>
+      new KeyValue[K,V](k.value, v.value)
     }
   }
 

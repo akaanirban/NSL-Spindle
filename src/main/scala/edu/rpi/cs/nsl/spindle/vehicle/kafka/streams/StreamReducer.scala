@@ -29,7 +29,7 @@ class StreamReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, r
 
   override protected val builder = {
     val builder = new KStreamBuilder
-    val deserializedStream: KStream[K, V] = deserialize {
+    val deserializedStream: KStream[K, V] = deserializeAndFilter {
       builder.stream(byteSerde, byteSerde, inTopic)
     }
     //scalastyle:off null

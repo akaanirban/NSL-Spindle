@@ -27,7 +27,7 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
     logger.debug(s"Configuring mapper builder for $inTopic to $outTopic")
     val builder = new KStreamBuilder
     val inStream: ByteStream = builder.stream(inTopic)
-    val deserializedStream: KStream[K, V] = deserialize(inStream)
+    val deserializedStream: KStream[K, V] = deserializeAndFilter(inStream)
     val mappedStream: KStream[K1, V1] = deserializedStream.map { (k, v) =>
       val (k1, v1) = mapFunc(k, v)
       logger.debug(s"Mapping $k, $v -> $k1, $v1")

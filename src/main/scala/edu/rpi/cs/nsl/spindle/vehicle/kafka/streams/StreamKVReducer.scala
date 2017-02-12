@@ -47,7 +47,7 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
     logger.debug(s"Creating ReduceByKey builder for $inTopic to $outTopic")
     val builder = new KStreamBuilder
     val inStream: ByteStream = builder.stream(byteSerde, byteSerde, inTopic)
-    val deserializedStream: KStream[K, V] = deserialize(inStream)
+    val deserializedStream: KStream[K, V] = deserializeAndFilter(inStream)
 
     val reducedWindowedStreamName = s"windowed-reduced-${mkRandTopic}"
     val reducedWindowedStream: KStream[Windowed[K], V] = deserializedStream
