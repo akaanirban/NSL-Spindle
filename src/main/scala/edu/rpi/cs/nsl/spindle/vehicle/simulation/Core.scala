@@ -48,7 +48,7 @@ trait SimulationConfig {
  */
 trait Simulator extends SimulationConfig {
   private val logger = LoggerFactory.getLogger("Simulator Driver")
-  val WORLD_TIMEOUT = 5 minutes
+  val WORLD_TIMEOUT = 10 minutes
   protected val actorSystem: ActorSystem
   private lazy implicit val ec = actorSystem.dispatcher
 
