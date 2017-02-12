@@ -1,5 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
+import java.util.concurrent.Executors
+
 import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.actor.ActorRef
@@ -27,6 +29,7 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
   import TopicLookupService.{ getClusterInput, getMapperOutput }
   private val logger = Logging(context.system, this)
   private val clientFactory = new ClientFactory(clientFactoryConfig)
+  private val pool = Executors.newSingleThreadExecutor()
   /**
    * TODO: have simple consumer and simple producer replace mapper in order to drop messages,
    * if some kind of filter operation cannot be done (see: Low level API for kafka streams as well)
@@ -50,7 +53,7 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
     relayOpt match {
       case Some(relay) => {
         logger.debug(s"Node $inNode is stopping existing relay")
-        context.dispatcher.execute(new Runnable() {
+        pool.execute(new Runnable() {
           def run {
             logger.info(s"Stopping stream in $inNode asynchronously")
             relay.stopStream //TODO: debug slowness

@@ -38,6 +38,9 @@ object Vehicle {
   case class StartingMessage(nodeId: NodeId, eventTime: Timestamp = System.currentTimeMillis)
   case class FullShutdown()
   case class ShutdownComplete(nodeId: NodeId)
+
+  private[simulation] case class TimeMapping(wallTime: Timestamp, simTime: Timestamp)
+  case class Tick(timings: Seq[TimeMapping], replyWhenDone: Option[ActorRef])
   // Sent by world
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
@@ -89,6 +92,8 @@ class Vehicle(nodeId: NodeId,
     properties.toSeq ++
       Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
   }
+  import Vehicle.TimeMapping
+  import context.dispatcher
   private lazy val (timestamps, caches): (Seq[Timestamp], CacheMap) = eventStore.mkCaches(nodeId)
 
   /**
@@ -141,7 +146,7 @@ class Vehicle(nodeId: NodeId,
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
   }
 
-  private[simulation] case class TimeMapping(wallTime: Timestamp, simTime: Timestamp)
+
 
   /**
    * Create mapping from simulator time to future epoch times based on startTime
@@ -164,13 +169,12 @@ class Vehicle(nodeId: NodeId,
 
   private def currentTime: Timestamp = System.currentTimeMillis
 
-  private def sleepUntil(epochTime: Timestamp) {
+  private def sleepUntil(epochTime: Timestamp) = {
     val sleepMs = epochTime - currentTime
     if (sleepMs <= 0) {
       logger.warning(s"Next time interval has already elapsed $epochTime")
-    } else {
-      Thread.sleep(sleepMs)
     }
+    sleepMs milliseconds
   }
 
   private trait TemporalDaemon {
@@ -299,6 +303,7 @@ class Vehicle(nodeId: NodeId,
   }
 
   private def tick(timings: Seq[TimeMapping], replyWhenDone: Option[ActorRef]) {
+    logger.info(s"Vehicle ticking")
     executeInterval(timings.head.simTime)
     val remainingTimings = timings.tail
     remainingTimings.headOption match {
@@ -316,8 +321,8 @@ class Vehicle(nodeId: NodeId,
         logger.debug(s"Vehicle $nodeId completed safe shutdown")
       }
       case Some(nextTime: TimeMapping) => {
-        sleepUntil(nextTime.wallTime)
-        tick(remainingTimings, replyWhenDone)
+        context.system.scheduler
+          .scheduleOnce(sleepUntil(nextTime.wallTime), self, Vehicle.Tick(remainingTimings, replyWhenDone))
       }
     }
   }
@@ -332,9 +337,7 @@ class Vehicle(nodeId: NodeId,
       }
     }
     logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")
-    sleepUntil(timings.head.wallTime)
-    logger.info(s"Simulation running")
-    tick(timings, replyWhenDone)
+    context.system.scheduler.scheduleOnce(sleepUntil(timings.head.wallTime), self, Vehicle.Tick(timings, replyWhenDone))
   }
 
   override def preStart {
@@ -380,6 +383,9 @@ class Vehicle(nodeId: NodeId,
     }
     case VehicleConnection.Ack() => {
       logger.debug(s"Vehicle $nodeId got ack")
+    }
+    case Vehicle.Tick(timings, replyWhenDone) => {
+      tick(timings, replyWhenDone)
     }
     case _ => throw new RuntimeException(s"Unknown message on $nodeId")
   }
