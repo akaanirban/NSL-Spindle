@@ -1,0 +1,25 @@
+{
+  "name": "results-display",
+  "version": "1.0.0",
+  "description": "Display test results",
+  "main": "lib/index.js",
+  "author": "William Rory Kronmiller",
+  "scripts": {
+    "dev": "nodemon lib/index.js --exec babel-node",
+    "start": "babel-node lib/index.js",
+    "build": "babel lib/index.js --out-file dist/bundle.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "babel-preset-latest": "^6.22.0",
+    "express": "^4.14.1",
+    "pg-promise": "^5.5.6",
+    "winston": "^2.3.1"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.22.2",
+    "babel-plugin-transform-regenerator": "^6.22.0",
+    "babel-polyfill": "^6.22.0",
+    "nodemon": "^1.11.0"
+  }
+}
