@@ -34,6 +34,7 @@ object World {
   case class Finished()
   case class NotFinished()
   case class CheckDone()
+  case class Tick()
   def props(propertyFactory: PropertyFactory,
             transformationStoreFactory: TransformationStoreFactory,
             clientFactory: ClientFactory,
@@ -59,7 +60,7 @@ class World(propertyFactory: PropertyFactory,
             maxVehicles: Option[Int] = None)
     extends Actor with ActorLogging with RequiresMessageQueue[BoundedMessageQueueSemantics] {
   import World._
-  import Vehicle.{ StartMessage, ReadyMessage }
+  import context.dispatcher
   private val logger = Logging(context.system, this)
   private lazy val pgClient = new PgCacheLoader()
   private lazy val nodeList = maxVehicles match {
@@ -87,66 +88,31 @@ class World(propertyFactory: PropertyFactory,
     (nodeId, actor)
   }
 
-  def receive: PartialFunction[Any, Unit] = initializing
+  def receive: PartialFunction[Any, Unit] = initializing()
 
-  private implicit val vehicleTimeout = Timeout(VEHICLE_WAIT_TIME)
-  private implicit val ec = context.dispatcher
-
-  private def trySend[T](actorRef: ActorRef, message: Any, numAttempts: Int = 1): Future[T] = {
-    val MAX_RETRIES = 20
-    val MAX_WAIT_BEFORE_RETRY_MS = 1000
-    if (numAttempts > MAX_RETRIES) {
-      throw new RuntimeException(s"Failed to send message to $actorRef")
-    }
-    logger.debug(s"Sending $message to $actorRef")
-    val sendFuture = (actorRef ? message).map(_.asInstanceOf[T])
-    sendFuture
-      .recover {
-        case err => {
-          logger.warning(s"Failed to send message to vehicle $actorRef $numAttempts. Retrying.")
-          Thread.sleep((MAX_WAIT_BEFORE_RETRY_MS * Math.random).toLong) // Random wait to avoid livelock
-          Await.result(trySend[T](actorRef, message, numAttempts = (numAttempts + 1)), Duration.Inf) //TODO: double-check best practices for this
-        }
+  private def mkTimeQueue(timingMap: Map[NodeId, Set[Timestamp]]): Seq[(Timestamp, Set[ActorRef])] = {
+    val vehicleMap: Map[NodeId, ActorRef] = vehicles.toMap
+    timingMap.toSeq
+      .flatMap{case(node, timestamps) =>
+        timestamps.map(ts => (ts, node))
       }
+      .foldLeft(Map[Timestamp, Set[NodeId]]()){case (tsMap, (ts, node)) =>
+        val newVal: Set[NodeId] = tsMap.getOrElse(ts, Set()) ++ Set(node)
+          tsMap + (ts -> newVal)
+      }
+      .toSeq
+      .sortBy(_._1)
+      .map{case (ts, nodes) =>
+        (ts, nodes.map(vehicleMap(_)))
+      }
+
   }
 
-  private def tryCheck(actorRef: ActorRef): Future[_] = {
-    logger.debug(s"Sending check message to $actorRef")
-    trySend[Vehicle.ReadyMessage](actorRef, Vehicle.CheckReadyMessage)
-  }
-
-  private def tryStart(actorRef: ActorRef, startMessage: Vehicle.StartMessage): Future[_] = {
-    logger.debug(s"Starting $actorRef")
-    trySend[Vehicle.StartingMessage](actorRef, startMessage)
-  }
-
-  private def handleFailure {
-    logger.error("Simulation failed. Shutting down")
-    vehicles.foreach(_._2 ! Kill)
-  }
-
-  private def startAll(startTime: Timestamp) {
-    val startRepliesFuture = Future.sequence {
-      vehicles.map(tup => tryStart(tup._2, Vehicle.StartMessage(startTime, Some(context.self))))
-    }
-    val replies = Await.result(startRepliesFuture, Configuration.simStartOffsetMs milliseconds)
-    val tooLate = replies.forall(_.asInstanceOf[Vehicle.StartingMessage].eventTime < startTime) == false
-    if (tooLate) {
-      logger.error(s"Vehicle(s) started too late")
-      handleFailure
-    }
-  }
-
-  private def becomeStarted(supervisor: Option[ActorRef]) {
+  private def becomeStarted(supervisor: Option[ActorRef], timingMap: Map[NodeId, Set[Timestamp]]) {
     logger.info(s"All ${vehicles.size} vehicles ready")
-    if (initOnly == false) {
-      val startTime = System.currentTimeMillis + Configuration.simStartOffsetMs
-      logger.info(s"Starting at epoch time $startTime")
-      startAll(startTime)
-      context.become(started(startTime, vehicles.size, supervisor = supervisor))
-    } else {
-      logger.error(s"TEST MODE: not starting simulation")
-    }
+    val timingQueue = mkTimeQueue(timingMap)
+    tickVehicles(timingQueue.head)
+    context.become(started(timingQueue = timingQueue, supervisor = supervisor))
   }
 
   private def checkReady() {
@@ -154,67 +120,87 @@ class World(propertyFactory: PropertyFactory,
     vehicles.foreach {
       case (nodeId, actorRef) =>
         logger.debug(s"Doing tryCheck to $nodeId")
-        Await.result(tryCheck(actorRef), Duration.Inf)
-        logger.debug(s"$nodeId is ready")
+        actorRef ! Vehicle.CheckReadyMessage()
+        logger.debug(s"$nodeId is being checked")
     }
   }
 
-  def initializing: Receive = {
+  private def tickVehicles(qHead: (Timestamp, Set[ActorRef])): Unit = qHead match {
+    case (timestamp, actors) => actors.map(_ ! Vehicle.Tick(timestamp, self))
+  }
+
+  def initializing(initializer: Option[ActorRef] = None, timingMap: Map[NodeId, Set[Timestamp]] = Map()): Receive = {
     case Ping() => {
       logger.info("Got ping")
       sender ! Ping
     }
     case InitSimulation() => {
-      logger.info("World recieved init message")
+      logger.info("World received init message")
       try {
         checkReady()
-        logger.debug("Replying with Ready to init message")
-        sender ! Ready(vehicles.size)
+        context.become(initializing(Some(sender), timingMap))
       } catch {
         case e: Exception => context.system.terminate()
       }
     }
+    case Vehicle.ReadyMessage(nodeId, timestamps) => {
+      logger.debug(s"$nodeId is ready")
+      val newTimings: Map[NodeId, Set[Timestamp]] = timingMap + (nodeId -> timestamps)
+      if(newTimings.keys.size == vehicles.size) {
+        logger.info("All vehicles ready")
+        initializer.get ! Ready(vehicles.size)
+      }
+      context.become(initializing(initializer, newTimings))
+    }
     case StartSimulation => {
       sender ! Starting()
-      becomeStarted(None)
+      becomeStarted(None, timingMap)
     }
     case StartSimulation(supervisor) => {
       sender ! Starting()
-      becomeStarted(supervisor)
+      becomeStarted(supervisor, timingMap)
     }
     case m: Any => throw new RuntimeException(s"Received unexpected message (start mode): $m")
   }
-  def started(startTime: Double, numVehicles: Int, finishedVehicles: Set[NodeId] = Set(), supervisor: Option[ActorRef]): Receive = {
+
+  private def terminateVehicles: Future[Unit] = {
+    logger.info("Shutting down all vehicles")
+    implicit val timeout = Timeout(15 minutes)//TODO: no magic please
+    Future.sequence(vehicles.map(_._2 ? Vehicle.FullShutdown())).map(_ => Unit)
+  }
+
+
+  def started(timingQueue: Seq[(Timestamp, Set[ActorRef])], finishedVehicles: Set[NodeId] = Set(), supervisor: Option[ActorRef]): Receive = {
     case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
-    case Vehicle.SimulationDone(nodeId) => {
-      logger.debug(s"World got finished message from $nodeId")
-      val newFinished: Set[NodeId] = finishedVehicles + nodeId
-      if (newFinished.size == numVehicles) {
-        logger.info(s"All vehicles completed. Alerting $supervisor")
-        logger.info("Shutting down vehicles")
-        implicit val shutdownTimeout = Timeout(Configuration.Vehicles.shutdownTimeout * 2)
-        Await.result(Future.sequence(vehicles.map(_._2.ask(Vehicle.FullShutdown())(shutdownTimeout))), Duration.Inf)
-        logger.info("All vehicles shut down. Terminating vehicle actors.")
-        val vehicleRefs = vehicles.map(_._2)
-        vehicleRefs.foreach(context.unwatch)
-        vehicleRefs.foreach(context.stop)
-        logger.info("Stopped all vehicle actors.")
-        supervisor match {
-          case Some(actorRef) => actorRef ! Finished
-          case None           => {
-            logger.warning("World has completed with no supervision")
+    case Vehicle.Tock(nodeId: NodeId, completedSimTime: Timestamp) => {
+      assert(completedSimTime == timingQueue.head._1, s"Vehicle completed unexpected sim time $completedSimTime, timing queue $timingQueue")
+      val newFinishedVehicles = finishedVehicles ++ Set(nodeId)
+      if(newFinishedVehicles.size == timingQueue.head._2.size) {
+        logger.info(s"All vehicles completed iteration $completedSimTime")
+        val newQueue = timingQueue.tail
+        if (newQueue.isEmpty) {
+          logger.info("Simulation Commpleted")
+          terminateVehicles.map{_=>
+            supervisor match {
+              case Some(superRef) => superRef ! World.Finished()
+              case _ => {}
+            }
           }
+        } else {
+          context.system.scheduler.scheduleOnce(1 seconds, self, World.Tick())
+          context.become(started(newQueue, Set(), supervisor))
         }
-        logger.info("World becoming finished")
-        context.become(finished)
       } else {
-        logger.debug(s"${newFinished.size} vehicles finished of $numVehicles")
-        context.become(started(startTime, numVehicles, newFinished, supervisor))
+        context.become(started(timingQueue, newFinishedVehicles, supervisor))
       }
     }
     case CheckDone() => sender ! NotFinished()
     case Terminated(childActor) => {
       logger.warning(s"Child actor of world crashed: $childActor")
+    }
+    case World.Tick() => {
+      logger.info("World ticking")
+      tickVehicles(timingQueue.head)
     }
     case m: Any => {
       logger.error(s"Got unexpected message: $m")

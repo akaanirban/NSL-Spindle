@@ -33,14 +33,14 @@ import scala.concurrent.blocking
 case class Ping()
 
 object Vehicle {
-  case class StartMessage(startTime: Timestamp, replyWhenDone: Option[ActorRef] = None)
-  case class ReadyMessage(nodeId: NodeId)
+  case class ReadyMessage(nodeId: NodeId, timestamps: Set[Timestamp])
   case class StartingMessage(nodeId: NodeId, eventTime: Timestamp = System.currentTimeMillis)
   case class FullShutdown()
   case class ShutdownComplete(nodeId: NodeId)
 
   private[simulation] case class TimeMapping(wallTime: Timestamp, simTime: Timestamp)
-  case class Tick(timings: Seq[TimeMapping], replyWhenDone: Option[ActorRef])
+  case class Tick(simTime: Timestamp, tockDest: ActorRef)
+  case class Tock(nodeId: NodeId, completedSimTime: Timestamp)
   // Sent by world
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
@@ -94,7 +94,10 @@ class Vehicle(nodeId: NodeId,
   }
   import Vehicle.TimeMapping
   import context.dispatcher
-  private lazy val (timestamps, caches): (Seq[Timestamp], CacheMap) = eventStore.mkCaches(nodeId)
+  private lazy val (timestamps, caches): (Seq[Timestamp], CacheMap) = {
+    val (timestamps, caches) = eventStore.mkCaches(nodeId)
+    (timestamps.take(Configuration.Vehicles.maxIterations.getOrElse(timestamps.length)), caches)
+  }
 
   /**
    * Actor responsible for relaying data to cluster head
@@ -144,27 +147,6 @@ class Vehicle(nodeId: NodeId,
       mockSensors.toSeq.map(_.getReading(currentSimTime)) ++ positionSeq
     }.asInstanceOf[Seq[TypedValue[Any]]]
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
-  }
-
-
-
-  /**
-   * Create mapping from simulator time to future epoch times based on startTime
-   */
-  private[simulation] def mkTimings(startTime: Timestamp): Seq[TimeMapping] = {
-    val zeroTime = eventStore.getMinSimTime
-    val offsets = timestamps.map(_ - zeroTime)
-    assert(offsets.length == timestamps.length)
-    val absoluteTimes = offsets
-      .map(_ + startTime)
-      .sorted
-      .zip(timestamps)
-      .sorted
-      .map { case (wallTime, simTime) => TimeMapping(wallTime, simTime) }
-    assert(absoluteTimes.head.wallTime >= startTime, s"Start time $startTime does not map to ${absoluteTimes.head}")
-    assert(zeroTime <= timestamps.min, s"${timestamps.min} less than zero time $zeroTime")
-    // Ensure ascending order
-    absoluteTimes
   }
 
   private def currentTime: Timestamp = System.currentTimeMillis
@@ -313,50 +295,20 @@ class Vehicle(nodeId: NodeId,
 
   private def executeInterval(currentSimTime: Timestamp): Future[Any] = {
     logger.info(s"$nodeId executing for $currentSimTime: $temporalDaemons")
-    //temporalDaemons.foreach(_.executeInterval(currentSimTime))
     temporalDaemons.foldLeft(Future.successful(None).asInstanceOf[Future[Any]]){case (prevFuture, daemon) =>
       logger.debug(s"$nodeId prev daemon completed. executing $daemon")
       prevFuture.flatMap(_ => daemon.executeInterval(currentSimTime))
     }
   }
 
-  private def tick(timings: Seq[TimeMapping], replyWhenDone: Option[ActorRef]) {
+  private def tick(simTime: Timestamp, tockDest: ActorRef) {
     logger.info(s"Vehicle ticking")
-    val execFuture = executeInterval(timings.head.simTime)
-    val remainingTimings = timings.tail
-    execFuture.map(_=> remainingTimings.headOption match {
-      case None => {
-        logger.info(s"Vehicle $nodeId has finished at $currentTime")
-        replyWhenDone match {
-          case Some(receiver) => {
-            logger.info(s"$nodeId sending DONE to $receiver")
-            receiver ! Vehicle.SimulationDone(nodeId)
-          }
-          case None => logger.debug(s"$nodeId done (no replyWhenDone actor specified)")
-        }
-        logger.info(s"Vehicle $nodeId performing safe shutdown")
-        Future.sequence(temporalDaemons.map(_.safeShutdown)).map{_ =>
-          logger.debug(s"Vehicle $nodeId completed safe shutdown")
-        }
-      }
-      case Some(nextTime: TimeMapping) => {
-        context.system.scheduler
-          .scheduleOnce(sleepUntil(nextTime.wallTime), self, Vehicle.Tick(remainingTimings, replyWhenDone))
-      }
-    })
-  }
+    val execFuture = executeInterval(simTime)
 
-  protected def startSimulation(startTime: Timestamp, replyWhenDone: Option[ActorRef]) {
-    logger.info(s"$nodeId will start at epoch $startTime")
-    val timings = {
-      val fullTimings = mkTimings(startTime)
-      Configuration.Vehicles.maxIterations match {
-        case None => fullTimings
-        case Some(maxIteration) => fullTimings.take(maxIteration)
-      }
+    execFuture.map{_ =>
+      logger.info(s"$nodeId completed $simTime")
+      tockDest ! Vehicle.Tock(nodeId, simTime)
     }
-    logger.debug(s"$nodeId generated timings ${timings(0)} to ${timings.last}")
-    context.system.scheduler.scheduleOnce(sleepUntil(timings.head.wallTime), self, Vehicle.Tick(timings, replyWhenDone))
   }
 
   override def preStart {
@@ -376,18 +328,13 @@ class Vehicle(nodeId: NodeId,
   }
 
   def receive: PartialFunction[Any, Unit] = {
-    case Vehicle.StartMessage(startTime, replyWhenDone) => {
-      logger.info(s"Node $nodeId got start message")
-      sender ! Vehicle.StartingMessage(nodeId)
-      startSimulation(startTime, replyWhenDone)
-    }
     case Ping() => {
       logger.debug("Replying to ping")
       sender ! Ping()
     }
-    case Vehicle.CheckReadyMessage => {
+    case Vehicle.CheckReadyMessage() => {
       logger.info(s"$nodeId got checkReady")
-      sender ! Vehicle.ReadyMessage(nodeId)
+      sender ! Vehicle.ReadyMessage(nodeId, this.timestamps.toSet)
     }
     case Terminated(failedChild) => {
       logger.error(s"Child actor crashed for Vehicle $nodeId: $failedChild")
@@ -395,17 +342,24 @@ class Vehicle(nodeId: NodeId,
     }
     case Vehicle.FullShutdown() => {
       logger.info(s"Vehicle $nodeId is fully shutting down")
-      this.temporalDaemons.foreach(_.fullShutdown)
-      this.clientFactory.close
-      logger.info(s"Vehicle $nodeId has fully shut down")
-      sender ! Vehicle.ShutdownComplete(nodeId)
+      val safeFuture = Future.sequence(this.temporalDaemons.map(_.safeShutdown))
+      val fullFuture = safeFuture.flatMap{_ =>
+        logger.info(s"$nodeId completed safe shutdown")
+        Future.sequence(this.temporalDaemons.map(_.fullShutdown))
+      }
+      fullFuture.map { _ =>
+        logger.info(s"$nodeId completed full shutdown")
+        this.clientFactory.close
+        logger.info(s"Vehicle $nodeId has fully shut down")
+        sender ! Vehicle.ShutdownComplete(nodeId)
+      }
     }
     case VehicleConnection.Ack() => {
       logger.debug(s"Vehicle $nodeId got ack")
     }
-    case Vehicle.Tick(timings, replyWhenDone) => {
-      tick(timings, replyWhenDone)
+    case Vehicle.Tick(simTime, tockDest) => {
+      tick(simTime, tockDest)
     }
-    case _ => throw new RuntimeException(s"Unknown message on $nodeId")
+    case msg: Any => throw new RuntimeException(s"Unknown message on $nodeId: $msg")
   }
 }

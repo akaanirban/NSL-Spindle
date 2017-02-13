@@ -9,6 +9,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamMapper
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.SingleTopicProducerKakfa
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 import scala.concurrent._
+import scala.concurrent.duration._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
 import org.slf4j.LoggerFactory
 import scala.reflect.runtime.universe._
@@ -48,8 +49,7 @@ class ClientFactory(zkString: String,
           }
         }
       }
-      canaryProducer.sendKafka(topic, None, None, isCanary = true)
-      Thread.sleep(400) //TODO: try to avoid sleep statements, at least move to config file
+      Await.ready(canaryProducer.sendKafka(topic, None, None, isCanary = true), 30 seconds)
     }
   }
 
