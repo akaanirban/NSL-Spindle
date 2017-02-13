@@ -163,26 +163,38 @@ class World(propertyFactory: PropertyFactory,
     case m: Any => throw new RuntimeException(s"Received unexpected message (start mode): $m")
   }
 
-  private def terminateVehicles: Future[Unit] = {
+  private def shutdownVehicles: Future[Unit] = {
     logger.info("Shutting down all vehicles")
     implicit val timeout = Timeout(15 minutes)//TODO: no magic please
     Future.sequence(vehicles.map(_._2 ? Vehicle.FullShutdown()).map(_.map(_ => logger.info("World detected vehicle shutdown")))).map(_ => Unit)
   }
 
+  private def stopVehicles(): Unit = {
+    val actorRefs = vehicles.map(_._2)
+    actorRefs.map(context.unwatch(_))
+    actorRefs.map(context.stop(_))
+  }
+
   private case class BecomeFinished()
+
+  private def becomeFinished(): Unit = {
+    stopVehicles()
+    context.become(finished)
+  }
 
   private def shutdown(supervisor: Option[ActorRef]): Unit = {
     logger.info("Simulation Commpleted")
-    terminateVehicles.map{_=>
-      logger.info("All vehicles terminated")
+    shutdownVehicles.map{_=>
+      logger.info("All vehicles shut down")
       supervisor match {
         case Some(superRef) => superRef ! World.Finished()
         case _ => {}
       }
-      context.become(finished)
+      self ! BecomeFinished()
     }
     context.system.scheduler.scheduleOnce(5 minutes, self, BecomeFinished())
   }
+
 
   def started(timingQueue: Seq[(Timestamp, Set[ActorRef])], finishedVehicles: Set[NodeId] = Set(), supervisor: Option[ActorRef]): Receive = {
     case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
@@ -204,7 +216,7 @@ class World(propertyFactory: PropertyFactory,
     }
     case BecomeFinished() => {
       logger.warning("Becoming finished after timeout")
-      context.become(finished)
+      becomeFinished()
     }
     case CheckDone() => sender ! NotFinished()
     case Terminated(childActor) => {
