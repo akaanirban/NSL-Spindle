@@ -1,5 +1,5 @@
 const config = {
-  sbtArgs: ['run'],
+  sbtArgs: ['-mem', '92160', 'run'],
   workdir: '../',
   env: process.env,
   logsDir: 'logs',
