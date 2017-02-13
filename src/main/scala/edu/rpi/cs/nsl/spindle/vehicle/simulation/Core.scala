@@ -2,6 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.TimeoutException
 
 import akka.actor.ActorSystem
 import akka.actor.Props
@@ -103,7 +104,11 @@ trait Simulator extends SimulationConfig {
     logger.info(s"Waiting to finish. Results stored in ${Configuration.simResultsDir}")
     checkFinished
     logger.info("Waiting for actor system to finish terminating")
-    Await.result(actorSystem.whenTerminated, Duration.Inf)
+    try {
+      Await.result(actorSystem.whenTerminated, 5 minutes)
+    } catch {
+      case _: java.util.concurrent.TimeoutException => logger.warn("Akka shutdown timed out")
+    }
     logger.info("Finished")
   }
 }
