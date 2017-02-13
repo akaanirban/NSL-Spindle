@@ -161,7 +161,7 @@ class Vehicle(nodeId: NodeId,
   private trait TemporalDaemon {
     def executeInterval(currentSimTime: Timestamp): Future[Any]
     def safeShutdown: Future[Any]
-    def fullShutdown: Future[Any] = Future.successful(None)
+    def fullShutdown: Future[Any] = safeShutdown
   }
 
   private object SensorDaemon extends TemporalDaemon {
@@ -286,7 +286,7 @@ class Vehicle(nodeId: NodeId,
     }
 
     override def fullShutdown: Future[Any] = {
-      shutdownReducers
+      Future.sequence(Seq(super.fullShutdown, shutdownReducers))
     }
   }
 
@@ -345,29 +345,13 @@ class Vehicle(nodeId: NodeId,
     case Vehicle.FullShutdown() => {
       val replyActor: ActorRef = sender()
       logger.info(s"Vehicle $nodeId is fully shutting down")
-      val safeDownFutures: Seq[Future[Any]] = this.temporalDaemons
-        .map(_.safeShutdown)
-        .zipWithIndex
-          .map{case(future, index) =>
-            future.map{_ =>
-              logger.info(s"Vehicle $nodeId completed safe shutdown future $index: ${this.temporalDaemons(index).toString}")
-              Unit
-            }
-          }
-      val safeFuture = Future.sequence(safeDownFutures)
-      System.err.println(s"Vehicle $nodeId created safeFuture $safeFuture")
-      val fullFuture = safeFuture.flatMap{_ =>
-        var message =s"Vehicle $nodeId completed safe shutdown"
-        logger.info(message)
-        System.err.println(message)
-        Future.sequence(this.temporalDaemons.map(_.fullShutdown))
+      val shutdownFutures = this.temporalDaemons.map(_.fullShutdown).zipWithIndex.map{case(future, index) =>
+        future.map{_ =>
+          logger.debug(s"Vehicle $nodeId has completed full shutdown of temporal daemon $index")
+          Unit
+        }
       }
-      fullFuture.map { _ =>
-        logger.info(s"$nodeId completed full shutdown")
-        this.clientFactory.close
-        logger.info(s"Vehicle $nodeId has fully shut down")
-        replyActor ! Vehicle.ShutdownComplete(nodeId)
-      }
+      Future.sequence(shutdownFutures).map(_ => replyActor ! Vehicle.ShutdownComplete(nodeId))
     }
     case VehicleConnection.Ack() => {
       logger.debug(s"Vehicle $nodeId got ack")

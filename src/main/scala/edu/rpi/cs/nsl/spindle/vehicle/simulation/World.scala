@@ -166,13 +166,18 @@ class World(propertyFactory: PropertyFactory,
   private def shutdownVehicles: Future[Unit] = {
     logger.info("Shutting down all vehicles")
     implicit val timeout = Timeout(15 minutes)//TODO: no magic please
-    Future.sequence(vehicles.map(_._2 ? Vehicle.FullShutdown()).map(_.map(_ => logger.info("World detected vehicle shutdown")))).map(_ => Unit)
+    Future.sequence(vehicles.map(_._2 ? Vehicle.FullShutdown())
+      .map(_.map(_ => logger.info("World detected vehicle shutdown"))))
+      .map(_ => Unit)
   }
 
   private def stopVehicles(): Unit = {
     val actorRefs = vehicles.map(_._2)
+    logger.debug("Unwatching vehicles")
     actorRefs.map(context.unwatch(_))
+    logger.debug("Unwatched vehicles. Stopping vehicle actors.")
     actorRefs.map(context.stop(_))
+    logger.info("All vehicle actors stopped")
   }
 
   private case class BecomeFinished()
