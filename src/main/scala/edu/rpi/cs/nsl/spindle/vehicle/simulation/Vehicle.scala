@@ -92,7 +92,6 @@ class Vehicle(nodeId: NodeId,
     properties.toSeq ++
       Seq(TypedValue[VehicleTypes.VehicleId](nodeId)).asInstanceOf[Seq[TypedValue[Any]]]
   }
-  import Vehicle.TimeMapping
   import context.dispatcher
   private lazy val (timestamps, caches): (Seq[Timestamp], CacheMap) = {
     val (timestamps, caches) = eventStore.mkCaches(nodeId)
@@ -211,9 +210,11 @@ class Vehicle(nodeId: NodeId,
       logger.debug(s"Vehicle $nodeId is shutting down cluster-head relay")
       val downFuture = (clusterHeadConnection.ask(VehicleConnection.CloseConnection())(shutdownTimeout))
       downFuture.map {_ =>
+        logger.info(s"Vehicle $nodeId closed clusterhead relay. Shutting down connection manager actor.")
         context.unwatch(clusterHeadConnection)
         context.stop(clusterHeadConnection)
         logger.debug(s"Vehicle $nodeId shut down cluster head relay")
+        Unit
       }
     }
   }
@@ -264,14 +265,15 @@ class Vehicle(nodeId: NodeId,
     }
     private def shutdownReducers: Future[Any] = {
       logger.debug(s"Vehicle $nodeId shutting down ${prevReducers.size} reducers: $prevReducers")
-      Future{blocking {
-        prevReducers.values.foreach { reducer =>
-          System.err.println(s"Vehicle $nodeId closing reducer $reducer")
-          reducer.stopStream
+
+      val reducerShutdownFutures = prevReducers.values.toSeq.map { reducer =>
+        System.err.println(s"Vehicle $nodeId closing reducer $reducer")
+        reducer.stopStream.map { _ =>
           System.err.println(s"Vehicle $nodeId closed reducer $reducer")
+          None
         }
-        logger.debug(s"Vehicle $nodeId stopped reducers")
-      }}
+      }
+      Future.sequence(reducerShutdownFutures).map(_ => logger.debug(s"Vehicle $nodeId stopped reducers"))
     }
     def safeShutdown: Future[Any] = {
       logger.debug(s"Vehicle $nodeId shutting down ${prevMappers.size} mappers: $prevMappers")
@@ -341,17 +343,30 @@ class Vehicle(nodeId: NodeId,
       throw new RuntimeException(s"Vehilce $nodeId child actor crashed")
     }
     case Vehicle.FullShutdown() => {
+      val replyActor: ActorRef = sender()
       logger.info(s"Vehicle $nodeId is fully shutting down")
-      val safeFuture = Future.sequence(this.temporalDaemons.map(_.safeShutdown))
+      val safeDownFutures: Seq[Future[Any]] = this.temporalDaemons
+        .map(_.safeShutdown)
+        .zipWithIndex
+          .map{case(future, index) =>
+            future.map{_ =>
+              logger.info(s"Vehicle $nodeId completed safe shutdown future $index: ${this.temporalDaemons(index).toString}")
+              Unit
+            }
+          }
+      val safeFuture = Future.sequence(safeDownFutures)
+      System.err.println(s"Vehicle $nodeId created safeFuture $safeFuture")
       val fullFuture = safeFuture.flatMap{_ =>
-        logger.info(s"$nodeId completed safe shutdown")
+        var message =s"Vehicle $nodeId completed safe shutdown"
+        logger.info(message)
+        System.err.println(message)
         Future.sequence(this.temporalDaemons.map(_.fullShutdown))
       }
       fullFuture.map { _ =>
         logger.info(s"$nodeId completed full shutdown")
         this.clientFactory.close
         logger.info(s"Vehicle $nodeId has fully shut down")
-        sender ! Vehicle.ShutdownComplete(nodeId)
+        replyActor ! Vehicle.ShutdownComplete(nodeId)
       }
     }
     case VehicleConnection.Ack() => {

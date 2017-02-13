@@ -29,6 +29,7 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
   import TopicLookupService.{ getClusterInput, getMapperOutput }
   private val logger = Logging(context.system, this)
   private val clientFactory = new ClientFactory(clientFactoryConfig)
+  import context.dispatcher
   private val pool = Executors.newSingleThreadExecutor()
   /**
    * TODO: have simple consumer and simple producer replace mapper in order to drop messages,
@@ -40,7 +41,7 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
   private def mkRelay(inMappers: Set[String], outNode: NodeId) = {
     val inTopics = inMappers.map(TopicLookupService.getMapperOutput(inNode, _))
     val outTopic = TopicLookupService.getClusterInput(outNode)
-    val relayId = java.util.UUID.randomUUID.toString //TODO: check if we can re-use relays (prolly not)    
+    val relayId = java.util.UUID.randomUUID.toString //TODO: check if we can re-use relays (prolly not)
     val relay: StreamRelay = clientFactory.mkRelay(inTopics, outTopic, relayId)
     logger.debug(s"Node $inNode dispatching relay $relay and is sendign to $outTopic")
     relay.run
@@ -81,27 +82,28 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
     case Ping() => sender ! Ping()
     case SetMappers(newIds) => {
       sender ! Ack()
-      (inMappers == newIds) match {
-        case false => replaceRelay(newIds, outNode, relayOpt, sender)
-        case _     => {}
+      if(inMappers != newIds)  {
+        replaceRelay(newIds, outNode, relayOpt, sender)
       }
     }
     case SetClusterHead(newId) => {
       sender ! Ack()
-      (newId == outNode) match {
-        case false => replaceRelay(inMappers, newId, relayOpt, sender)
-        case _     => {}
+      if(newId != outNode) {
+        replaceRelay(inMappers, newId, relayOpt, sender)
       }
     }
     case CloseConnection() => {
+      val replyActor: ActorRef = sender()
       logger.debug(s"Relay to $outNode shutting down")
       relayOpt match {
         case Some(streamRelay) => {
-          streamRelay.stopStream
+          streamRelay.stopStream.map{_ =>
+            logger.info(s"Stream relay shut down. Alerting vehicle.")
+            replyActor ! Ack()
+          }
         }
-        case None => {}
+        case None => {replyActor ! Ack()}
       }
-      sender ! Ack()
     }
   }
 }

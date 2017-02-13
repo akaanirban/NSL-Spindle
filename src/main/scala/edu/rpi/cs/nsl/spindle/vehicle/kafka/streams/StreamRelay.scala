@@ -69,8 +69,8 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
       jmxReporter.stop()
       jmxReporter.close()
       val message = s"Stopped stream relay $inTopics -> $outTopic"
-      logger.debug(message)
-      System.err.println(message)
+      logger.info(message)
+      None
     }
   }
 }

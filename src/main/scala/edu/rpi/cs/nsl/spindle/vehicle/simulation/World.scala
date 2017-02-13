@@ -166,9 +166,23 @@ class World(propertyFactory: PropertyFactory,
   private def terminateVehicles: Future[Unit] = {
     logger.info("Shutting down all vehicles")
     implicit val timeout = Timeout(15 minutes)//TODO: no magic please
-    Future.sequence(vehicles.map(_._2 ? Vehicle.FullShutdown())).map(_ => Unit)
+    Future.sequence(vehicles.map(_._2 ? Vehicle.FullShutdown()).map(_.map(_ => logger.info("World detected vehicle shutdown")))).map(_ => Unit)
   }
 
+  private case class BecomeFinished()
+
+  private def shutdown(supervisor: Option[ActorRef]): Unit = {
+    logger.info("Simulation Commpleted")
+    terminateVehicles.map{_=>
+      logger.info("All vehicles terminated")
+      supervisor match {
+        case Some(superRef) => superRef ! World.Finished()
+        case _ => {}
+      }
+      context.become(finished)
+    }
+    context.system.scheduler.scheduleOnce(5 minutes, self, BecomeFinished())
+  }
 
   def started(timingQueue: Seq[(Timestamp, Set[ActorRef])], finishedVehicles: Set[NodeId] = Set(), supervisor: Option[ActorRef]): Receive = {
     case Vehicle.ReadyMessage => logger.warning(s"Got extra ready message")
@@ -179,13 +193,7 @@ class World(propertyFactory: PropertyFactory,
         logger.info(s"All vehicles completed iteration $completedSimTime")
         val newQueue = timingQueue.tail
         if (newQueue.isEmpty) {
-          logger.info("Simulation Commpleted")
-          terminateVehicles.map{_=>
-            supervisor match {
-              case Some(superRef) => superRef ! World.Finished()
-              case _ => {}
-            }
-          }
+          shutdown(supervisor)
         } else {
           context.system.scheduler.scheduleOnce(1 seconds, self, World.Tick())
           context.become(started(newQueue, Set(), supervisor))
@@ -193,6 +201,10 @@ class World(propertyFactory: PropertyFactory,
       } else {
         context.become(started(timingQueue, newFinishedVehicles, supervisor))
       }
+    }
+    case BecomeFinished() => {
+      logger.warning("Becoming finished after timeout")
+      context.become(finished)
     }
     case CheckDone() => sender ! NotFinished()
     case Terminated(childActor) => {
@@ -208,5 +220,9 @@ class World(propertyFactory: PropertyFactory,
   }
   def finished: Receive = {
     case CheckDone() => sender ! Finished()
+    case BecomeFinished() => {}
+    case _ => {
+      logger.warning("World got unexpected message after finished")
+    }
   }
 }

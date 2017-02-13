@@ -115,17 +115,16 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
     this.started.set(true)
 
     logger.info(s"Stream $id has started")
-    System.err.println(s"Stream $id has started") //TODO: remove
   }
 
   def stopStream: Future[Any] = {
     import scala.concurrent.ExecutionContext.Implicits.global
-    val STOP_WAIT_TIME: FiniteDuration = (30 seconds)
     logger.info(s"Stream stopping: $id")
     Future {
       blocking {
         logger.info(s"Calling close on stream $id")
         stream.close()
+        logger.info(s"Closed stream $id")
         true
       }
     }

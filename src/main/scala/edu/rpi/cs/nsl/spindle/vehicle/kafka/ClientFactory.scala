@@ -87,6 +87,8 @@ class ClientFactory(zkString: String,
   }
 
   def close: Unit = {
+    logger.info("Closing client factory")
     kafkaAdmin.close
+    canaryProducer.close
   }
 }
