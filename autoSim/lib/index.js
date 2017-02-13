@@ -34,6 +34,8 @@ function runSim() {
 
   var finished = false;
 
+  process.stderr.on('data', data => console.log('stderr', String(data)));
+
   const simUidPromise = new Promise((resolve) => {
     process.stdout.on('data', (data) => {
       const strData = String(data);

@@ -57,6 +57,10 @@ case class KafkaConfig(properties: Properties = new Properties()) {
     this.copyWithChange(_.put("block.on.buffer.full", block: String))
   }
 
+  def withMaxBlockMs(ms: Long = 3000): KafkaConfig = {
+    this.copyWithChange(_.put("max.block.ms", ms.toString))
+  }
+
   def withAutoOffset(autoCommit: Boolean = true): KafkaConfig = {
     this.copyWithChange(_.put("enable.auto.commit", autoCommit: String))
   }
@@ -65,7 +69,7 @@ case class KafkaConfig(properties: Properties = new Properties()) {
     this.withByteSer
       .withRetries()
       .withAcks()
-      .withBlockingOnFull()
+        .withMaxBlockMs()
   }
 
   def withConsumerDefaults: KafkaConfig = {
