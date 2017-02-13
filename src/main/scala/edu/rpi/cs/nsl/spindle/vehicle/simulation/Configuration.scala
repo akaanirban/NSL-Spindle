@@ -75,10 +75,10 @@ object Configuration extends ConfigurationSingleton {
   val simReportSeconds = 10
 
   object Streams {
-    val commitMs = (2 seconds).toMillis
+    val commitMs = 500
     val maxBufferRecords = 100
-    val pollMs = (5 minutes).toMillis
-    val sessionTimeout = (1 minutes).toMillis
+    val pollMs = (1 seconds).toMillis
+    val sessionTimeout = (6 seconds).toMillis
     val reduceWindowSizeMs: Long = conf.getLong("spindle.sim.streams.reduce.window.ms")
   }
 

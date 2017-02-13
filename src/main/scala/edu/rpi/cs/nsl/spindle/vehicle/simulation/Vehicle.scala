@@ -168,12 +168,11 @@ class Vehicle(nodeId: NodeId,
     private lazy val outTopic = TopicLookupService.getVehicleStatus(nodeId)
     private val producer = clientFactory.mkProducer[NodeId, VehicleMessage](outTopic)
     def executeInterval(currentSimTime: Timestamp): Future[Any] = {
-      logger.debug(s"$nodeId executing sensor daemon for $currentSimTime")
+      logger.debug(s"Vehicle $nodeId executing sensor daemon for $currentSimTime")
       val message: VehicleMessage = generateMessage(currentSimTime)
-      logger.debug(s"$nodeId generated message $message")
+      logger.debug(s"Vehicle $nodeId generated message $message")
       val future = producer.send(nodeId, message)
-      logger.debug(s"$nodeId sent status message")
-      future
+      future.map(_ => logger.debug(s"Vehicle $nodeId sent status message"))
     }
     def safeShutdown: Future[Any] = {
       logger.debug(s"$nodeId shutting down sensor producer")
@@ -227,24 +226,26 @@ class Vehicle(nodeId: NodeId,
       val toAdd = latest diff existing
       (toRemove, toAdd)
     }
-    private def updateTransformers[T <: TransformationFunc](toRun: Iterable[T], prevMap: Map[T, StreamExecutor]): Map[T, StreamExecutor] = {
+    private def updateTransformers[T <: TransformationFunc](toRun: Iterable[T], prevMap: Map[T, StreamExecutor]): Future[Map[T, StreamExecutor]] = {
       val (toRemove, toAdd) = getChanges(prevMap.keySet, toRun.toSet)
-      val removeFuture = Future.sequence(toRemove.map(prevMap(_)).map(_.stopStream))
-      //TODO: convert async
-      val newTransformers = toAdd.map(func => (func -> func.getTransformExecutor(clientFactory))).toMap
-      newTransformers.values.foreach(_.run)
-      newTransformers.values.foreach(transformer => logger.debug(s"Launched executor $transformer"))
-      (prevMap -- toRemove) ++ newTransformers
+      Future.sequence(toRemove.map(prevMap(_)).map(_.stopStream)).map{_=>
+        val newTransformers = toAdd.map(func => (func -> func.getTransformExecutor(clientFactory))).toMap
+        newTransformers.values.foreach(_.run)
+        newTransformers.values.foreach(transformer => logger.debug(s"Launched executor $transformer"))
+        (prevMap -- toRemove) ++ newTransformers
+      }
     }
-    private def updateMappers(mappers: Iterable[MapperFunc[_, _, _, _]]) {
-      val nextMap = updateTransformers(mappers, prevMappers)
-      assert(nextMap.keySet equals mappers.toSet)
-      prevMappers = nextMap
+    private def updateMappers(mappers: Iterable[MapperFunc[_, _, _, _]]): Future[Unit] =  {
+      updateTransformers(mappers, prevMappers).map{nextMap =>
+        assert(nextMap.keySet equals mappers.toSet)
+        prevMappers = nextMap
+      }
     }
-    private def updateReducers(reducers: Iterable[KvReducerFunc[_, _]]) {
-      val nextReducers = updateTransformers(reducers, prevReducers)
-      assert(nextReducers.keySet equals reducers.toSet)
-      prevReducers = nextReducers
+    private def updateReducers(reducers: Iterable[KvReducerFunc[_, _]]): Future[Unit] = {
+      updateTransformers(reducers, prevReducers).map{nextReducers =>
+        assert(nextReducers.keySet equals reducers.toSet)
+        prevReducers = nextReducers
+      }
     }
     def executeInterval(currentSimTime: Timestamp): Future[Any] = {
       logger.debug(s"$nodeId map/reduce daemon updating for $currentSimTime")
@@ -255,17 +256,19 @@ class Vehicle(nodeId: NodeId,
       val ActiveTransformations(mappers, reducers) = transformationStore
         .getActiveTransformations(currentSimTime, (lat, lon))
       logger.debug(s"$nodeId updating mappers")
-      updateMappers(mappers)
+      val mapperFuture = updateMappers(mappers)
       logger.debug(s"$nodeId updating reducers")
-      updateReducers(reducers)
+      val reducerFuture = updateReducers(reducers)
       logger.debug(s"$nodeId updating cluster head connection with map/reduce changes")
-      val future = (clusterHeadConnection ? VehicleConnection.SetMappers(mappers.map(_.funcId).toSet))
+      val clusterHeadFuture = (clusterHeadConnection ? VehicleConnection.SetMappers(mappers.map(_.funcId).toSet))
       logger.info(s"$nodeId updated mappers and reducers: $prevMappers $prevReducers")
-      future.map(_ => None)
+      Future.sequence(Seq(mapperFuture, reducerFuture, clusterHeadFuture)).map{_ =>
+        logger.info(s"Vehicle $nodeId updated all Map/Reduce threads for epoch $currentSimTime")
+        Unit
+      }
     }
     private def shutdownReducers: Future[Any] = {
       logger.debug(s"Vehicle $nodeId shutting down ${prevReducers.size} reducers: $prevReducers")
-
       val reducerShutdownFutures = prevReducers.values.toSeq.map { reducer =>
         System.err.println(s"Vehicle $nodeId closing reducer $reducer")
         reducer.stopStream.map { _ =>

@@ -36,18 +36,19 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
   protected val builder: TopologyBuilder
   protected val config: StreamsConfig
   private val MAX_WAIT_READY_ITERATIONS = 20
-  private val started: AtomicBoolean = new AtomicBoolean(false)
 
   protected val byteSerde = Serdes.ByteArray
 
   private var stream: KafkaStreams = _
+
+  private val startTime: Long = System.currentTimeMillis()
 
 
   protected def deserializeAndFilter[K: TypeTag, V: TypeTag](inStream: ByteStream): KStream[K, V] = {
     val typedStream: KStream[TypedValue[K], TypedValue[V]] = inStream
       .filterNot{(k,_) =>
         val msg = ObjectSerializer.deserialize[TypedValue[Any]](k)
-        System.err.println(s"Checking if canary $msg")
+        System.err.println(s"Checking if canary: $msg")
         msg.isCanary
       }
       .map { (k, v) =>
@@ -61,6 +62,7 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
       case Some(startEpoch) => {
         typedStream.filter{(k,v) =>
           logger.debug(s"Filtering start times before $startEpoch")
+          System.err.println(s"Filtering start times before $startEpoch: ($k, $v)")
           k.creationEpoch >= startEpoch && v.creationEpoch >= startEpoch
         }
       }
@@ -112,8 +114,6 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
     })
 
     stream.start()
-    this.started.set(true)
-
     logger.info(s"Stream $id has started")
   }
 

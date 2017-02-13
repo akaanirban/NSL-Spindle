@@ -55,6 +55,8 @@ class ClientFactory(zkString: String,
 
   def getConfig: ClientFactoryConfig = ClientFactoryConfig(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean)
 
+  private def getStartEpochOpt: Option[Long] = Some(System.currentTimeMillis())
+
   /**
    * Make a simple Kafka producer
    *
@@ -66,17 +68,17 @@ class ClientFactory(zkString: String,
   def mkReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamReducer[K, V] = {
     initTopic(inTopic)
     initTopic(outTopic)
-    new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this)
+    new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this, startEpochOpt = getStartEpochOpt)
   }
   def mkKvReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamKVReducer[K, V] = {
     initTopic(inTopic)
     initTopic(outTopic)
-    new StreamKVReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this)
+    new StreamKVReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this, startEpochOpt = getStartEpochOpt)
   }
   def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String): StreamMapper[K, V, K1, V1] = {
     initTopic(inTopic)
     initTopic(outTopic)
-    new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId))
+    new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId), startEpochOpt = getStartEpochOpt)
   }
 
   def mkRelay(inTopics: Set[String], outTopic: String, relayId: String): StreamRelay = {

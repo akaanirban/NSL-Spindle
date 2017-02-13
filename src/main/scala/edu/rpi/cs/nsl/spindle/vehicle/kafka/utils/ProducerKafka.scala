@@ -24,7 +24,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
  * Kafka producer
  */
 class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Producer[K, V] {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger("ProducerKafka")
   private val kafkaProducer = new KafkaProducer[ByteArray, ByteArray](config.properties)
   private implicit val executionContext = ExecutionContext.global
   val CLOSE_WAIT_SECONDS = 10
@@ -32,7 +32,7 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
   logger.trace(s"Created producer with config ${config.properties}")
 
   def sendKafka(topic: String, key: K, value: V, isCanary: Boolean = false): Future[SendResult] = {
-    logger.debug(s"Sending ($key, $value) to $topic")
+    System.err.println(s"Sending ($key, $value) to $topic")
     val serKey: ByteArray = ObjectSerializer.serialize(TypedValue[K](key, isCanary = isCanary))
     val serVal: ByteArray = ObjectSerializer.serialize(TypedValue[V](value, isCanary = isCanary))
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)

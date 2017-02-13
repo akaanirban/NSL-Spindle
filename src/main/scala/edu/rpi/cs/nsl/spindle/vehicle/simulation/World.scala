@@ -165,7 +165,7 @@ class World(propertyFactory: PropertyFactory,
 
   private def shutdownVehicles: Future[Unit] = {
     logger.info("Shutting down all vehicles")
-    implicit val timeout = Timeout(15 minutes)//TODO: no magic please
+    implicit val timeout = Timeout(10 minutes)//TODO: no magic please
     Future.sequence(vehicles.map(_._2 ? Vehicle.FullShutdown())
       .map(_.map(_ => logger.info("World detected vehicle shutdown"))))
       .map(_ => Unit)
@@ -197,7 +197,7 @@ class World(propertyFactory: PropertyFactory,
       }
       self ! BecomeFinished()
     }
-    context.system.scheduler.scheduleOnce(5 minutes, self, BecomeFinished())
+    context.system.scheduler.scheduleOnce(2 minutes, self, BecomeFinished())
   }
 
 

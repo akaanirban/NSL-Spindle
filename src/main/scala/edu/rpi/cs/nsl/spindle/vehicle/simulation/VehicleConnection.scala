@@ -30,7 +30,6 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
   private val logger = Logging(context.system, this)
   private val clientFactory = new ClientFactory(clientFactoryConfig)
   import context.dispatcher
-  private val pool = Executors.newSingleThreadExecutor()
   /**
    * TODO: have simple consumer and simple producer replace mapper in order to drop messages,
    * if some kind of filter operation cannot be done (see: Low level API for kafka streams as well)
@@ -54,13 +53,7 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
     relayOpt match {
       case Some(relay) => {
         logger.debug(s"Node $inNode is stopping existing relay")
-        pool.execute(new Runnable() {
-          def run {
-            logger.info(s"Stopping stream in $inNode asynchronously")
-            relay.stopStream //TODO: debug slowness
-            logger.info(s"Stopped stream in $inNode")
-          }
-        })
+        relay.stopStream
         logger.debug(s"Node $inNode has stopped existing relay")
       }
       case _ => {}

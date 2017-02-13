@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
+//TODO: filter by start epoch
 class StreamRelay(inTopics: Set[String], outTopic: String, protected val config: StreamsConfig) extends StreamExecutor {
   private val logger = LoggerFactory.getLogger(s"Stream Relay $inTopics -> $outTopic")
   private val deserializer = new ByteArrayDeserializer()
@@ -43,12 +44,15 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
     reporter
   }
 
+  System.err.println(s"Creating stream relay from ${inTopics} -> $outTopic")
+
   val builder = {
     val builder = new KStreamBuilder()
     val inStreams: Seq[ByteStream] = inTopics.toSeq.map(topic => builder.stream(topic): ByteStream)
     val mappedStreams: Seq[ByteStream] = inStreams.map { inStream =>
       val mappedStream: ByteStream = inStream.map { (k, v) =>
         logger.debug(s"Relaying message from $inStream to $outTopic")
+        System.err.println(s"Relaying message from $inTopics to $outTopic: ($k, $v)")
         val messageSize = k.length + v.length
         totalData.inc(messageSize)
         dataHist.update(messageSize)
