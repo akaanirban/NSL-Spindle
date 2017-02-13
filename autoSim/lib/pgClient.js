@@ -8,34 +8,38 @@ class Table {
   }
 }
 
-const _mkSimResults = `CREATE TABLE IF NOT EXISTS sim_results(
-  jobUUID varchar(40) NOT NULL REFERENCES sim_runs(jobUUID),
+const tablesVersion = 'v2';
+
+const _mkSimResults = `CREATE TABLE IF NOT EXISTS sim_results_${tablesVersion}(
+  jobUUID varchar(40) NOT NULL REFERENCES sim_runs_${tablesVersion}(jobUUID),
   dest varchar(500) NOT NULL,
   source varchar(500) NOT NULL,
   numBytes INT NOT NULL,
   PRIMARY KEY(jobUUID, dest, source)
 )`;
 
-const _mkSimRuns = `CREATE TABLE IF NOT EXISTS sim_runs(
-  configId INT REFERENCES sim_configs(configId), 
-  jobUUID varchar(40) NOT NULL PRIMARY KEY
+const _mkSimRuns = `CREATE TABLE IF NOT EXISTS sim_runs_${tablesVersion}(
+  configId INT REFERENCES sim_configs_${tablesVersion}(configId), 
+  jobUUID varchar(40) NOT NULL PRIMARY KEY,
+  timestamp timestamp DEFAULT current_timestamp
 )`;
 
-const _mkSimConfigs = `CREATE TABLE IF NOT EXISTS sim_configs(
+const _mkSimConfigs = `CREATE TABLE IF NOT EXISTS sim_configs_${tablesVersion}(
   configId SERIAL PRIMARY KEY,
   clusterTable varchar(100) NOT NULL,
   numNodes INT NOT NULL,
   windowSizeMs BIGINT NOT NULL, 
   maxIterations INT NOT NULL DEFAULT 20000,
+  enabled BOOLEAN DEFAULT TRUE,
   --Name of map reduce configuration--
   mapReduceName varchar(500) NOT NULL,
   description text
 )`;
 
 const _tables = {
-  configs: new Table('sim_configs', _mkSimConfigs),
-  runs: new Table('sim_runs', _mkSimRuns),
-  results: new Table('sim_results', _mkSimResults),
+  configs: new Table(`sim_configs_${tablesVersion}`, _mkSimConfigs),
+  runs: new Table(`sim_runs_${tablesVersion}`, _mkSimRuns),
+  results: new Table(`sim_results_${tablesVersion}`, _mkSimResults),
 };
 
 const _initTables = (client) => {
@@ -52,24 +56,24 @@ const _getLeastTested = `
   SELECT cnts.runcount, cfg.*
   FROM 
     (SELECT cfg.configId, COUNT(jobUUID) as runcount
-    FROM sim_configs cfg
-    LEFT JOIN sim_runs run
+    FROM sim_configs_${tablesVersion} cfg
+    LEFT JOIN sim_runs_${tablesVersion} run
       ON cfg.configId = run.configId
     GROUP BY cfg.configId) as cnts
-  INNER JOIN sim_configs cfg
+  INNER JOIN sim_configs_${tablesVersion} cfg
     ON cfg.configId = cnts.configId
     -- NOTE: filter inadequate iteration count --
-  WHERE cfg.maxiterations > 50 and cfg.numnodes <= ${config.maxVehicles}
+  WHERE cfg.enabled = TRUE and cfg.numnodes <= ${config.maxVehicles}
   ORDER BY cnts.runcount asc
 `;
 
 const _insertRun = `
-INSERT INTO sim_runs(configid, jobuuid)
+INSERT INTO sim_runs_${tablesVersion}(configid, jobuuid)
 VALUES ($1, $2)
 `;
 
 const _insertResult = `
-INSERT INTO sim_results(jobuuid, source, dest, numbytes)
+INSERT INTO sim_results_${tablesVersion}(jobuuid, source, dest, numbytes)
 VALUES ($1, $2, $3, $4)
 `;
 

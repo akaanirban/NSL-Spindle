@@ -159,7 +159,7 @@ async function runNextSim(client) {
   metaLogger.info('Initialized tables');
   const nextConfig = await client.getNextConfig();
   metaLogger.info('next config', nextConfig);
-  const resultsDir = `${config.appResultsDir}/${nextConfig.clustertable}_${nextConfig.numnodes}nodes_${nextConfig.numiterations}iterations_run${nextConfig.runcount}`;
+  const resultsDir = `${config.appResultsDir}/${nextConfig.clustertable}_${nextConfig.numnodes}nodes_${nextConfig.maxiterations}iterations_run${nextConfig.runcount}`;
   // Autorunner and simulator run from different directories
   const resultsDirRelative = `../${resultsDir}`;
   rmrf(resultsDirRelative);
