@@ -49,7 +49,7 @@ function runSim() {
     process.on('end', () => resolve(null));
   });
   const simFinishedPromise = new Promise((resolve, reject) => {
-    process.stdout.on('data', (data) => {
+    process.stderr.on('data', (data) => {
       const strData = String(data);
       console.log('stdout', strData);
       if(strData.indexOf(finishMessage) !== -1) {
