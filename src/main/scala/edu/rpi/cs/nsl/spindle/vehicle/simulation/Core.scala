@@ -161,6 +161,7 @@ object Core extends Simulator with SpeedSumSimulation {
   }
 
   def main(args: Array[String]) {
+    import scala.concurrent.ExecutionContext.Implicits.global
     println(s"Starting sim ${Configuration.simUid}")
     clearKafka
     initWorld
