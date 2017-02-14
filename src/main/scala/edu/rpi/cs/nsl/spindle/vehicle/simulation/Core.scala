@@ -2,7 +2,6 @@ package edu.rpi.cs.nsl.spindle.vehicle.simulation
 
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.TimeoutException
 
 import akka.actor.ActorSystem
 import akka.actor.Props
@@ -16,8 +15,7 @@ import akka.util.Timeout
 import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
 
-import scala.util.Success
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future, blocking}
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
@@ -142,6 +140,7 @@ trait SpeedSumSimulation {
 }
 
 object Core extends Simulator with SpeedSumSimulation {
+  private val logger = LoggerFactory.getLogger(this.getClass())
   protected val actorSystem = ActorSystem("SpindleSimulator")
 
   private def waitUserInput: Unit = {
@@ -169,8 +168,18 @@ object Core extends Simulator with SpeedSumSimulation {
     runSim
     finish
     moveResults
-    clearKafka
+
+    try {
+      Await.ready(Future {
+        blocking {
+          clearKafka
+        }
+      }, 2 minutes)
+    } catch {
+      case _: java.util.concurrent.TimeoutException => logger.warn("Did not clear kafka")
+    }
     println("Program Finished. Exiting NSL-Spindle Simulator.")
     System.exit(0)
+
   }
 }
