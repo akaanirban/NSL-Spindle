@@ -168,6 +168,7 @@ object Core extends Simulator with SpeedSumSimulation {
     waitThenStart
     runSim
     finish
+    System.err.println("Program Finishing. Closing down NSL-Spindle Simulator")
     moveResults
 
     try {

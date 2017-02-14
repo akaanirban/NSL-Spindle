@@ -31,6 +31,7 @@ function runSim() {
 
   const startMessage = 'Starting sim';
   const finishMessage = 'Program Finished. Exiting NSL-Spindle Simulator.';
+  const finishingMessage = 'Program Finishing. Closing down NSL-Spindle Simulator';
 
   var finished = false;
 
@@ -56,6 +57,10 @@ function runSim() {
         kill(process.pid, 'SIGKILL');
         finished = true;
         return resolve(null);
+      }
+      if(strData.indexOf(finishingMessage) !== -1) {
+        finished = true;
+        metaLogger.info(`Got finishing message. Waiting for process completion`);
       }
     });
     process.on('close', () => {
