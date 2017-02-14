@@ -35,8 +35,6 @@ function runSim() {
 
   var finished = false;
 
-  process.stderr.on('data', data => console.log('stderr', String(data)));
-
   const simUidPromise = new Promise((resolve) => {
     process.stdout.on('data', (data) => {
       const strData = String(data);
@@ -49,9 +47,9 @@ function runSim() {
     process.on('end', () => resolve(null));
   });
   const simFinishedPromise = new Promise((resolve, reject) => {
-    process.stderr.on('data', (data) => {
+    const processConsole = (data) => {
       const strData = String(data);
-      console.log('stdout', strData);
+      console.log(strData);
       if(strData.indexOf(finishMessage) !== -1) {
         metaLogger.info(`Got finished message. Killing process ${process.pid}`);
         kill(process.pid, 'SIGKILL');
@@ -62,7 +60,9 @@ function runSim() {
         finished = true;
         metaLogger.info(`Got finishing message. Waiting for process completion`);
       }
-    });
+    };
+    process.stdout.on('data', processConsole);
+    process.stderr.on('data', processConsole);
     process.on('close', () => {
       finished = true;
       return resolve(null);
