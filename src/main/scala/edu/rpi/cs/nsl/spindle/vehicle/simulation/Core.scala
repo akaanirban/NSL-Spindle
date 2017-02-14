@@ -163,12 +163,13 @@ object Core extends Simulator with SpeedSumSimulation {
 
   def main(args: Array[String]) {
     println(s"Starting sim ${Configuration.simUid}")
-    //clearKafka
+    clearKafka
     initWorld
     waitThenStart
     runSim
     finish
     moveResults
+    clearKafka
     println("Program Finished. Exiting NSL-Spindle Simulator.")
     System.exit(0)
   }
