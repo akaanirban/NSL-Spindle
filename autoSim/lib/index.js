@@ -178,8 +178,10 @@ async function runNextSim(client) {
     //TODO: Store logs in row
     await uploadDir(simUid, resultsDirRelative);
     await client.addResults(nextConfig.configid, simUid, results); 
+    notifier.alertFinished(nextConfig, JSON.stringify(results));
   } catch(err) { 
     metaLogger.error(`Sim failed: ${err}`, nextConfig);
+    notifier.alertError(nextConfig, JSON.stringify(err));
   }
   metaLogger.info('Waiting for sim full shutdown');
   await simShutdownPromise;

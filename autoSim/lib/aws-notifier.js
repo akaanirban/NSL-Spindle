@@ -25,8 +25,8 @@ export default class SnsNotifier extends Notifier {
       resolve(data);
     }));
   }
-  async alertFinished(config, message, exitCode) {
-    await this._sendMessage(`Test finished ${exitCode}`, `${message}\n${config}`);
+  async alertFinished(config, message) {
+    await this._sendMessage(`Sim Run finished`, `Sim run completed: ${message}\n${config}`);
   }
   async alertError(config, message) {
     await this._sendMessage('Test error', `${message}\n${config}`);
