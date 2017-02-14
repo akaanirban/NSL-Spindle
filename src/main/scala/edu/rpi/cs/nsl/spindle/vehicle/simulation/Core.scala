@@ -163,7 +163,7 @@ object Core extends Simulator with SpeedSumSimulation {
 
   def main(args: Array[String]) {
     println(s"Starting sim ${Configuration.simUid}")
-    clearKafka
+    //clearKafka
     initWorld
     waitThenStart
     runSim
