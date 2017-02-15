@@ -5,7 +5,7 @@ import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.StreamsConfig
-import org.apache.kafka.streams.kstream.{KStream, Windowed}
+import org.apache.kafka.streams.kstream.{KStream}
 import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.TypedValue
@@ -14,14 +14,9 @@ import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 
 import scala.reflect.runtime.universe.TypeTag
 import java.lang.Thread.UncaughtExceptionHandler
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
-
-import akka.pattern.AskTimeoutException
 import org.apache.kafka.clients.consumer.CommitFailedException
 
 import scala.concurrent._
-import scala.concurrent.duration._
 
 
 /**

@@ -21,8 +21,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransform
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
-import edu.rpi.cs.nsl.spindle.datatypes.{Vehicle => VehicleMessage}
-import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
+import edu.rpi.cs.nsl.spindle.datatypes.{VehicleColors, VehicleTypes, Vehicle => VehicleMessage}
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 
@@ -139,7 +138,48 @@ trait SpeedSumSimulation {
   })
 }
 
-object Core extends Simulator with SpeedSumSimulation {
+trait DualQuery {
+  assert(Configuration.Vehicles.mapReduceConfigName == "dualQuery")
+  import VehicleTypes.MPH
+  private def uuid = java.util.UUID.randomUUID.toString
+  protected val transformationStoreFactory: TransformationStoreFactory = new GenerativeStaticTransformationFactory(nodeId => {
+    val speedMapper = {
+      val mapperId = s"getSpeed-mapper-$nodeId-$uuid"
+      val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+      val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+      MapperFunc[Any, VehicleMessage, String, Any](mapperId, inTopic, outTopic, (_, v) => {
+        (mapperId: String, v.mph: MPH)
+      })
+    }
+    val colorMapper = {
+      val mapperId = s"getColor-mapper-$nodeId-$uuid"
+      val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+      val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+      MapperFunc[Any, VehicleMessage, String, Any](mapperId, inTopic, outTopic, (_, v) => {
+        (mapperId: String, Set(v.color: VehicleColors.Value))
+      })
+    }
+    val speedReducer = {
+      val reducerId = s"getSpeed-reducer-$nodeId-$uuid"
+      val inTopic = TopicLookupService.getClusterInput(nodeId)
+      val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
+      KvReducerFunc[String, MPH](reducerId, inTopic, outTopic, (a, b) => {
+        a + b
+      })
+    }
+    val colorReducer = {
+      val reducerId = s"getColor-reducer-$nodeId-$uuid"
+      val inTopic = TopicLookupService.getClusterInput(nodeId)
+      val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
+      KvReducerFunc[String, Set[VehicleColors.Value]](reducerId, inTopic, outTopic, (a, b) => {
+        a ++ b
+      })
+    }
+    ActiveTransformations(Set(speedMapper, colorMapper), Set(speedReducer, colorReducer))
+  })
+}
+
+object Core extends Simulator with DualQuery {
   private val logger = LoggerFactory.getLogger(this.getClass())
   protected val actorSystem = ActorSystem("SpindleSimulator")
 

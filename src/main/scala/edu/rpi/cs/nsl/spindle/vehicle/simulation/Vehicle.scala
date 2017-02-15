@@ -295,7 +295,7 @@ class Vehicle(nodeId: NodeId,
 
   private lazy val temporalDaemons = {
     logger.info(s"$nodeId initializing temporal daemons")
-    Seq(SensorDaemon, MapReduceDaemon, ClusterMembershipDaemon)
+    Seq(MapReduceDaemon, ClusterMembershipDaemon, SensorDaemon)
   }
 
   private def executeInterval(currentSimTime: Timestamp): Future[Any] = {

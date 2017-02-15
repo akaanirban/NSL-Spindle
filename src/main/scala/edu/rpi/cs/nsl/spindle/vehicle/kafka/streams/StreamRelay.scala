@@ -7,7 +7,6 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.streams.kstream.KStreamBuilder
 import org.slf4j.LoggerFactory
-import org.apache.kafka.streams.KeyValue
 import com.codahale.metrics.Counter
 import com.codahale.metrics.Histogram
 import com.codahale.metrics.JmxReporter
@@ -15,13 +14,19 @@ import com.codahale.metrics.SharedMetricRegistries
 import java.util.Locale
 
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 import com.codahale.metrics.CsvReporter
 import java.util.concurrent.TimeUnit
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 //TODO: filter by start epoch
-class StreamRelay(inTopics: Set[String], outTopic: String, protected val config: StreamsConfig) extends StreamExecutor {
+class StreamRelay(inTopics: Set[String],
+                  outTopic: String,
+                  protected val config: StreamsConfig,
+                  startEpoch: Long = System.currentTimeMillis()) extends StreamExecutor {
   private val logger = LoggerFactory.getLogger(s"Stream Relay $inTopics -> $outTopic")
   private val deserializer = new ByteArrayDeserializer()
   private val serializer = new ByteArraySerializer()
@@ -49,19 +54,21 @@ class StreamRelay(inTopics: Set[String], outTopic: String, protected val config:
   val builder = {
     val builder = new KStreamBuilder()
     val inStreams: Seq[ByteStream] = inTopics.toSeq.map(topic => builder.stream(topic): ByteStream)
-    val mappedStreams: Seq[ByteStream] = inStreams.map { inStream =>
-      val mappedStream: ByteStream = inStream.map { (k, v) =>
+    val filteredStreams: Seq[ByteStream] = inStreams.map { inStream =>
+      val filteredStream: ByteStream = inStream.filterNot { (k, v) =>
         logger.debug(s"Relaying message from $inStream to $outTopic")
-        System.err.println(s"Relaying message from $inTopics to $outTopic: ($k, $v)")
         val messageSize = k.length + v.length
         totalData.inc(messageSize)
         dataHist.update(messageSize)
-        new KeyValue[ByteArray, ByteArray](k, v)
+        val deserializedKey = ObjectSerializer.deserialize[TypedValue[Any]](k)
+        val reject = deserializedKey.isCanary || deserializedKey.creationEpoch < startEpoch
+        System.err.println(s"Relaying message from $inTopics to $outTopic: ($k, $v) - reject $reject")
+        reject
       }
-      mappedStream
+      filteredStream
     }
-    mappedStreams.foreach(_.to(outTopic))
-    logger.info(s"Relay created mapped topics $mappedStreams")
+    filteredStreams.foreach(_.to(outTopic))
+    logger.info(s"Relay created mapped topics $filteredStreams")
     builder
   }
 
