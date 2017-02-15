@@ -5,15 +5,16 @@ import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.StreamsConfig
-import org.apache.kafka.streams.kstream.{KStream}
+import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.TypedValue
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.{TypedValue, ReflectionUtils}
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 
 import scala.reflect.runtime.universe.TypeTag
 import java.lang.Thread.UncaughtExceptionHandler
+
 import org.apache.kafka.clients.consumer.CommitFailedException
 
 import scala.concurrent._
@@ -38,13 +39,27 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
 
   private val startTime: Long = System.currentTimeMillis()
 
-
+  private def getAnyTyped(msgBytes: Array[Byte]): TypedValue[Any] = {
+    ObjectSerializer.deserialize[TypedValue[Any]](msgBytes)
+  }
   protected def deserializeAndFilter[K: TypeTag, V: TypeTag](inStream: ByteStream): KStream[K, V] = {
+    val (kTypeStr, vTypeStr): (String, String) = {
+      (ReflectionUtils.getTypeString[K], ReflectionUtils.getTypeString[V])
+    }
     val typedStream: KStream[TypedValue[K], TypedValue[V]] = inStream
       .filterNot{(k,_) =>
-        val msg = ObjectSerializer.deserialize[TypedValue[Any]](k)
+        val msg = getAnyTyped(k)
         System.err.println(s"Checking if canary: $msg")
         msg.isCanary
+      }
+      .filter{(k,v)=>
+        val msgKTypeStr = getAnyTyped(k).getTypeString
+        val msgVTypeStr = getAnyTyped(v).getTypeString
+        val keyMatch = (msgKTypeStr == kTypeStr)
+        System.err.println(s"Checking if keymatch $msgKTypeStr ?= $kTypeStr: $keyMatch")
+        val valMatch = (msgVTypeStr == vTypeStr)
+        System.err.println(s"Checking of valmatch $msgVTypeStr ?= $vTypeStr: $valMatch")
+        keyMatch && valMatch
       }
       .map { (k, v) =>
         val msg = new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k), ObjectSerializer.deserialize[TypedValue[V]](v))
