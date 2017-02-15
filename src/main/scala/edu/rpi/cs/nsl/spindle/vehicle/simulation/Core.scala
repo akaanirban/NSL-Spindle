@@ -22,6 +22,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStati
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.datatypes.{VehicleColors, VehicleTypes, Vehicle => VehicleMessage}
+import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 
@@ -122,7 +123,7 @@ trait SpeedSumSimulation {
       val mapperId = s"$mapperBaseId-$nodeId-$uuid"
       val inTopic = TopicLookupService.getVehicleStatus(nodeId)
       val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
-      MapperFunc[Any, VehicleMessage, String, Any](mapperId, inTopic, outTopic, (_, v) => {
+      MapperFunc[NodeId, VehicleMessage, String, MPH](mapperId, inTopic, outTopic, (_, v) => {
         (mapperId: String, v.mph: MPH)
       })
     }
@@ -130,7 +131,7 @@ trait SpeedSumSimulation {
       val reducerId = s"$reducerBaseId-$nodeId-$uuid"
       val inTopic = TopicLookupService.getClusterInput(nodeId)
       val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
-      KvReducerFunc[String, Double](reducerId, inTopic, outTopic, (a, b) => {
+      KvReducerFunc[String, MPH](reducerId, inTopic, outTopic, (a, b) => {
         a + b
       })
     }
@@ -147,7 +148,7 @@ trait DualQuery {
       val mapperId = s"getSpeed-mapper-$nodeId-$uuid"
       val inTopic = TopicLookupService.getVehicleStatus(nodeId)
       val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
-      MapperFunc[Any, VehicleMessage, String, Any](mapperId, inTopic, outTopic, (_, v) => {
+      MapperFunc[NodeId, VehicleMessage, String, MPH](mapperId, inTopic, outTopic, (_, v) => {
         (mapperId: String, v.mph: MPH)
       })
     }
@@ -155,7 +156,7 @@ trait DualQuery {
       val mapperId = s"getColor-mapper-$nodeId-$uuid"
       val inTopic = TopicLookupService.getVehicleStatus(nodeId)
       val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
-      MapperFunc[Any, VehicleMessage, String, Any](mapperId, inTopic, outTopic, (_, v) => {
+      MapperFunc[NodeId, VehicleMessage, String, Set[VehicleColors.Value]](mapperId, inTopic, outTopic, (_, v) => {
         (mapperId: String, Set(v.color: VehicleColors.Value))
       })
     }
