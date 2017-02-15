@@ -8,7 +8,7 @@ class Table {
   }
 }
 
-const tablesVersion = 'v2';
+const tablesVersion = 'v3';
 
 const _mkSimResults = `CREATE TABLE IF NOT EXISTS sim_results_${tablesVersion}(
   jobUUID varchar(40) NOT NULL REFERENCES sim_runs_${tablesVersion}(jobUUID),
