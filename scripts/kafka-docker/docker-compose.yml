@@ -16,6 +16,7 @@ services:
       KAFKA_ADVERTISED_HOST_NAME: $HOSTNAME
       KAFKA_ZOOKEEPER_CONNECT: $HOSTNAME:2181
       KAFKA_LISTENERS: "PLAINTEXT://:9092"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
       HOSTNAME: $HOSTNAME
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
