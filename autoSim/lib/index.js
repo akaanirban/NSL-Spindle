@@ -198,7 +198,8 @@ async function runSims() {
   async function callRunner() {
     runNextSim(client).then(() => {
       metaLogger.info("Sim ended. Calling next.");
-      setTimeout(callRunner, 5000);
+        // Wait 90 seconds
+      setTimeout(callRunner, 90 * 1000);
     });
   }
   callRunner();
