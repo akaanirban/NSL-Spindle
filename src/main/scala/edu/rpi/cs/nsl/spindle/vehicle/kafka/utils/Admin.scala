@@ -95,10 +95,14 @@ class KafkaAdmin(zkString: String) {
   def wipeCluster {
     val topics = AdminUtils.fetchAllTopicConfigs(zkUtils).map(_._1)
     logger.info(s"Deleting topics: $topics")
-    topics.foreach(AdminUtils.deleteTopic(zkUtils, _))
+    topics.foreach{topic =>
+      try {
+        AdminUtils.deleteTopic(zkUtils, topic)
+      } catch {
+        case _: kafka.common.TopicAlreadyMarkedForDeletionException => logger.warn(s"Topic already marked for deletion: $topic")
+      }
+    }
     Thread.sleep((5 seconds).toMillis) //TODO: remove magic
-    val remainingTopics = AdminUtils.fetchAllTopicConfigs(zkUtils)
-    assert(remainingTopics.isEmpty, s"Failed to delete all topics: ${remainingTopics.map(_._1).toList}")
   }
 
   def close {
