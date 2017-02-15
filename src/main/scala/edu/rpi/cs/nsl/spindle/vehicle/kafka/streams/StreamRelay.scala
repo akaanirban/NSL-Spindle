@@ -58,11 +58,13 @@ class StreamRelay(inTopics: Set[String],
       val filteredStream: ByteStream = inStream.filterNot { (k, v) =>
         logger.debug(s"Relaying message from $inStream to $outTopic")
         val messageSize = k.length + v.length
-        totalData.inc(messageSize)
-        dataHist.update(messageSize)
         val deserializedKey = ObjectSerializer.deserialize[TypedValue[Any]](k)
         val reject = deserializedKey.isCanary || deserializedKey.creationEpoch < startEpoch
         System.err.println(s"Relaying message from $inTopics to $outTopic: ($k, $v) - reject $reject")
+        if(reject == false) {
+          totalData.inc(messageSize)
+          dataHist.update(messageSize)
+        }
         reject
       }
       filteredStream
