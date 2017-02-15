@@ -1,5 +1,5 @@
 variable "kafka_count" {
-    default = 3
+    default = 5
 }
 
 variable "kafka_security_group" {
