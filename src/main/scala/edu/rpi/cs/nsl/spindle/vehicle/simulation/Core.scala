@@ -142,7 +142,7 @@ trait DualQuery {
   assert(Configuration.Vehicles.mapReduceConfigName == "dualQuery")
   import VehicleTypes.MPH
   private def uuid = java.util.UUID.randomUUID.toString
-  protected val transformationStoreFactory: TransformationStoreFactory = new GenerativeStaticTransformationFactory(nodeId => {
+  protected[this] val transformationStoreFactory: TransformationStoreFactory = new GenerativeStaticTransformationFactory(nodeId => {
     val speedMapper = {
       val mapperId = s"getSpeed-mapper-$nodeId-$uuid"
       val inTopic = TopicLookupService.getVehicleStatus(nodeId)
@@ -179,7 +179,19 @@ trait DualQuery {
   })
 }
 
-object Core extends Simulator with DualQuery {
+trait DynamicQuery {
+  //TODO: clean this up
+  lazy protected val transformationStoreFactory: TransformationStoreFactory = Configuration.Vehicles.mapReduceConfigName match {
+    case "dualQuery" => (new DualQuery {
+      def getXformFactory = this.transformationStoreFactory
+    }).getXformFactory
+    case "speedSum" => (new SpeedSumSimulation {
+      def getXformFactory = this.transformationStoreFactory
+    }).getXformFactory
+  }
+}
+
+object Core extends Simulator with DynamicQuery {
   private val logger = LoggerFactory.getLogger(this.getClass())
   protected val actorSystem = ActorSystem("SpindleSimulator")
 
