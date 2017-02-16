@@ -1,5 +1,5 @@
 variable "kafka_count" {
-    default = 5
+    default = 0
 }
 
 variable "kafka_security_group" {
@@ -14,6 +14,10 @@ variable "kafka_vpc" {
     default = "vpc-fca71899"
 }
 
+variable "kafka_instance_type" {
+    default = "d2.xlarge"
+}
+
 variable "ssh_path" {
     default = "~/.ssh/id_rsa"
 }
@@ -24,7 +28,7 @@ variable "ssh_key_name" {
 
 resource "aws_instance" "kafka_compute" {
     ami =   "${var.kafka-ami}"
-    instance_type = "t2.medium"
+    instance_type = "${var.kafka_instance_type}"
     count = "${var.kafka_count}"
     associate_public_ip_address = true
     subnet_id = "${var.kafka_subnet}" 
