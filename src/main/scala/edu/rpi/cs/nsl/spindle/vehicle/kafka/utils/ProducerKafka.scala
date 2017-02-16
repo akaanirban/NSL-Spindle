@@ -32,7 +32,7 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
   logger.trace(s"Created producer with config ${config.properties}")
 
   def sendKafka(topic: String, key: K, value: V, isCanary: Boolean = false): Future[SendResult] = {
-    System.err.println(s"Sending ($key, $value) to $topic")
+    logger.debug(s"Sending ($key, $value) to $topic")
     val serKey: ByteArray = ObjectSerializer.serialize(TypedValue[K](key, isCanary = isCanary))
     val serVal: ByteArray = ObjectSerializer.serialize(TypedValue[V](value, isCanary = isCanary))
     val producerRecord = new ProducerRecord[ByteArray, ByteArray](topic, serKey, serVal)

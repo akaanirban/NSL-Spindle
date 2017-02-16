@@ -49,7 +49,7 @@ class StreamRelay(inTopics: Set[String],
     reporter
   }
 
-  System.err.println(s"Creating stream relay from ${inTopics} -> $outTopic")
+  logger.debug(s"Creating stream relay from ${inTopics} -> $outTopic")
 
   val builder = {
     val builder = new KStreamBuilder()
@@ -60,7 +60,7 @@ class StreamRelay(inTopics: Set[String],
         val messageSize = k.length + v.length
         val deserializedKey = ObjectSerializer.deserialize[TypedValue[Any]](k)
         val reject = deserializedKey.isCanary || deserializedKey.creationEpoch < startEpoch
-        System.err.println(s"Relaying message from $inTopics to $outTopic: ($k, $v) - reject $reject")
+        logger.trace(s"Relaying message from $inTopics to $outTopic: ($k, $v) - reject $reject")
         if(reject == false) {
           totalData.inc(messageSize)
           dataHist.update(messageSize)

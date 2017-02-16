@@ -49,21 +49,21 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
     val typedStream: KStream[TypedValue[K], TypedValue[V]] = inStream
       .filterNot{(k,_) =>
         val msg = getAnyTyped(k)
-        System.err.println(s"Checking if canary: $msg")
+        logger.trace(s"Checking if canary: $msg")
         msg.isCanary
       }
       .filter{(k,v)=>
         val msgKTypeStr = getAnyTyped(k).getTypeString
         val msgVTypeStr = getAnyTyped(v).getTypeString
         val keyMatch = (msgKTypeStr == kTypeStr)
-        System.err.println(s"Checking if keymatch $msgKTypeStr ?= $kTypeStr: $keyMatch")
+        logger.trace(s"Checking if keymatch $msgKTypeStr ?= $kTypeStr: $keyMatch")
         val valMatch = (msgVTypeStr == vTypeStr)
-        System.err.println(s"Checking of valmatch $msgVTypeStr ?= $vTypeStr: $valMatch")
+        logger.trace(s"Checking of valmatch $msgVTypeStr ?= $vTypeStr: $valMatch")
         keyMatch && valMatch
       }
       .map { (k, v) =>
         val msg = new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k), ObjectSerializer.deserialize[TypedValue[V]](v))
-        System.err.println(s"Deserialized message $msg")
+        logger.trace(s"Deserialized message $msg")
         msg
       }
 
@@ -71,8 +71,7 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
       case None => typedStream
       case Some(startEpoch) => {
         typedStream.filter{(k,v) =>
-          logger.debug(s"Filtering start times before $startEpoch")
-          System.err.println(s"Filtering start times before $startEpoch: ($k, $v)")
+          logger.trace(s"Filtering start times before $startEpoch: ($k, $v)")
           k.creationEpoch >= startEpoch && v.creationEpoch >= startEpoch
         }
       }

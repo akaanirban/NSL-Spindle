@@ -22,7 +22,7 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
                                               startEpochOpt: Option[Long] = None)
     extends TypedStreamExecutor[K, V](startEpochOpt) {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  System.err.println(s"Creating StreamKVREducer from $inTopic -> $outTopic")
+  logger.debug(s"Creating StreamKVREducer from $inTopic -> $outTopic")
   protected val config = {
     logger.debug("Setting default serde")
     val configMap = intermediateConfig.originals
@@ -75,7 +75,6 @@ class StreamBatcherSupplier[K: TypeTag, V: TypeTag](outTopic: String, clientFact
   override def get: Processor[Windowed[K],V] = {
     val producer = clientFactory.mkProducer[K,V](outTopic)
     logger.info(s"Creating stream batcher for topic $outTopic")
-    System.err.println(s"Creating stream batcher for topic $outTopic")
     new StreamBatcher[K,V](producer)
   }
 }

@@ -270,9 +270,9 @@ class Vehicle(nodeId: NodeId,
     private def shutdownReducers: Future[Any] = {
       logger.debug(s"Vehicle $nodeId shutting down ${prevReducers.size} reducers: $prevReducers")
       val reducerShutdownFutures = prevReducers.values.toSeq.map { reducer =>
-        System.err.println(s"Vehicle $nodeId closing reducer $reducer")
+        logger.debug(s"Vehicle $nodeId closing reducer $reducer")
         reducer.stopStream.map { _ =>
-          System.err.println(s"Vehicle $nodeId closed reducer $reducer")
+          logger.trace(s"Vehicle $nodeId closed reducer $reducer")
           None
         }
       }
