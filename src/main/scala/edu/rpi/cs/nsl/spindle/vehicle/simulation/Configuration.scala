@@ -90,6 +90,7 @@ object Configuration extends ConfigurationSingleton {
     val maxIterations: Option[Int] = conf.getOpt[Int](s"$vehiclePrefix.max.iterations")
 
     val clusterMemberTable: String = conf.getString(s"$vehiclePrefix.cluster.member.table")
+    val activeNodesTabele: String = conf.getString(s"$vehiclePrefix.active.nodes.table")
     val maxEnabledNodes: Int = conf.getInt(s"$vehiclePrefix.max.vehicles")
     val eventsPerSecondMod = 1
 
