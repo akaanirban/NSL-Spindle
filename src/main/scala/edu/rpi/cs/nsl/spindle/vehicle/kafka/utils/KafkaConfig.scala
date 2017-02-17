@@ -57,7 +57,7 @@ case class KafkaConfig(properties: Properties = new Properties()) {
     this.copyWithChange(_.put("block.on.buffer.full", block: String))
   }
 
-  def withMaxBlockMs(ms: Long = 3000): KafkaConfig = {
+  def withMaxBlockMs(ms: Long = 30000): KafkaConfig = {
     this.copyWithChange(_.put("max.block.ms", ms.toString))
   }
 
