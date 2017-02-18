@@ -30,10 +30,6 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
   private val logger = Logging(context.system, this)
   private val clientFactory = new ClientFactory(clientFactoryConfig)
   import context.dispatcher
-  /**
-   * TODO: have simple consumer and simple producer replace mapper in order to drop messages,
-   * if some kind of filter operation cannot be done (see: Low level API for kafka streams as well)
-   */
 
   def receive: PartialFunction[Any, Unit] = running()
 

@@ -181,18 +181,6 @@ class Vehicle(nodeId: NodeId,
   private object ClusterMembershipDaemon extends TemporalDaemon {
     private lazy val clusterCacheRef = caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]]
     def executeInterval(currentSimTime: Timestamp): Future[Any] = {
-      /*clusterCacheRef.getOrPriorOpt(currentSimTime) match {
-        case Some(clusterHead) => {
-          logger.info(s"Node $nodeId has cluster head $clusterHead at time $currentSimTime")
-          val future = (clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead))
-          logger.info(s"Node $nodeId has updated cluster head $clusterHead at time $currentSimTime")
-          future.map(_ => None)
-        }
-        case None => {
-          logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime: ${clusterCacheRef.cache}")
-          Future.successful(None)
-        }
-      }*/
       val clusterHead = clusterCacheRef.getOrPriorOpt(currentSimTime).getOrElse{
         logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime: ${clusterCacheRef.cache}")
         nodeId
