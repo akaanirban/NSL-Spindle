@@ -102,13 +102,14 @@ function runSim() {
 
 //TODO: make conf
 function writeConfig(nextConfig, resultsDir) {
-  const {runcount, clustertable, numnodes, maxiterations, mapreducename, windowsizems} = nextConfig;
+  const {runcount, clustertable, numnodes, maxiterations, mapreducename, windowsizems, filtertablename} = nextConfig;
   const resultsDirParam = 'simulation.results.dir';
   const clustertableParam = 'spindle.sim.vehicle.cluster.member.table';
   const maxVehiclesParam = 'spindle.sim.vehicle.max.vehicles';
   const maxIterationsParam = 'spindle.sim.vehicle.max.iterations';
   const mapReduceNameParam = 'spindle.sim.vehicle.mapreduce.config.name';
   const windowSizeParam = 'spindle.sim.streams.reduce.window.ms';
+  const filterTableParam = 'spindle.sim.vehicle.active.nodes.table';
 
   const resultsDirSetting = `${resultsDirParam} = "${resultsDir}"`;
   const clusterTableSetting = `${clustertableParam} = "${clustertable}"`;
@@ -116,6 +117,7 @@ function writeConfig(nextConfig, resultsDir) {
   const maxIterationsSetting = `${maxIterationsParam} = ${maxiterations}`;
   const mapReduceNameSetting = `${mapReduceNameParam} = "${mapreducename}"`;
   const windowSizeSetting = `${windowSizeParam} = ${windowsizems}`;
+  const filterTableSetting = `${filterTableParam} = "${filtertablename}"`;
 
   const configContents = String(fs.readFileSync(config.appConfPath))
     .split('\n').map(line => {
@@ -131,6 +133,8 @@ function writeConfig(nextConfig, resultsDir) {
         return mapReduceNameSetting;
       } else if(line.indexOf(windowSizeParam) != -1) {
         return windowSizeSetting;
+      } else if(line.indexOf(filterTableParam) != -1) {
+        return filterTableSetting;
       }
       return line;
   }).join('\n');

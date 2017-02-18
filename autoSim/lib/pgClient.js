@@ -8,7 +8,7 @@ class Table {
   }
 }
 
-const tablesVersion = 'v3';
+const tablesVersion = 'v4';
 
 const _mkSimResults = `CREATE TABLE IF NOT EXISTS sim_results_${tablesVersion}(
   jobUUID varchar(40) NOT NULL REFERENCES sim_runs_${tablesVersion}(jobUUID),
@@ -33,6 +33,7 @@ const _mkSimConfigs = `CREATE TABLE IF NOT EXISTS sim_configs_${tablesVersion}(
   enabled BOOLEAN DEFAULT TRUE,
   --Name of map reduce configuration--
   mapReduceName varchar(500) NOT NULL,
+  filterTableName varchar(200) NOT NULL DEFAULT 'all_nodes',
   description text
 )`;
 
