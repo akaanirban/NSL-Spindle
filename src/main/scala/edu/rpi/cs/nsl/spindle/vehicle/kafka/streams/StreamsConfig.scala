@@ -58,6 +58,7 @@ case class StreamsConfigBuilder(properties: Properties = new Properties()) {
   def withMaxRecords(maxRecords: Int = Configuration.Streams.maxBufferRecords) = this.withProperty(StreamsConfig.BUFFERED_RECORDS_PER_PARTITION_CONFIG, maxRecords.toString)
   def withPollMs(pollMs: Long = Configuration.Streams.pollMs) = this.withProperty("poll.ms", pollMs.toString)
   def withSessionTimeoutMs(timeoutMs: Long = Configuration.Streams.sessionTimeout) = this.withProperty("session.timeout.ms", timeoutMs.toString)
+  def withBatchSize(batchSize: Long = Configuration.Streams.maxBatchSize) = this.withProperty("batch.size", batchSize.toString)
   def withDefaults = {
     this.withCommitInterval()
       .withMaxRecords()
