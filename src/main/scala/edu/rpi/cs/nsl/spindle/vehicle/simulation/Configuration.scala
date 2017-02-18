@@ -75,6 +75,7 @@ object Configuration extends ConfigurationSingleton {
   val simReportSeconds = 10
 
   object Streams {
+    val maxBatchSize = 9500
     val commitMs = 500
     val maxBufferRecords = 2
     val pollMs = (1 seconds).toMillis
@@ -90,6 +91,7 @@ object Configuration extends ConfigurationSingleton {
     val maxIterations: Option[Int] = conf.getOpt[Int](s"$vehiclePrefix.max.iterations")
 
     val clusterMemberTable: String = conf.getString(s"$vehiclePrefix.cluster.member.table")
+    val activeNodesTabele: String = conf.getString(s"$vehiclePrefix.active.nodes.table")
     val maxEnabledNodes: Int = conf.getInt(s"$vehiclePrefix.max.vehicles")
     val eventsPerSecondMod = 1
 
