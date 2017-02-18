@@ -148,16 +148,6 @@ class Vehicle(nodeId: NodeId,
     VehicleMessageFactory.mkVehicle(readings, fullProperties)
   }
 
-  private def currentTime: Timestamp = System.currentTimeMillis
-
-  private def sleepUntil(epochTime: Timestamp) = {
-    val sleepMs = epochTime - currentTime
-    if (sleepMs <= 0) {
-      logger.warning(s"Next time interval has already elapsed $epochTime")
-    }
-    sleepMs milliseconds
-  }
-
   private trait TemporalDaemon {
     def executeInterval(currentSimTime: Timestamp): Future[Any]
     def safeShutdown: Future[Any]
@@ -191,7 +181,7 @@ class Vehicle(nodeId: NodeId,
   private object ClusterMembershipDaemon extends TemporalDaemon {
     private lazy val clusterCacheRef = caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]]
     def executeInterval(currentSimTime: Timestamp): Future[Any] = {
-      clusterCacheRef.getOrPriorOpt(currentSimTime) match {
+      /*clusterCacheRef.getOrPriorOpt(currentSimTime) match {
         case Some(clusterHead) => {
           logger.info(s"Node $nodeId has cluster head $clusterHead at time $currentSimTime")
           val future = (clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead))
@@ -202,7 +192,14 @@ class Vehicle(nodeId: NodeId,
           logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime: ${clusterCacheRef.cache}")
           Future.successful(None)
         }
+      }*/
+      val clusterHead = clusterCacheRef.getOrPriorOpt(currentSimTime).getOrElse{
+        logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime: ${clusterCacheRef.cache}")
+        nodeId
       }
+      val future = (clusterHeadConnection ? VehicleConnection.SetClusterHead(clusterHead))
+      logger.info(s"Node $nodeId has updated cluster head $clusterHead at time $currentSimTime")
+      future.map(_ => None)
     }
     def safeShutdown: Future[Any] = {
       val shutdownTimeout = Timeout(Configuration.Vehicles.shutdownTimeout)
