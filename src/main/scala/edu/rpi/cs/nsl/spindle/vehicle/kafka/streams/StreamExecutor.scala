@@ -104,10 +104,10 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
       case cfe: CommitFailedException => {
         restartStream
       }
-      case ise: java.lang.IllegalStateException => {
+      /*case ise: java.lang.IllegalStateException => {
         logger.warn(s"Encountered illegal state in stream $id: ${ise.getMessage}")
         //restartStream
-      }
+      }*/
       case _: java.lang.InterruptedException => {
         logger.warn(s"Stream interrupted: $id")
       }
