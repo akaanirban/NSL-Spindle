@@ -182,7 +182,7 @@ class Vehicle(nodeId: NodeId,
   private object ClusterMembershipDaemon extends TemporalDaemon {
     private lazy val clusterCacheRef = caches(CacheTypes.ClusterCache).asInstanceOf[TSEntryCache[NodeId]]
     def executeInterval(currentSimTime: Timestamp): Future[Any] = {
-      val clusterHead = clusterCacheRef.getOrPriorOpt(currentSimTime).getOrElse{
+      val clusterHead = clusterCacheRef.getValueOpt(currentSimTime).getOrElse{
         logger.warning(s"No cluster head found for node $nodeId at time $currentSimTime: ${clusterCacheRef.cache}")
         nodeId
       }

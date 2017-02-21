@@ -11,19 +11,16 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamsConfigBuilder
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
 import akka.util.Timeout
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes.{Lat, Lon, MPH}
 
 import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, Future, blocking}
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStoreFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.ActiveTransformations
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.GenerativeStaticTransformationFactory
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.MapperFunc
+import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.datatypes.{VehicleColors, VehicleTypes, Vehicle => VehicleMessage}
 import edu.rpi.cs.nsl.spindle.vehicle.Types.NodeId
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.KvReducerFunc
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaAdmin
 
 trait SimulationConfig {
@@ -182,6 +179,48 @@ trait DualQuery {
 }
 
 trait DynamicQuery {
+  private def uuid = java.util.UUID.randomUUID.toString
+
+  private def mkSpeedAvgMapper(nodeId: NodeId) = {
+    val mapperId = s"getSpeed-mapper-$nodeId-$uuid"
+    val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+    val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+    MapperFunc[NodeId, VehicleMessage, String, (MPH, Long)](mapperId, inTopic, outTopic, (_, v) => {
+      (mapperId: String, (v.mph, 1): (MPH, Long))
+    })
+  }
+
+  private def mkSpeedAvgReducer(nodeId: NodeId) = {
+    val reducerId = s"getSpeed-reducer-$nodeId-$uuid"
+    val inTopic = TopicLookupService.getClusterInput(nodeId)
+    val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
+    KvReducerFunc[String, (MPH, Long)](reducerId, inTopic, outTopic, (a, b) => {
+      (a._1 + b._1, a._2 + b._2)
+    })
+  }
+
+  private def isInsideBound(latLon: (Lat, Lon), latRange: (Lat, Lat), lonRange: (Lon, Lon)): Boolean = {
+    val (lat, lon) = latLon
+    val (latMin, latMax) = latRange
+    val (lonMin, lonMax) = lonRange
+    (lat <= latMax && lon <= lonMax) && (lat >= latMin && lon >= lonMin)
+  }
+
+  // x is lat, y is lon
+  private val DENSE_LAT_RANGE = (5000: Lat, 50500: Lat)
+  private val DENSE_LON_RANGE = (100000: Lon, 102000: Lon)
+
+
+  private def mkGeoFilteredSpeedAvg(latRange: (Lat, Lat), lonRange: (Lon, Lon)): TransformationStoreFactory = {
+    new GeoGenerativeTransformationFactory((nodeId, latLon) => {
+      if(isInsideBound(latLon, latRange, lonRange)) {
+        ActiveTransformations(Set(mkSpeedAvgMapper(nodeId)), Set(mkSpeedAvgReducer(nodeId)))
+      } else {
+        ActiveTransformations(Set(), Set())
+      }
+    })
+  }
+  //TODO: generate geo filter based on node region filter
   //TODO: clean this up
   lazy protected val transformationStoreFactory: TransformationStoreFactory = Configuration.Vehicles.mapReduceConfigName match {
     case "dualQuery" => (new DualQuery {
@@ -190,6 +229,11 @@ trait DynamicQuery {
     case "speedSum" => (new SpeedSumSimulation {
       def getXformFactory = this.transformationStoreFactory
     }).getXformFactory
+    case "geoFiltered" => {
+      Configuration.Vehicles.nodePositionsTable match {
+        case "dense_positions" => mkGeoFilteredSpeedAvg(DENSE_LAT_RANGE, DENSE_LON_RANGE)
+      }
+    }
   }
 }
 

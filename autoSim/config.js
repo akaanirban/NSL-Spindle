@@ -11,7 +11,7 @@ const config = {
   },
   s3Bucket: 'spindle-results',
   maxVehicles: process.env.MAX_VEHICLES || 10000,
-  pgConnection: 'postgres://postgres:spindle@ec2-184-73-126-96.compute-1.amazonaws.com:5432/postgres' 
+  pgConnection: 'postgres://postgres:spindle@ec2-34-199-6-110.compute-1.amazonaws.com:5432/postgres' 
 };
 
 export default config;

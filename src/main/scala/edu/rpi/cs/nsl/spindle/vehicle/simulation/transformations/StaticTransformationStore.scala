@@ -32,4 +32,20 @@ class GenerativeStaticTransformationFactory(generator: (NodeId) => ActiveTransfo
   protected def getActiveTransformations(nodeId: NodeId) = generator(nodeId)
 }
 
+class GenerativeTransformationStore(nodeId: NodeId, generator: (NodeId, (Lat, Lon)) => ActiveTransformations)
+extends TransformationStore(nodeId) {
+  override def getActiveTransformations(timestamp: Timestamp, position: (Lat, Lon)) = {
+    generator(nodeId, position)
+  }
+}
+
+class GeoGenerativeTransformationFactory(generator: (NodeId, (Lat, Lon)) => ActiveTransformations)
+  extends TransformationStoreFactory {
+
+  override def getTransformationStore(nodeId: NodeId): TransformationStore = {
+    new GenerativeTransformationStore(nodeId, generator)
+  }
+}
+
+
 class EmptyStaticTransformationFactory extends GenerativeStaticTransformationFactory(_ => ActiveTransformations(Set(), Set()))

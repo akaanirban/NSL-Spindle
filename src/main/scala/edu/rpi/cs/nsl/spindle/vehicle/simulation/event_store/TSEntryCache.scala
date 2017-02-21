@@ -35,7 +35,7 @@ trait TSCache[T] {
 /**
  * Contains database time-series data
  *
- * @param timesetamp - database timestamp (in seconds)
+ * @param timestamp - database timestamp (in seconds)
  */
 abstract class TSEntry[T](timestamp: FiniteDuration) {
   // Get timestamp in milliseconds

@@ -18,10 +18,8 @@ class NodeIdIterator(resultSet: ResultSet) extends QueryIterator[NodeId](resultS
 class NodeIdsQuery(connection: Connection) extends {
   //note: timestamp selection is to limit memory consumption
   private val statement = s"""SELECT
-      DISTINCT(x.node) as node
-    FROM posx x, posy y, speed s, ${Configuration.Vehicles.activeNodesTabele} a
-    WHERE (x.node = y.node and y.node = s.node and s.node = a.node)
-      and (x.timestamp = y.timestamp and y.timestamp = s.timestamp)"""
+      DISTINCT(node)
+    FROM ${Configuration.Vehicles.nodePositionsTable}"""
 } with JdbcQuery(connection, statement) {
   private val logger = LoggerFactory.getLogger(this.getClass.toString)
   def loadNodeIds: Iterable[NodeId] = {
