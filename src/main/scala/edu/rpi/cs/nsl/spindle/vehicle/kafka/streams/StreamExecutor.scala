@@ -105,8 +105,8 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
         restartStream
       }
       case ise: java.lang.IllegalStateException => {
-        logger.warn(s"Encountered illegal state in stream $id")
-        restartStream
+        logger.warn(s"Encountered illegal state in stream $id: ${ise.getMessage}")
+        //restartStream
       }
       case _: java.lang.InterruptedException => {
         logger.warn(s"Stream interrupted: $id")
