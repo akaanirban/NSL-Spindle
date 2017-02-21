@@ -189,6 +189,22 @@ trait DynamicQuery {
     })
   }
 
+  case class Region(latRange: (Lat, Lat), lonRange: (Lon, Lon), id: String = uuid) {
+    def containsVehicle(vehicleMessage: VehicleMessage): Boolean = {
+      isInsideBound((vehicleMessage.lat, vehicleMessage.lon), latRange, lonRange)
+    }
+  }
+
+  private def mkRegionSpeedAvgMapper(nodeId: NodeId, regions: Iterable[Region]) = {
+    val mapperId = s"getSpeed-mapper-$nodeId-$uuid"
+    val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+    val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+    MapperFunc[NodeId, VehicleMessage, String, (MPH, Long)](mapperId, inTopic, outTopic, (_, v) => {
+      val region = regions.filter(_.containsVehicle(v)).head
+      (region.id: String, (v.mph, 1): (MPH, Long))
+    })
+  }
+
   private def mkSpeedAvgReducer(nodeId: NodeId) = {
     val reducerId = s"getSpeed-reducer-$nodeId-$uuid"
     val inTopic = TopicLookupService.getClusterInput(nodeId)
@@ -206,18 +222,32 @@ trait DynamicQuery {
   }
 
   // x is lat, y is lon
-  private val DENSE_LAT_RANGE = (5000: Lat, 51000: Lat)
+  // avg(x) = 50502, avg(y) = 101220
+  private val DENSE_LAT_RANGE = (5000: Lat, 50500: Lat)
   private val DENSE_LON_RANGE = (100000: Lon, 110000: Lon)
 
+  private val DENSE_REGIONS = {
+    val region1 = Region(DENSE_LAT_RANGE, DENSE_LON_RANGE)
+    val region2 = Region((DENSE_LAT_RANGE._2, 90500: Lat), DENSE_LON_RANGE)
+    Seq(region1, region2)
+  }
+
+  private val SPARSE_LAT_RANGE = (40000: Lat, 51297: Lat)
+  private val SPARSE_LON_RANGE = (106800: Lon, 114000: Lon)
 
   private def mkGeoFilteredSpeedAvg(latRange: (Lat, Lat), lonRange: (Lon, Lon)): TransformationStoreFactory = {
     new GeoGenerativeTransformationFactory((nodeId, latLon) => {
       if(isInsideBound(latLon, latRange, lonRange)) {
-        System.err.println(s"VEHICLE IN RANGE $nodeId $latLon")
         ActiveTransformations(Set(mkSpeedAvgMapper(nodeId)), Set(mkSpeedAvgReducer(nodeId)))
       } else {
         ActiveTransformations(Set(), Set())
       }
+    })
+  }
+
+  private def mkGeoMappedSpeedAvg(regions: Iterable[Region]): TransformationStoreFactory = {
+    new GenerativeStaticTransformationFactory(nodeId => {
+      ActiveTransformations(Set(mkRegionSpeedAvgMapper(nodeId, regions)), Set(mkSpeedAvgReducer(nodeId)))
     })
   }
   //TODO: generate geo filter based on node region filter
@@ -232,6 +262,13 @@ trait DynamicQuery {
     case "geoFiltered" => {
       Configuration.Vehicles.nodePositionsTable match {
         case "dense_positions" => mkGeoFilteredSpeedAvg(DENSE_LAT_RANGE, DENSE_LON_RANGE)
+        case "sparse_positions" => mkGeoFilteredSpeedAvg(SPARSE_LAT_RANGE, SPARSE_LON_RANGE)
+      }
+    }
+    case "geoMapped" => {
+      Configuration.Vehicles.nodePositionsTable match {
+        case "dense_positions" => mkGeoMappedSpeedAvg(DENSE_REGIONS)
+        case "sparse_positions" => throw new RuntimeException("Job configuration invalid")
       }
     }
   }
