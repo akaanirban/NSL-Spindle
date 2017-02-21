@@ -91,15 +91,22 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
     outStream.to(byteSerde, byteSerde, outTopic)
   }
 
+  private def restartStream: Unit = {
+    logger.error(s"Closing stream $id")
+    stream.close
+    logger.info(s"Restarting stream $id")
+    this.run
+    logger.info(s"Stream $id restarted")
+  }
+
   protected def handleException(id: String, t: Thread, e: Throwable) {
-    logger.error(s"Stream $id encountered exception $e")
     e match {
       case cfe: CommitFailedException => {
-        logger.error(s"Closing stream $id")
-        stream.close
-        logger.info(s"Restarting stream $id")
-        this.run
-        logger.info(s"Stream $id restarted")
+        restartStream
+      }
+      case ise: java.lang.IllegalStateException => {
+        logger.warn(s"Encountered illegal state in stream $id")
+        restartStream
       }
       case _: java.lang.InterruptedException => {
         logger.warn(s"Stream interrupted: $id")
@@ -109,7 +116,7 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
         e.printStackTrace(System.err)
         System.err.println(s"Exception cause ${e.getCause}")
         throw e//TODO
-        //System.exit(1)
+        System.exit(1)
       }
     }
   }

@@ -59,6 +59,7 @@ class ClientFactory(zkString: String,
         }
       }
       Await.ready(canaryProducer.sendKafka(topic, None, None, isCanary = true), 30 seconds)
+      assert(kafkaAdmin.topicExists(topic))
     }
   }
 
@@ -94,7 +95,7 @@ class ClientFactory(zkString: String,
     inTopics.par.map(initTopic)
     initTopic(outTopic)
     logger.debug(s"Creating relay from $inTopics to $outTopic")
-    new StreamRelay(inTopics, outTopic, buildConfig(relayId))
+    new StreamRelay(relayId, inTopics, outTopic, buildConfig(relayId))
   }
 
   def close(nodeId: Int): Unit = {

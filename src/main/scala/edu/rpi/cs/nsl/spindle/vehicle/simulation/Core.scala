@@ -99,12 +99,11 @@ trait Simulator extends SimulationConfig {
     logger.info(s"Waiting to finish. Results stored in ${Configuration.simResultsDir}")
     checkFinished
     logger.info("Waiting for actor system to finish terminating")
-    /*try {
+    try {
       Await.result(actorSystem.whenTerminated, 5 minutes)
     } catch {
       case _: java.util.concurrent.TimeoutException => logger.warn("Akka shutdown timed out")
-    }*/
-    Await.result(actorSystem.whenTerminated, Duration.Inf)
+    }
     logger.info("Finished")
   }
 }
@@ -207,13 +206,14 @@ trait DynamicQuery {
   }
 
   // x is lat, y is lon
-  private val DENSE_LAT_RANGE = (5000: Lat, 50500: Lat)
-  private val DENSE_LON_RANGE = (100000: Lon, 102000: Lon)
+  private val DENSE_LAT_RANGE = (5000: Lat, 51000: Lat)
+  private val DENSE_LON_RANGE = (100000: Lon, 110000: Lon)
 
 
   private def mkGeoFilteredSpeedAvg(latRange: (Lat, Lat), lonRange: (Lon, Lon)): TransformationStoreFactory = {
     new GeoGenerativeTransformationFactory((nodeId, latLon) => {
       if(isInsideBound(latLon, latRange, lonRange)) {
+        System.err.println(s"VEHICLE IN RANGE $nodeId $latLon")
         ActiveTransformations(Set(mkSpeedAvgMapper(nodeId)), Set(mkSpeedAvgReducer(nodeId)))
       } else {
         ActiveTransformations(Set(), Set())
