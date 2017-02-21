@@ -102,11 +102,12 @@ trait Simulator extends SimulationConfig {
     logger.info(s"Waiting to finish. Results stored in ${Configuration.simResultsDir}")
     checkFinished
     logger.info("Waiting for actor system to finish terminating")
-    try {
+    /*try {
       Await.result(actorSystem.whenTerminated, 5 minutes)
     } catch {
       case _: java.util.concurrent.TimeoutException => logger.warn("Akka shutdown timed out")
-    }
+    }*/
+    Await.result(actorSystem.whenTerminated, Duration.Inf)
     logger.info("Finished")
   }
 }

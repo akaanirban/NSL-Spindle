@@ -13,7 +13,7 @@ import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes
 
 import scala.concurrent.duration._
 import edu.rpi.cs.nsl.spindle.vehicle.Types._
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.{ClientFactory, ClientFactoryConfig}
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamExecutor
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.event_store.CacheTypes
@@ -28,6 +28,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationF
 import edu.rpi.cs.nsl.spindle.vehicle.simulation.transformations.TransformationStore
 import akka.util.Timeout
 import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
+
 import scala.concurrent.blocking
 
 case class Ping()
@@ -44,14 +45,14 @@ object Vehicle {
   // Sent by world
   case class CheckReadyMessage()
   def props(nodeId: NodeId,
-            clientFactory: ClientFactory,
+            clientFactoryConfig: ClientFactoryConfig,
             transformationStore: TransformationStore,
             eventStore: EventStore,
             mockSensors: Set[MockSensor[Any]],
             properties: Set[TypedValue[Any]],
             warmCaches: Boolean = true): Props = {
     Props(new Vehicle(nodeId: NodeId,
-      clientFactory: ClientFactory,
+      new ClientFactory(clientFactoryConfig): ClientFactory,
       transformationStore: TransformationStore,
       eventStore: EventStore,
       mockSensors: Set[MockSensor[Any]],
@@ -339,7 +340,10 @@ class Vehicle(nodeId: NodeId,
           Unit
         }
       }
-      Future.sequence(shutdownFutures).map(_ => replyActor ! Vehicle.ShutdownComplete(nodeId))
+      Future.sequence(shutdownFutures)
+        .map(_ => replyActor ! Vehicle.ShutdownComplete(nodeId))
+        .map(_ => this.clientFactory.close(nodeId))
+        .map(_ => context.become(shutdown))
     }
     case VehicleConnection.Ack() => {
       logger.debug(s"Vehicle $nodeId got ack")
@@ -348,5 +352,9 @@ class Vehicle(nodeId: NodeId,
       tick(simTime, tockDest)
     }
     case msg: Any => throw new RuntimeException(s"Unknown message on $nodeId: $msg")
+  }
+
+  def shutdown : PartialFunction[Any, Unit] = {
+    case msg: Any => logger.warning(s"Got message after shutdown $msg")
   }
 }

@@ -77,7 +77,7 @@ class World(propertyFactory: PropertyFactory,
     val mockSensors = SensorFactory.mkSensors(nodeId)
     val properties = propertyFactory.getProperties(nodeId)
     val actor = context.actorOf(Vehicle.props(nodeId,
-      clientFactory,
+      clientFactory.getConfig,
       transformationStoreFactory.getTransformationStore(nodeId),
       new PgCacheLoader,
       mockSensors,
@@ -184,6 +184,7 @@ class World(propertyFactory: PropertyFactory,
 
   private def becomeFinished(): Unit = {
     stopVehicles()
+    this.clientFactory.close(-1)
     context.become(finished)
   }
 

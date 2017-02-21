@@ -101,10 +101,15 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
         this.run
         logger.info(s"Stream $id restarted")
       }
+      case _: java.lang.InterruptedException => {
+        logger.warn(s"Stream interrupted: $id")
+      }
       case e: Any => {
         logger.error(s"Unknown exception in stream executor. Killing process")
         e.printStackTrace(System.err)
-        System.exit(1)
+        System.err.println(s"Exception cause ${e.getCause}")
+        throw e//TODO
+        //System.exit(1)
       }
     }
   }
@@ -131,9 +136,12 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
     logger.info(s"Stream stopping: $id")
     Future {
       blocking {
-        logger.info(s"Calling close on stream $id")
+        //logger.info(s"Calling close on stream $id")
+        System.out.println(s"Calling close on stream $id")
         stream.close()
-        logger.info(s"Closed stream $id")
+        stream.cleanUp()
+        //logger.info(s"Closed stream $id")
+        System.out.println(s"Closed stream $id: ${stream.toString}")
         true
       }
     }

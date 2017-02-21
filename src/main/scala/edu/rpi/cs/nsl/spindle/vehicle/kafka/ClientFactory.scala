@@ -17,7 +17,10 @@ import org.apache.kafka.common.errors.TopicExistsException
 
 //import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleData }
 
-case class ClientFactoryConfig(zkString: String, kafkaBaseConfig: KafkaConfig, streamsConfigBuilder: StreamsConfigBuilder, initTopics: Boolean = true)
+case class ClientFactoryConfig(zkString: String,
+                               kafkaBaseConfig: KafkaConfig,
+                               streamsConfigBuilder: StreamsConfigBuilder,
+                               initTopics: Boolean = true)
 
 /**
  * Factor to make kafka clients for vehicles
@@ -29,13 +32,19 @@ class ClientFactory(zkString: String,
                     streamsConfigBuilder: StreamsConfigBuilder,
                     initTopics: Boolean = true) {
   def this(config: ClientFactoryConfig) {
-    this(config.zkString: String, config.kafkaBaseConfig: KafkaConfig, config.streamsConfigBuilder: StreamsConfigBuilder, config.initTopics: Boolean)
+    this(config.zkString: String,
+      config.kafkaBaseConfig: KafkaConfig,
+      config.streamsConfigBuilder: StreamsConfigBuilder,
+      config.initTopics: Boolean)
   }
   private val logger = LoggerFactory.getLogger(this.getClass)
   private lazy val producerConfig = kafkaBaseConfig.withProducerDefaults
   private lazy val kafkaAdmin = new KafkaAdmin(zkString)
   private def buildConfig(id: String) = streamsConfigBuilder.withId(id).build
   private lazy val canaryProducer = new ProducerKafka[Any, Any](producerConfig)
+  private var closed: Boolean = false
+  private var closedStack: Array[StackTraceElement] = _
+  private var closedId: Int = _
 
   private def initTopic(topic: String): Unit = {
     assert(topic != null, "Topic is null")
@@ -88,9 +97,21 @@ class ClientFactory(zkString: String,
     new StreamRelay(inTopics, outTopic, buildConfig(relayId))
   }
 
-  def close: Unit = {
+  def close(nodeId: Int): Unit = {
+    if(this.closed){
+      val exception = new RuntimeException(s"Trying to use closed clientfactory: $nodeId")
+      System.out.println(exception)
+      exception.printStackTrace(System.out)
+      System.out.println(s"Previously closed by $closedId: ${closedStack.toList.mkString("\n")}")
+      throw exception
+    } else {
+      System.out.println("Closing client factory")
+      closedStack = Thread.getAllStackTraces.get(Thread.currentThread())
+    }
+    closedId = nodeId
     logger.info("Closing client factory")
     kafkaAdmin.close
     canaryProducer.close
+    this.closed = true
   }
 }

@@ -156,9 +156,11 @@ function parseResults(resultsDir) {
   const getData = (metadata) => {
     const {file} = metadata;
     const path = `${resultsDir}/${file}`;
+    console.log('Loading data from path', path);
     const numBytes = String(fs.readFileSync(path)).trim().split('\n').slice(-1)[0].split(',')[1];
+    console.log('Got bytes', numBytes, 'from', path);
     delete metadata.file;
-    metadata.numBytes = numBytes;
+    metadata.numBytes = numBytes || 0;
     return metadata;
   };
 

@@ -9,6 +9,7 @@ import org.apache.kafka.streams.kstream.internals.TimeWindow
 import org.apache.kafka.streams.processor.{AbstractProcessor, Processor, ProcessorContext, ProcessorSupplier}
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 
+import scala.concurrent.Future
 import scala.reflect.runtime.universe._
 
 /**
@@ -123,6 +124,8 @@ class StreamBatcher[K: TypeTag, V: TypeTag](producer: SingleTopicProducerKakfa[K
   }
 
   override def close(): Unit = {
-    //seenWindows.close()
+    this.punctuate(System.currentTimeMillis)
+    this.producer.flush
+    this.producer.close
   }
 }
