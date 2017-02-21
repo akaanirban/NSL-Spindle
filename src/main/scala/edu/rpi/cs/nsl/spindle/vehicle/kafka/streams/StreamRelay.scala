@@ -76,7 +76,7 @@ class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopic: String)
       writer
     }
   }
-  private val csvLogSuffix = "-to-$outTopic-from-${inTopics.mkString(",")}-relayId-$relayId.csv"
+  private val csvLogSuffix = s"-to-$outTopic-from-${inTopics.mkString(",")}-relayId-$relayId.csv"
   private val sumWriter = mkWriter(s"${Configuration.simResultsDir}/data-sent$csvLogSuffix")
   private val sizeWriter = mkWriter(s"${Configuration.simResultsDir}/message-size$csvLogSuffix")
 
