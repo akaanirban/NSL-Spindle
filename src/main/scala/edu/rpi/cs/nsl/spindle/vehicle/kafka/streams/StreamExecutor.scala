@@ -47,6 +47,9 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
       (ReflectionUtils.getTypeString[K], ReflectionUtils.getTypeString[V])
     }
     val typedStream: KStream[TypedValue[K], TypedValue[V]] = inStream
+        .filterNot{(k,v) =>
+          k == null || v == null
+        }
       .filterNot{(k,_) =>
         val msg = getAnyTyped(k)
         logger.trace(s"Checking if canary: $msg")
