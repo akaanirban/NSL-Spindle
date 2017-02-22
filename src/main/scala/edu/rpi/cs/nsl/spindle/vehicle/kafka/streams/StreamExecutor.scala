@@ -62,7 +62,9 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
         logger.trace(s"Checking if keymatch $msgKTypeStr ?= $kTypeStr: $keyMatch")
         val valMatch = (msgVTypeStr == vTypeStr)
         logger.trace(s"Checking of valmatch $msgVTypeStr ?= $vTypeStr: $valMatch")
-        keyMatch && valMatch
+        val typeMatch = keyMatch && valMatch
+        logger.debug(s"Checking typematch for $inStream: $typeMatch, $msgKTypeStr -> $msgVTypeStr")
+        typeMatch
       }
       .map { (k, v) =>
         val msg = new KeyValue(ObjectSerializer.deserialize[TypedValue[K]](k), ObjectSerializer.deserialize[TypedValue[V]](v))

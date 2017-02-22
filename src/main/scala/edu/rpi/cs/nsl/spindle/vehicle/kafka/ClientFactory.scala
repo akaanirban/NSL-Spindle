@@ -58,6 +58,7 @@ class ClientFactory(zkString: String,
           }
         }
       }
+      //TODO: make async
       Await.ready(canaryProducer.sendKafka(topic, None, None, isCanary = true), 30 seconds)
       assert(kafkaAdmin.topicExists(topic))
     }

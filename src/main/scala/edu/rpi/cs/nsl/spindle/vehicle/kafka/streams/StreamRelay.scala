@@ -65,10 +65,18 @@ abstract class MessageLogger(inTopics: Set[String], outTopic: String) extends Cl
 
 class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopic: String) extends MessageLogger(inTopics: Set[String], outTopic: String) {
   private def currentTime = System.currentTimeMillis()
-  private def mkWriter(path: String): PrintWriter = {
-    val file = new File(path)
+  private def getNewPath(pathPrefix: String, pathSuffix: String, appendNum: Long = 0): String = {
+    val testPath = s"$pathPrefix-$appendNum$pathSuffix"
+    if(new File(testPath).exists){
+      getNewPath(pathPrefix, pathSuffix, appendNum + 1)
+    } else {
+      testPath
+    }
+  }
+  private def mkWriter(pathPrefix: String, pathSuffix: String = ".csv"): PrintWriter = {
+    val file = new File(getNewPath(pathPrefix, pathSuffix))
     if(file.exists){
-      new PrintWriter(new FileOutputStream(file, true))
+      throw new RuntimeException(s"Failed to get unique file ${file.getAbsolutePath}")
     } else {
       val writer = new PrintWriter(file)
       writer.println(s"t,count\n$currentTime,0")
@@ -76,9 +84,9 @@ class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopic: String)
       writer
     }
   }
-  private val csvLogSuffix = s"-to-$outTopic-from-$relayId.csv"
-  private val sumWriter = mkWriter(s"${Configuration.simResultsDir}/data-sent$csvLogSuffix")
-  private val sizeWriter = mkWriter(s"${Configuration.simResultsDir}/message-size$csvLogSuffix")
+  private val csvLogPartialSuffix = s"-to-$outTopic-from-$relayId"
+  private val sumWriter = mkWriter(s"${Configuration.simResultsDir}/data-sent$csvLogPartialSuffix")
+  private val sizeWriter = mkWriter(s"${Configuration.simResultsDir}/message-size$csvLogPartialSuffix")
 
   private var sum: Long = 0
   override def logMessageSize(messageSize: Long) {
