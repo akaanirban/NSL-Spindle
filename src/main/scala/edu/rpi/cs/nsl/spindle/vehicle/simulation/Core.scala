@@ -237,10 +237,11 @@ trait DynamicQuery {
 
   private def mkGeoFilteredSpeedAvg(latRange: (Lat, Lat), lonRange: (Lon, Lon)): TransformationStoreFactory = {
     new GeoGenerativeTransformationFactory((nodeId, latLon) => {
+      val reducerSet = Set(mkSpeedAvgReducer(nodeId))
       if(isInsideBound(latLon, latRange, lonRange)) {
-        ActiveTransformations(Set(mkSpeedAvgMapper(nodeId)), Set(mkSpeedAvgReducer(nodeId)))
+        ActiveTransformations(Set(mkSpeedAvgMapper(nodeId)), reducerSet)
       } else {
-        ActiveTransformations(Set(), Set())
+        ActiveTransformations(Set(), reducerSet)
       }
     })
   }
