@@ -65,7 +65,7 @@ const _getLeastTested = `
     ON cfg.configId = cnts.configId
     -- NOTE: filter inadequate iteration count --
   WHERE cfg.enabled = TRUE and cfg.numnodes <= ${config.maxVehicles}
-  ORDER BY cnts.runcount asc
+  ORDER BY cnts.runcount, RANDOM() asc
 `;
 
 const _insertRun = `
