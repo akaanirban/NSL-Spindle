@@ -25,7 +25,7 @@ class PgCacheLoader(config: PgConfig = PgDefaults.config) extends PgClient(confi
     val clusterHeadCache = new TSEntryCache[NodeId](clusterHeadQuery.loadClusters(nodeId))
     val cacheMap = Map(PositionCache -> positionCache, ClusterCache -> clusterHeadCache)
     val timestamps = positionCache.getTimestamps.toSeq.sorted
-    assert(timestamps.head < timestamps.last)
+    assert(timestamps.head <= timestamps.last, s"${timestamps.head} not less than ${timestamps.last}")
     logger.debug(s"Created cache for $nodeId")
     (timestamps, cacheMap)
   }
