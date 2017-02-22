@@ -36,7 +36,7 @@ class PositionQuery(connection: Connection) extends {
     setNode(nodeId)
     val positionStream = new PositionIterator(executeQuery).toStream
     assert(positionStream.headOption.isDefined, s"No position information for node $nodeId")
-    positionStream
+    positionStream.force
     //TODO: ensure this doesn't cause memory leak (probably best to return iterator and convert to stream in calling method)
   }
 }
