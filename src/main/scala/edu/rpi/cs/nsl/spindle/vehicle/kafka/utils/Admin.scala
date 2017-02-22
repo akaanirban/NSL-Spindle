@@ -100,6 +100,7 @@ class KafkaAdmin(zkString: String) {
         AdminUtils.deleteTopic(zkUtils, topic)
       } catch {
         case _: kafka.common.TopicAlreadyMarkedForDeletionException => logger.warn(s"Topic already marked for deletion: $topic")
+        case _: org.apache.kafka.common.errors.UnknownTopicOrPartitionException => logger.warn(s"Tried to delete unknown topic $topic")
       }
     }
     Thread.sleep((5 seconds).toMillis) //TODO: remove magic
