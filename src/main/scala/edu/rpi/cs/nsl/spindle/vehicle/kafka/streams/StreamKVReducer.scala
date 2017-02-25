@@ -21,7 +21,7 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
                                               intermediateConfig: StreamsConfig,
                                               clientFactory: ClientFactory,
                                               startEpochOpt: Option[Long] = None)
-    extends TypedStreamExecutor[K, V](startEpochOpt) {
+    extends TypedStreamExecutor[K, V](startEpochOpt, readableId = s"$inTopic->$outTopic") {
   private val logger = LoggerFactory.getLogger(this.getClass)
   logger.debug(s"Creating StreamKVREducer from $inTopic -> $outTopic")
   protected val config = {

@@ -25,7 +25,7 @@ import scala.concurrent._
   *
   * @todo - filter messages that arrive before specified time
  */
-abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
+abstract class StreamExecutor(startEpochOpt: Option[Long] = None, readableId: String = "") {
   type ByteArray = Array[Byte]
   protected type ByteStream = KStream[ByteArray, ByteArray]
   private val logger = LoggerFactory.getLogger("Stream executor")
@@ -110,8 +110,14 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
         restartStream
       }
       /*case ise: java.lang.IllegalStateException => {
-        logger.warn(s"Encountered illegal state in stream $id: ${ise.getMessage}")
-        //restartStream
+        //TODO: remove
+        logger.error(s"Encountered illegal state in stream $readableId $id: ${ise.getMessage}")
+        import scala.collection.JavaConverters._
+        val runtime = Runtime.getRuntime
+        val threads = Thread.getAllStackTraces.keySet().asScala
+        threads.foreach(runtime.removeShutdownHook(_))
+        threads.foreach(_.interrupt())
+        System.exit(1)
       }*/
       case _: java.lang.InterruptedException => {
         logger.warn(s"Stream interrupted: $id")
@@ -160,8 +166,8 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None) {
   }
 }
 
-abstract class TypedStreamExecutor[K: TypeTag, V: TypeTag](startEpochOpt: Option[Long] = None)
-  extends StreamExecutor(startEpochOpt) {
+abstract class TypedStreamExecutor[K: TypeTag, V: TypeTag](startEpochOpt: Option[Long] = None, readableId: String = "")
+  extends StreamExecutor(startEpochOpt, readableId) {
   protected val keySerde = new KafkaSerde[TypedValue[K]]
   protected val valueSerde = new KafkaSerde[TypedValue[V]]
 }

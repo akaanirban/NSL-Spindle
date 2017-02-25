@@ -93,6 +93,11 @@ class ClientFactory(zkString: String,
   }
 
   def mkRelay(inTopics: Set[String], outTopic: String, relayId: String): StreamRelay = {
+    if(inTopics.size < 1) {
+      val message = s"Cannot create relay with fewer than one input: $relayId -> $outTopic"
+      logger.error(message)
+      throw new RuntimeException(message)
+    }
     inTopics.par.map(initTopic)
     initTopic(outTopic)
     logger.debug(s"Creating relay from $inTopics to $outTopic")

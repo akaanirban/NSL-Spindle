@@ -34,7 +34,15 @@ class VehicleConnection(inNode: NodeId, clientFactoryConfig: ClientFactoryConfig
   def receive: PartialFunction[Any, Unit] = running()
 
   private def mkRelay(inMappers: Set[String], outNode: NodeId) = {
-    val inTopics = inMappers.map(TopicLookupService.getMapperOutput(inNode, _))
+    val inTopics = {
+      val mapperTopics = inMappers.map(TopicLookupService.getMapperOutput(inNode, _))
+      if(mapperTopics.size < 1) {
+        logger.debug(s"Vehicle $inNode relay has no input topics, defaulting to NoP")
+        Set(TopicLookupService.NOP_TOPIC)
+      } else {
+        mapperTopics
+      }
+    }
     val outTopic = TopicLookupService.getClusterInput(outNode)
     val relayId = java.util.UUID.randomUUID.toString //TODO: check if we can re-use relays (prolly not)
     val relay: StreamRelay = clientFactory.mkRelay(inTopics, outTopic, relayId)

@@ -17,7 +17,7 @@ class StreamRelay(relayId: String,
                    inTopics: Set[String],
                   outTopic: String,
                   protected val config: StreamsConfig,
-                  startEpoch: Long = System.currentTimeMillis()) extends StreamExecutor {
+                  startEpoch: Long = System.currentTimeMillis()) extends StreamExecutor(readableId = s"Relay:${inTopics.mkString(",") }->$outTopic"){
   private val logger = LoggerFactory.getLogger(s"Stream Relay $inTopics -> $outTopic")
   private val messageLogger = new CSVMessageLogger(relayId, inTopics, outTopic)
 
@@ -28,7 +28,9 @@ class StreamRelay(relayId: String,
     val builder = new KStreamBuilder()
     val inStreams: Seq[ByteStream] = inTopics.toSeq.map(topic => builder.stream(topic): ByteStream)
     val filteredStreams: Seq[ByteStream] = inStreams.map { inStream =>
-      val filteredStream: ByteStream = inStream.filterNot { (k, v) =>
+      val filteredStream: ByteStream = inStream
+      .filterNot{(k,v) => k == null || v == null}
+      .filterNot { (k, v) =>
         logger.debug(s"Relaying message from $inStream to $outTopic")
         val messageSize = k.length + v.length
         val deserializedKey = ObjectSerializer.deserialize[TypedValue[Any]](k)

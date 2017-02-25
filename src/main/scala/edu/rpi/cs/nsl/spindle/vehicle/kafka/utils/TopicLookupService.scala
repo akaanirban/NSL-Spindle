@@ -23,6 +23,8 @@ trait TopicLookupService {
    */
   def getClusterInput(node: NodeId): String = mkTopic(node, s"-ch-input")
   def getClusterOutput(node: NodeId): String = mkTopic(node, s"-ch-output")
+
+  val NOP_TOPIC = "NoP"
   
   lazy val middlewareInput = s"$globalPrefix-middleware-input"
 }
