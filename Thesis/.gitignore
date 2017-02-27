@@ -1,13 +1,13 @@
 ./*
 node_modules
 *.pdf
-*.png
 !.gitignore
 !*.tex
 !*.cls
 !*.r
 !*.sql
 !index.js
+!./binImages/*
 !package.json
 !yarn.lock
 !visuals

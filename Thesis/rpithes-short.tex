@@ -95,6 +95,23 @@ This is a sentence to take up space and look like text.
 
 \section{Theorized Architecture}
     %TODO: walk through spark query, middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to middleware, transmission to spark streaming, secondary reduce, etc..
+    \begin{figure}
+        \centering
+        \includegraphics[height=8in, width=5in]{binImages/theoretical-system.png}
+        \caption{A diagram of the theorized system's major components. Vehicles
+        send data to their Cluster Heads, which perform reduce operations over
+        incoming mapped tuples. The resultant reduced tuples are then sent to
+        the middleware to be distributed to the connected Spark jobs.}
+        \label{fig:theoretical:component}
+    \end{figure}
+    \begin{figure}
+        \centering
+        \includegraphics[height=4in, width=6in]{binImages/theoretical-sequence.png}
+        \caption{A sequence diagram showing how a query passes from a connected Spark job
+        through the middleware and vehicle systems and how the reduced results then return
+        to the Spark job.}
+        \label{fig:theoretical:sequence}
+    \end{figure}
 
 %TODO
 % DO THIS NEXT
@@ -139,7 +156,7 @@ This is a sentence to take up space and look like text.
 
     \begin{figure}
         \centering
-        \includegraphics[scale=.5]{sparse-and-dense-clusters.png}
+        \includegraphics[scale=.5]{binImages/sparse-and-dense-clusters.png}
         \caption{Illustration of VEINS Vehicles with MANET Clustering, Courtesy Xiaotian Duan}
         \label{fig:regions}
     \end{figure}

@@ -4,11 +4,12 @@
   "description": "Compile Tex to PDF Automatically",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "nodemon index.js"
   },
   "author": "William Rory Kronmiller",
   "license": "MIT",
   "dependencies": {
+    "nodemon": "^1.11.0",
     "watch": "^1.0.2"
   }
 }
