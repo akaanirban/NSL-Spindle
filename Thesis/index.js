@@ -4,6 +4,7 @@ const exec = require('child_process').exec;
 const filePath = 'rpithes-short.tex';
 const pdfPath = 'rpithes-short.pdf';
 const binDir = './binimages';
+const datavisR = 'datavis.r';
 
 watch.createMonitor('./', (monitor) => {
     monitor.files[filePath];
@@ -20,6 +21,12 @@ watch.createMonitor('./', (monitor) => {
                 });
             });
             return;
+        } else if(f === datavisR) {
+          return exec(`Rscript ${f}`, (err, stdout, stderr) => {
+            if(err) {
+              return console.error(stdout, stderr);
+            }
+          });  
         } else if(f !== filePath) {
             console.log('Skipping file', f);
             return;
