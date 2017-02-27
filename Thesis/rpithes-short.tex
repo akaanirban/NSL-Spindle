@@ -71,6 +71,31 @@ This is a sentence to take up space and look like text.
 %
 
 \chapter{System Architecture}
+    Spindle provides a novel streaming data processing platform by building on
+    existing cutting edge and industry standard distributed systems, primarily
+    from the Apache ecosystem. 
+
+    The Spindle system consists of three major components: a set of Apache Spark %TODO: cite
+    streaming programs managed by one or more clients, a custom data ingestion and
+    query management Middleware, and edge computing software running on network
+    connected vehicles.
+    
+    Spindle operates on the vehicle level as a Scala
+    \cite{scala} program running on the Akka \cite{akka} framework; this program
+    is responsible for handling cluster formation, data collection, and edge
+    computation.
+
+    Data passes through components of the Vehicle software in the form of 
+    messages sent to Kafka \cite{kafka} topics. Similarly, data is transferred
+    at the cloud layer using Kafka.
+
+    Clients receive data from the middleware as Kafka messages that a custom Spark \cite{spark}
+    library processes into DStream tuples which can be further processed using any of the available
+    Spark streaming operations written for DStreams and RDDs.
+
+\section{Theorized Architecture}
+    %TODO: walk through spark query, middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to middleware, transmission to spark streaming, secondary reduce, etc..
+
 %TODO
 % DO THIS NEXT
 % Ask braden what good vis tools are out there
@@ -109,14 +134,24 @@ This is a sentence to take up space and look like text.
         In essence, this is a temporary limitation of the simulation architecture, not the real-world architecture.
 
         To overcome the simulator's limitations, we defined two test regions, one dense region and one sparse region
-        being transited by approximately the same number of vehicles.
+        being transited by approximately the same number of vehicles. The sparse and dense regions were selected based
+        on the number of vehicles transiting them and based on the layout of the underlying road networks.
+
+    \begin{figure}
+        \centering
+        \includegraphics[scale=.5]{sparse-and-dense-clusters.png}
+        \caption{Illustration of VEINS Vehicles with MANET Clustering, Courtesy Xiaotian Duan}
+        \label{fig:regions}
+    \end{figure}
     \paragraph{Sparse Region}
         The sparse region is transited by 148 distinct vehicles over the course of the simulation and defines a bounding
-        box from $(40000, 106800)$ to $(53000, 114000)$.
+        box from $(40000, 106800)$ to $(53000, 114000)$. The sparse region covers an area on the outskirts of the city,
+        with a relatively low density of vehicles. The sparse region is illustrated by a green box in \ref{fig:regions}.
     \paragraph{Dense Region}
         The dense region defines a bounding box from $(50000, 100000)$ to $(51000, 102000)$ and is transitied by
-        131 vehicles over the course of the simulation.
-        %TODO(meeting): explain why sparse, dense regions (road structure)
+        131 vehicles over the course of the simulation. The dense region covers a small area near the city center
+        where the density of vehicles is higher. The dense region is illustrated by a red box in \ref{fig:regions}.
+
 \subsection{Window Sizes}
     Kafka Streams can perform reduce operations over messages received over the course of a user-defined time-window
     and will write the results to a KTable, a logical structure whose API approximates that of a key-value store. %TODO: citations
@@ -129,9 +164,9 @@ This is a sentence to take up space and look like text.
     or \verb|self_clusters| (all vehicles act as their own cluster heads).
 \subsection{Clustering Algorithms}
     The spindle architecture takes advantage of work done by fellow RPI student Xiaotian Duan on generating
-    clusters of vehicles based on vehicle connectivity and lane position. %TODO: what do I put here???
-    %TODO: include xiaotian images (get permission) for clusters
-    %TODO: include informationa bout cluster density for each clustering (sparse/dense)
+    clusters of vehicles based on vehicle connectivity and lane position. 
+    %TODO: get permission from Xiaotian for using clustering images
+    %TODO: include information about cluster density for each clustering (sparse/dense)
     %TODO: Fix the quotes!
 
 \section{Test Software}
@@ -232,6 +267,14 @@ Let's make it very long so it takes more than one line.
 %%% TEMPLATE END
 \bibitem{veins}
     http://veins.car2x.org %TODO: proper citation format (Feb 22, 17)
+\bibitem{scala}
+    http://www.scala-lang.org %TODO: proper citation format Feb 26, 17
+\bibitem{akka}
+    http://akka.io % Feb 26
+\bibitem{kafka}
+    https://kafka.apache.org % Feb 26
+\bibitem{spark}
+    http://spark.apache.org/streaming/ %Feb 26
 \end{thebibliography}
 \end{singlespace}
 
