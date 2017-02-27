@@ -25,7 +25,9 @@ watch.createMonitor('./', (monitor) => {
             return;
         }
         exec(`pdflatex -halt-on-error ${filePath}`, (err, stdout, stderr) => {
-            if(err) { throw err; }
+            if(err) { 
+                return console.error(stdout, stderr);
+            }
             console.log('Compiled tex. Opening file');
             exec(`open ${pdfPath}`, (err, stdout, stderr) => {
                 if(err) { throw err;}

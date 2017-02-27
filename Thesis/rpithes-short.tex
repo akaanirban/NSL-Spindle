@@ -13,6 +13,7 @@
 
 \documentclass{thesis}
 \usepackage{graphicx}   % if you want to include graphics files
+\usepackage{pdflscape}
 
 % Use the first command below if you want captions over 1 line indented.
 % A side effect of this is to remove the use of bold for captions. 
@@ -112,6 +113,18 @@ This is a sentence to take up space and look like text.
         to the Spark job.}
         \label{fig:theoretical:sequence}
     \end{figure}
+
+\section{Simulation Architecture}
+    \begin{landscape}
+        \begin{figure}
+            \centering
+            \includegraphics[scale=.3]{binImages/simulator-sequence.png}
+            \caption{A sequence diagram showing the high-level interactions of
+            the Spindle simulator components. A Postgres database stores the
+            simulation configurations and pre-computed velocity and connectivity
+            data, as well as simulation results.}
+        \end{figure}
+    \end{landscape}
 
 %TODO
 % DO THIS NEXT
