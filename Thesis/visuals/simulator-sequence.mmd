@@ -1,0 +1,36 @@
+sequenceDiagram
+  AutoSim->>Postgres: Load a Simulation Configuration
+  AutoSim->>Core: Run
+  Note over AutoSim,Core: AutoSim launches new Scala program for every simulation run
+  Core->>ActorSystem: Start
+  Core->>KafkaCluster: Clear All Topics
+  Core->>WorldActor: Initialize with Test Region
+  WorldActor->>Postgres: Get Vehicle IDs and Timestamps in Test Region
+  loop for VehicleID in Vehicle IDs
+      WorldActor->>ActorSystem: Create Vehicle actor with VehicleID
+      ActorSystem-->>WorldActor: Vehicle ActorRef
+      WorldActor->>Vehicle: Initialize
+      VehicleActor->>Postgres: Get Simulation Data for VehicleID
+      VehicleActor->>ActorSystem: Create VehicleConnection Actor
+      ActorSystem-->>Vehicle: VehicleConnection ActorRef
+  end
+  WorldActor-->>Core: Ready
+  Core->>Core: Wait for User Input or AutoStart
+  Core->>WorldActor: Start Simulation
+  loop for Simulation Timestamp in Timestamps
+    loop for VehicleActor in Active Vehicles
+      WorldActor->>VehicleActor: Tick(Timestamp)
+      VehicleActor->>KafkaCluster: Update Active Mappers/Reducers for Timestamp
+      Note right of KakfaCluster: Collect metrics on messages sent by Reducers to Middleware uplink topics
+      VehicleActor->>VehicleConnection: Update Clusterhead Connection
+      VehicleConnection->>KafkaCluster: Update Clusterhead Connection simulation Mapper
+      VehicleActor->>KafkaCluster: Produce data for Timestamp
+      VehicleActor-->WorldActor: Tock
+    end
+  end
+  WorldActor-->>Core: Done
+  Core->>ActorSystem: Shutdown
+  Core->>KafkaCluster: Clear All Topics
+  Note over AutoSim,Core: AutoSim stops Scala program
+  AutoSim->>Postgres: Store Kafka metrics
+  AutoSim->>AWS S3: Store raw metrics CSVs

@@ -1,0 +1,14 @@
+{
+  "name": "autocompile",
+  "version": "1.0.0",
+  "description": "Compile Tex to PDF Automatically",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "William Rory Kronmiller",
+  "license": "MIT",
+  "dependencies": {
+    "watch": "^1.0.2"
+  }
+}

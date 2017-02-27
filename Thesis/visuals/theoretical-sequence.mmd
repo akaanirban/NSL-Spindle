@@ -1,0 +1,10 @@
+sequenceDiagram
+    sparkProgram->>middleware: create map/reduce query
+    middleware->>middleware: create derived queries from queries sent from spark jobs
+    middleware->>vehicles: update derived queries
+    vehicles->>vehicles: generate data and apply map functions
+    vehicles->>clusterHeads: send map function outputs
+    clusterHeads->>clusterHeads: perform reduce operations associated with map functions
+    clusterHeads->>middleware: send reduced vehicle data
+    middleware->>sparkProgram: send partially reduced data associated with query
+    sparkProgram->>sparkProgram: reduce partially reduced data
