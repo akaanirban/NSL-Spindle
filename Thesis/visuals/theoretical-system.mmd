@@ -1,33 +1,34 @@
 graph BT
-  subgraph SparkJobOne
-    KD1[Kafka DStream]-->SLR1[Spindle Lib Reducer]
-    SLR1 --> RDS1[Reduced DStream]
-  end
-  subgraph SparkJobTwo
-    KD2[Kafka DStream]-->SLR2[Spindle Lib Reducer]
-    SLR2 --> RDS2[Reduced DStream]
-  end
-  subgraph Middleware
-    KC[Cloud Kafka Cluster]
-    KC --> DM[Data Multiplexer]
-    DM --> KD1
-    DM --> KD2
-  end
-  subgraph ClusterHead
-      SP0[Sensor Producer] --> M0[Mapeprs]
-      M0[Mappers] --> CR0[Clusterhead Relay]
-      CR0 --> CI[Clusterhead Input]
-      CI --> Reducers
-      Reducers --> MU[Middlware Uplink]
-      MU --> KC
-  end
-  subgraph VehicleOne
-    SP1[Sensor Producer] --> M1[Mapeprs]
-    M1[Mappers] --> CR1[Clusterhead Relay]
-    CR1 --> CI
-  end
-  subgraph VehicleTwo
-    SP2[Sensor Producer] --> M2[Mapeprs]
-    M2[Mappers] --> CR2[Clusterhead Relay]
-    CR2 --> CI
-  end
+    subgraph Cloud
+        subgraph SparkPrograms
+            subgraph SparkJobOne
+                KD1[Kafka DStream]-->SLR1[Spindle Lib Reducer]
+                SLR1 --> RDS1[Reduced DStream]
+            end
+            subgraph SparkJobTwo
+                KD2[Kafka DStream]-->SLR2[Spindle Lib Reducer]
+                SLR2 --> RDS2[Reduced DStream]
+            end
+        end
+        subgraph Middleware
+            KC[Cloud Kafka Cluster]
+            KC --> DM[Data Multiplexer]
+            DM --> KD1
+            DM --> KD2
+        end
+    end
+    subgraph ClusterHead
+        CI[Clusterhead Input] --> Reducers
+        Reducers --> MU[Middlware Uplink]
+        MU --> KC
+    end
+    subgraph VehicleOne
+        SP1[Sensor Producer] --> M1[Mapeprs]
+        M1[Mappers] --> CR1[Clusterhead Relay]
+        CR1 --> CI
+    end
+    subgraph VehicleTwo
+        SP2[Sensor Producer] --> M2[Mapeprs]
+        M2[Mappers] --> CR2[Clusterhead Relay]
+        CR2 --> CI
+    end
