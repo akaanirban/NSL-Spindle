@@ -206,7 +206,7 @@ trait DynamicQuery {
   }
 
   private def mkSpeedAvgReducer(nodeId: NodeId) = {
-    val reducerId = s"getSpeed-reducer-$nodeId-$uuid"
+    val reducerId = s"getSpeed-avg-reducer-$nodeId-$uuid"
     val inTopic = TopicLookupService.getClusterInput(nodeId)
     val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
     KvReducerFunc[String, (MPH, Long)](reducerId, inTopic, outTopic, (a, b) => {
@@ -219,6 +219,27 @@ trait DynamicQuery {
     val (latMin, latMax) = latRange
     val (lonMin, lonMax) = lonRange
     (lat <= latMax && lon <= lonMax) && (lat >= latMin && lon >= lonMin)
+  }
+
+  private def mkRegionSpeedFilterMapper(nodeId: NodeId, latRange: (Lat, Lat), lonRange: (Lon, Lon)) = {
+    val mapperId = s"getSpeed-filtered-mapper-$nodeId-$uuid"
+    val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+    val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+    MapperFunc[NodeId, VehicleMessage, String, (Boolean, MPH, Long)](mapperId, inTopic, outTopic, (_, v) => {
+      val isInside = isInsideBound((v.lat, v.lon), latRange, lonRange)
+      (mapperId, (isInside, v.mph, 1): (Boolean, MPH, Long))
+    })
+  }
+
+  private def mkSpeedAvgFilteredReducer(nodeId: NodeId) = {
+    val reducerId = s"getSpeed-avg-reducer-$nodeId-$uuid"
+    val inTopic = TopicLookupService.getClusterInput(nodeId)
+    val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
+    KvReducerFunc[String, (Boolean, MPH, Long)](reducerId, inTopic, outTopic, (a, b) => {
+      Seq(a,b).filter(_._1).reduce{(a1,b1) =>
+        (a1._1, a1._2 + b1._2, a1._3 + b1._3)
+      }
+    })
   }
 
   // x is lat, y is lon
@@ -235,14 +256,16 @@ trait DynamicQuery {
   private val SPARSE_LAT_RANGE = (40000: Lat, 51297: Lat)
   private val SPARSE_LON_RANGE = (106800: Lon, 114000: Lon)
 
+  private val SPARSE_REGIONS = {
+    val region1 = Region(SPARSE_LAT_RANGE, SPARSE_LON_RANGE)
+    val (latMin, latMax) = SPARSE_LAT_RANGE
+    val region2 = Region((SPARSE_LAT_RANGE._2, (latMin + latMax / 2): Lat), SPARSE_LON_RANGE)
+    Seq(region1, region2)
+  }
+
   private def mkGeoFilteredSpeedAvg(latRange: (Lat, Lat), lonRange: (Lon, Lon)): TransformationStoreFactory = {
-    new GeoGenerativeTransformationFactory((nodeId, latLon) => {
-      val reducerSet = Set(mkSpeedAvgReducer(nodeId))
-      if(isInsideBound(latLon, latRange, lonRange)) {
-        ActiveTransformations(Set(mkSpeedAvgMapper(nodeId)), reducerSet)
-      } else {
-        ActiveTransformations(Set(), reducerSet)
-      }
+    new GenerativeStaticTransformationFactory(nodeId => {
+      ActiveTransformations(Set(mkRegionSpeedFilterMapper(nodeId, latRange, lonRange)), Set(mkSpeedAvgFilteredReducer(nodeId)))
     })
   }
 
@@ -269,7 +292,7 @@ trait DynamicQuery {
     case "geoMapped" => {
       Configuration.Vehicles.nodePositionsTable match {
         case "dense_positions" => mkGeoMappedSpeedAvg(DENSE_REGIONS)
-        case "sparse_positions" => throw new RuntimeException("Job configuration invalid")
+        case "sparse_positions" => mkGeoMappedSpeedAvg(SPARSE_REGIONS)
       }
     }
   }
