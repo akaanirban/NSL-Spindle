@@ -4,7 +4,8 @@
   "description": "Compile Tex to PDF Automatically",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "node index.js",
+    "dev": "node compiler.js"
   },
   "author": "William Rory Kronmiller",
   "license": "MIT",
