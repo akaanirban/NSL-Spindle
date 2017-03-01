@@ -28,14 +28,15 @@ watch.createMonitor('./', (monitor) => {
             }
           });  
         } else if(f !== filePath) {
-            console.log('Skipping file', f);
             return;
         }
         exec(`pdflatex -halt-on-error ${filePath}`, (err, stdout, stderr) => {
             if(err) { 
                 return console.error(stdout, stderr);
             }
-            console.log('Compiled tex. Opening file');
+            console.log('Compiled tex');
+            return;
+            console.log('Opening file');
             exec(`open ${pdfPath}`, (err, stdout, stderr) => {
                 if(err) { throw err;}
                 console.log(stdout);
