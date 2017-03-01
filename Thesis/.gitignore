@@ -1,4 +1,6 @@
-./*
+*.pid
+*.log
+.Rhistory
 node_modules
 *.pdf
 !.gitignore
