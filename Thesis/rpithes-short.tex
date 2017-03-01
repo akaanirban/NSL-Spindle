@@ -53,23 +53,54 @@ this heading is not numbered.
 Write your abstract here. Again, the heading does receive a number.
 
 \chapter{INTRODUCTION}
-%TODO(MEETING): explain WHY we care about sparse vs. dense, why we care about different window sizes
-    % amount of batching
-    %NOTE: this could go in introduction paragraph
-%TODO
-The text of the first chapter goes here. To cite a reference for the
-bibliography, use a command such as:\cite{thisbook}
-\section{A Section Heading}
-This is a sentence to take up space and look like text.
-\subsection{A Subsection Heading}
+    Spindle serves as a scalable hybrid vehicle-to-vehicle and vehicle-to-internet architecture
+    for efficient near-real-time processing of streaming sensor data from network-connected vehicles.
+    According to a 2015 Hitachi white-paper, some contemporary vehicles produce as much
+    as 25 gigabytes of data every hour with prototype vehicles fitted with "cameras and additional
+    sensors" producing up to 250 gigabytes per hour \cite{hitachi}. At the same time, work is underway
+    to develop and test a variety of communications systems for connecting vehicles to one another
+    and to road infrastructure and the internet \cite{connectivitypaper}. Spindle addresses the problem
+    of managing the vast quantities of available vehicle data by applying the map/reduce \cite{mapreduce}
+    paradigm to logical clusters of interconnected vehicles. In particular, Spindle exploits edge-computation
+    by exchanging data over vehicle-to-vehicle communications systems in order to reduce the amount of data
+    that must be sent over the internet to the cloud. Spindle is designed to support the use case
+    of a developer or analyst writing a streaming map/reduce program that can then be deployed to the cloud
+    and distributed to clusters of vehicles; vehicles in each cluster can apply the map operation to their
+    incoming data streams and send the map outputs to a single leader (Clusterhead); the Clusterhead then
+    applies the reduce operation to a buffer of incoming mapper outputs and sends the result of the reduce
+    operation to the cloud, which forwards the data to the user's client program where the data can be
+    displayed or further analyzed.
+
+    Our contribution is to demonstrate the bandwidth savings of performing map/reduce at the edge, in
+    vehicle networks, by implementing a subset of the Spindle architecture inside a simulation framework.
+    We implement the data Spindle processing pipeline for vehicles and Clusterheads, which we then integrate
+    with a system that provides realistic mobility and connectivity data, such that we can simulate vehicles
+    moving through space, forming clusters, processing map/reduce queries, and producing outputs to send to
+    the cloud. We instrument the simulator to measure the number of bytes outputby simulated Clusterheads,
+    destined for the cloud. We work in collaboration with Mike Wittie of Montana State University to obtain
+    realistic position and connectivity information for vehicles in the simulation. We also work in
+    collaboration with Xiaotian Duan, from whose work we get vehicle-to-cluster assignments over time
+    for our simulation. In evaluating our experiments, we focus in particular on the effect of different
+    reducer window sizes on the amount of data sent to the cloud; in so doing, we explore the trade-off
+    between resolution and latency versus bandwidth consumption. Having a smaller reducer window means
+    that reduced messages are sent more frequently and client programs are given more data points to
+    analyze, while having a larger reducer window size means more messages can be batched together for
+    reduction before data is transmitted to the cloud. We also explore the effects of regions with
+    differing vehicle densities on bandwidth savings; regions of space that have a higher density
+    of vehicles offer the opportunity to form larger clusters and to reduce the total number
+    of clusters relative to the total number of vehicles present; a smaller number of clusters
+    equates to a smaller number of Clusterheads transmitting data at any given time window, which
+    has an effect on overall bandwidth usage.
 
 \chapter{Background and Related Work}
 %TODO
 %TODO: need to explain how spark works, how akka works, 
 
 %TODO: related works (mention that C-DRIVE came up with clustered architecture)
-
+%TODO (meeting): fix positioing of page numbers
 %
+
+%TODO (meeting): feel free to check in by email to get feedback if necessary
 
 \chapter{System Architecture}
     Spindle provides a novel streaming data processing platform by building on
@@ -95,10 +126,11 @@ This is a sentence to take up space and look like text.
     Spark streaming operations written for DStreams and RDDs.
 
 \section{Theorized Architecture}
+%GENERAL NOTE: need to be able to understand what the figure is solely through the caption (fine to duplicate text)
     %TODO: walk through spark query, middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to middleware, transmission to spark streaming, secondary reduce, etc..
     \begin{figure}
         \centering
-        \includegraphics[height=8in, width=5in]{binImages/theoretical-system.png}
+        \includegraphics[width=\linewidth]{binImages/theoretical-system.png}
         \caption{A diagram of the theorized system's major components. Vehicles
         send data to their Cluster Heads, which perform reduce operations over
         incoming mapped tuples. The resultant reduced tuples are then sent to
@@ -114,11 +146,14 @@ This is a sentence to take up space and look like text.
         \label{fig:theoretical:sequence}
     \end{figure}
 
+    %TODO(meeting): do physical
+
 \section{Simulation Architecture}
     \begin{landscape}
         \begin{figure}
             \centering
             \includegraphics[scale=.3]{binImages/simulator-sequence.png}
+            %TODO (meeting): increase font size and increase size of figure to be as large as will fit in margin
             \caption{A sequence diagram showing the high-level interactions of
             the Spindle simulator components. A Postgres database stores the
             simulation configurations and pre-computed velocity and connectivity
@@ -136,6 +171,7 @@ This is a sentence to take up space and look like text.
 % Follow Cloud Computing papers for format (upper bound on page count is 5-10 pages)
 
 %separate sections for envisioned architecture and for test design ("accommodations for testing")
+    %TODO(meeting): describe mapping of theorized system onto simulator
 
 \chapter{Experiments}
 \section{Data Sets}
@@ -149,7 +185,7 @@ This is a sentence to take up space and look like text.
    speed, x-position, y-position, and connectivity to other vehicles. Each time-series mapping includes
    a timestamp, a vehicle uid, and a value (speed, position, reachable-vehicle-id). 
    These shards have been parsed into a Postgres database with a table for each mapping type.
-   %TODO(MEETING): insert information about City of Cologne 
+   %TODO(MEETING): insert information about City of Cologne
    % insert information about node count, length of time here
    % Saw we pick sparse, dense region, etc... here (move from subsection below)
 \subsection{Test Regions} %TODO(MEETING): make sub-sub section of Vehicle traces subsection
@@ -169,18 +205,24 @@ This is a sentence to take up space and look like text.
 
     \begin{figure}
         \centering
-        \includegraphics[scale=.5]{binImages/sparse-and-dense-clusters.png}
+        \includegraphics[scale=.5]{binImages/xiaotian-clusters.png}
         \caption{Illustration of VEINS Vehicles with MANET Clustering, Courtesy Xiaotian Duan}
+        \label{fig:clusters}
+    \end{figure}
+    \begin{figure}
+        \centering
+        \includegraphics[scale=.2]{binImages/cars.png}
+        \caption{A Snapshot of Active Vehicles in VEINS Traces with Selected Regions Highlighted}
         \label{fig:regions}
     \end{figure}
     \paragraph{Sparse Region}
         The sparse region is transited by 148 distinct vehicles over the course of the simulation and defines a bounding
         box from $(40000, 106800)$ to $(53000, 114000)$. The sparse region covers an area on the outskirts of the city,
-        with a relatively low density of vehicles. The sparse region is illustrated by a green box in \ref{fig:regions}.
+        with a relatively low density of vehicles. The sparse region is illustrated by a purple box in \ref{fig:regions}.
     \paragraph{Dense Region}
         The dense region defines a bounding box from $(50000, 100000)$ to $(51000, 102000)$ and is transitied by
         131 vehicles over the course of the simulation. The dense region covers a small area near the city center
-        where the density of vehicles is higher. The dense region is illustrated by a red box in \ref{fig:regions}.
+        where the density of vehicles is higher. The dense region is illustrated by an orange box in \ref{fig:regions}.
 
 \subsection{Window Sizes}
     Kafka Streams can perform reduce operations over messages received over the course of a user-defined time-window
@@ -263,7 +305,42 @@ This is a sentence to take up space and look like text.
 \section{Simulator Results}
     \begin{figure}
         \centering
-        \includegraphics{binImages/speedSum-runplot.pdf}
+        \includegraphics[scale=.8]{binImages/speedSum-runplot.pdf}
+        %NOTE (Meeting)
+        \caption{The total number of bytes sent to the middleware,
+        averaged over multiple trials for the speedSum map/reduce job. The x-axis contians different
+        configurations of regions, clusterings, and reduce window sizes (10, 15, and 30 seconds). Smaller
+        values in the same geographic region indicate better performance, where the best performance
+        comes from using clustering with a 30 second window size.}
+    \end{figure}
+    %TODO (meeting): need number of trials
+    %TODO (meeting): put related figures (normed not normed) on same page, try using subfig package 
+    \begin{figure}
+        \centering
+        \includegraphics[scale=.8]{binImages/speedSum-runplot-normalized.pdf}
+        \caption{shows the scaled number of bytes sent to the middleware in a given region and window size
+        configuration where y=1 indicates the number of bytes sent without clustering for a given region
+        and reduce window size. The figure demonstrates the data savings that occur as a result of using
+        vehicle clusters. The figure also illustrates how data reduction is affected by regional vehicle
+        density - areas of high vehicle density can take better advantage of clustering to get more savings.}
+    \end{figure}
+    \begin{figure}
+        \centering
+        \includegraphics[scale=.8]{binImages/geoMapped-runplot.pdf}
+        \caption{shows the total number of bytes sent to the middleware,
+        averaged over multiple trials for the geoMapped map/reduce job. The x-axis contians different
+        configurations of regions, clusterings, and reduce window sizes (10, 15, and 30 seconds).
+        Despite being a slightly different map/reduce query, the performance of the geoMapped tests
+        is similar to that of the speedSum tests, where the best performing configuration is the clustered
+        configuration with a 30-second reduce window size.}
+    \end{figure}
+    \begin{figure}
+        \centering
+        \includegraphics[scale=.8]{binImages/geoMapped-runplot-normalized.pdf}
+        \caption{shows the scaled number of bytes sent to the middleware in a given region and window size
+        configuration where y=1 indicates the number of bytes sent without clustering for a given region
+        and reduce window size. The figure shows a similar reduction in data transfer by using clusters
+        to that of the speedSum map/reduce job.}
     \end{figure}
     %TODO
     %GRAPHING:
@@ -307,8 +384,29 @@ Let's make it very long so it takes more than one line.
     http://akka.io % Feb 26
 \bibitem{kafka}
     https://kafka.apache.org % Feb 26
+        %TODO: cite papers
 \bibitem{spark}
     http://spark.apache.org/streaming/ %Feb 26
+        %TODO: cite spark and spark streaming papers, not the URL
+\bibitem{hitachi}
+    https://www.hds.com/en-ous/pdf/white-paper/hitachi-white-paper-internet-on-wheels.pdf
+\bibitem{mapreduce}
+    https://research.google.com/archive/mapreduce.html
+\bibitem{connectivitypaper}
+    @ARTICLE{6823640, 
+        author={N. Lu and N. Cheng and N. Zhang and X. Shen and J. W. Mark}, 
+        journal={IEEE Internet of Things Journal}, 
+        title={Connected Vehicles: Solutions and Challenges}, 
+        year={2014}, 
+        volume={1}, 
+        number={4}, 
+        pages={289-299}, 
+        keywords={intelligent transportation systems;next generation networks;road vehicles;vehicular ad hoc networks;Internet of Vehicles;IoV;automotive revolution;connected vehicles;next generation intelligent transportation systems;vehicle communication;vehicle-to-Internet infrastructure connectivity;vehicle-to-road infrastructure connectivity;vehicle-to-sensor infrastructure connectivity;vehicle-to-vehicle infrastructure connectivity;vehicle-to-x connectivity;wireless
+        connectivities;Communication system security;Reliability;Safety;Vehicles;Wireless communication;Wireless sensor networks;Zigbee;Connected vehicles;Internet of Vehicles (IoV);intelligent transportation systems (ITSs);intra-vehicle wireless sensor networks;vehicular networks}, 
+        doi={10.1109/JIOT.2014.2327587}, 
+        ISSN={2327-4662}, 
+        month={Aug},}
+
 \end{thebibliography}
 \end{singlespace}
 
