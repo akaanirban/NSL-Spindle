@@ -236,9 +236,12 @@ trait DynamicQuery {
     val inTopic = TopicLookupService.getClusterInput(nodeId)
     val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
     KvReducerFunc[String, (Boolean, MPH, Long)](reducerId, inTopic, outTopic, (a, b) => {
-      Seq(a,b).filter(_._1).reduce{(a1,b1) =>
-        (a1._1, a1._2 + b1._2, a1._3 + b1._3)
-      }
+      Seq(a,b)
+        .filter(_._1)
+        .reduceOption{(a1,b1) =>
+          (a1._1, a1._2 + b1._2, a1._3 + b1._3)
+        }
+        .getOrElse((false, 0, 0): (Boolean, MPH, Long))
     })
   }
 
