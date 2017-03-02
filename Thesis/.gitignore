@@ -2,7 +2,6 @@
 *.log
 .Rhistory
 node_modules
-*.pdf
 !.gitignore
 !*.tex
 !*.cls
