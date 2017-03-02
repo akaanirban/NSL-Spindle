@@ -93,6 +93,51 @@ Write your abstract here. Again, the heading does receive a number.
     has an effect on overall bandwidth usage.
 
 \chapter{Background and Related Work}
+    \section{Connected Vehicles}
+        %TODO: VANET, quote bandwidth thing again, radio connectivity is different in each direction, etc...
+    \subsection{Vehicle Clusters}
+        %TODO: C-DRIVE etc...
+    \section{Cloud Data Processing Technologies}
+        The past few years have seen a number of critical developments in IT
+        infrastructure and data processing software that, combined, provide
+        a formidable platform for extracting useful information from vast
+        quantities of data at scale.
+        \paragraph{Amazon Web Services}
+            Amazon Web Services (AWS) is a set of "Cloud Computing" offerings
+            from Amazon.com that provide access to elastic computation and storage
+            resources on an "on-demand" basis \cite{aws}. One particularly valuable
+            service offered is EC2, which provides access to collections of virtual
+            machines running on Amazon's cloud. These EC2 virtual machines (instances)
+            can be used to perform resource-intensive cluster computing operations without
+            the need for fixed infrastructure on the part of the end-user. One way in which
+            a user can purchase access to EC2 instances is through Spot Requests, wherein the
+            user places a bid for the maximum amount s/he is willing to pay per hour for a given
+            EC2 instance configuration. If the user is not outbid, then the user is given access
+            to an instance of the specified configuration. As soon as the user is outbid (within
+            approximately 2 minutes), the user's EC2 instance is shut down and its local data is
+            lost. Spot Requests provide very low cost access to computing resources at the cost of
+            reliability.%TODO: cite quote how?, TODO: cite docs for spot requests
+            Finally of note, Amazon provides an object storage layer - one can associate a key string
+            with some binary blob that is stored in a replicated file system - called S3.
+    \subsection{Spark Streaming}
+        One framework that is capable of processing large quantities of data in a distributed fashion,
+        such as on a cluster of EC2 instances, is Apache Spark. Spark offers a micro-batch package for
+        processing streaming data called Spark Streaming. Spark Streaming allows a developer (or other
+        analyst) to manipulate time-bounded batches of streaming data tuples by writing a program that
+        performs immutable transformations such as map, filter, and reduce on a Spark Streaming abstraction
+        called a DStream. Spark is able to take the client program, break it up into "stages" in which
+        all processing across tuples can occur in parallel, then partition each stream and stage
+        across nodes to be processed in parallel. %TODO: clarify how stages work (also double-check)
+        In sum, Spark Streaming provides a computing framework and a set of abstractions which allow
+        a developer to write map/reduce-style programs for streaming data with relative ease
+        \cite{spark:streaming}.
+    \subsection{Kafka}
+        %TODO
+    \section{Other Software}
+    \subsection{Akka}
+        %TODO
+    \subsection{Postgres}
+        %TODO
 %TODO
 %TODO: need to explain how spark works, how akka works, 
 
@@ -392,6 +437,10 @@ Let's make it very long so it takes more than one line.
     https://www.hds.com/en-ous/pdf/white-paper/hitachi-white-paper-internet-on-wheels.pdf
 \bibitem{mapreduce}
     https://research.google.com/archive/mapreduce.html
+\bibitem{aws}
+    http://docs.aws.amazon.com/gettingstarted/latest/awsgsg-intro/awsgsg-intro.pdf %March 1
+\bibitem{spark:streaming}
+    http://people.csail.mit.edu/matei/papers/2013/sosp\_spark\_streaming.pdf %March 1
 \bibitem{connectivitypaper}
     @ARTICLE{6823640, 
         author={N. Lu and N. Cheng and N. Zhang and X. Shen and J. W. Mark}, 
