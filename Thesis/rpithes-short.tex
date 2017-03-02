@@ -14,7 +14,6 @@
 \documentclass{thesis}
 \usepackage{graphicx}   % if you want to include graphics files
 \usepackage{pdflscape}
-\usepackage[backend=bibtex]{biblatex}
 
 % Use the first command below if you want captions over 1 line indented.
 % A side effect of this is to remove the use of bold for captions. 
@@ -205,14 +204,36 @@ Write your abstract here. Again, the heading does receive a number.
         was originally programmed to transmit. Edgent does not appear to be designed for executing
         runtime-generated analytic queries in the context of dynamic clusters of vehicles with a diverse
         array of sensor capabilities \cite{edgent}.
-    \subsection{Greengrass} %TODO
+    \subsection{Greengrass}
+        Greengras is a new product from Amazon Web Services that is currently in preview. While available
+        documentation is limited as of this writing, Greengrass appears to be designed to perform some of
+        the event-driven logic offered by Amazon's cloud IoT platform on a "core" device operating
+        on the local area network. Amazon includes in its list of benefits that Greengrass "reduces the 
+        cost of running IoT applications\dots [by] only transmitting the data you need for your applications
+        to the cloud." IoT devices communicating with a given Greengrass Core are considered part of a
+        "Greengrass Group," for example "one floor of a building, one truck, or one home." While offering
+        a similar model to that of Spindle: a unified programming layer that mixes edge and cloud computing
+        in an effort to optimize bandwidth use, Greengrass appears to be a vendor-exclusive platform and does
+        not appear to support dynamic clusters of connected devices. As such, Greengrass in its current state
+        cannot achieve the same level of bandwidth savings as Spindle without the implementation of non-trivial
+        work-arounds \cite{greengrass}.
     \subsection{Cloud IoT Hubs}
-        %TODO: aws, bluemix, azure, google cloud, pubnub
-%TODO
-
+        A number of cloud providers offer IoT Hubs, for processing streams of data from IoT devices in the cloud
+        using a proprietary platform. 
+        \paragraph{AWS IoT Platform}
+           The AWS IoT platform runs on top of the MQTT message bus and consists primarily of a message bus, rules
+           engine, and a registry. The registry contains information about an indivudal IoT device. The message bus
+           is used to publish data from the device and send messages to the device. The rules engine is used to trigger
+           events based on data received from IoT devices, such as writing to cloud databases or performing operations on
+           other AWS services such as SNS, and Lambda \cite{aws:iot}.
+        \paragraph{Azure IoT}
+            Microsoft has an offering similar to that of AWS IoT and Greengrass, in which IoT devices running client SDKs
+            can publish messages directly to a cloud hub, or to a local network gateway where edge computing can take
+            place.
+        \paragraph{Other IoT Platforms}
+            Similar systems are offered by Google \cite{google:iot}, IBM \cite{ibm:iot}, and a number of other companies
+            \cite{forbes:iot}.
 %TODO (meeting): fix positioing of page numbers
-
-%TODO (meeting): feel free to check in by email to get feedback if necessary
 
 \chapter{System Architecture}
     Spindle provides a novel streaming data processing platform by building on
@@ -490,6 +511,8 @@ Write your abstract here. Again, the heading does receive a number.
     http://doc.akka.io/docs/akka/2.4/AkkaScala.pdf
 \bibitem{postgres}
     https://www.postgresql.org/files/documentation/pdf/9.6/postgresql-9.6-US.pdf
+\bibitem{azure:iot}
+    https://azure.microsoft.com/en-us/develop/iot/
 \bibitem{kafka}
 @article{Wang:2015:BRL:2824032.2824063,
      author = {Wang, Guozhang and Koshy, Joel and Subramanian, Sriram and Paramasivam, Kartik and Zadeh, Mammad and Narkhede, Neha and Rao, Jun and Kreps, Jay and Stein, Joe},
@@ -522,6 +545,12 @@ Write your abstract here. Again, the heading does receive a number.
     doi={10.1109/JIOT.2014.2327587}, 
     ISSN={2327-4662}, 
     month={Aug},}
+\bibitem{google:iot}
+    https://cloud.google.com/solutions/iot/
+\bibitem{ibm:iot}
+    https://www.ibm.com/internet-of-things/platform/watson-iot-platform/
+\bibitem{forbes:iot}
+    https://www.forbes.com/sites/f5/2017/01/25/four-things-to-watch-for-in-your-cloud-blind-spots/\#52ecf647ad8a
 \bibitem{cdrive}
 @INPROCEEDINGS{5720653, 
     author={N. Maslekar and M. Boussedjra and J. Mouzna and H. Labiod}, 
@@ -545,6 +574,8 @@ Write your abstract here. Again, the heading does receive a number.
     month={Dec},}
 \bibitem{edgent}
     https://edgent.apache.org
+\bibitem{aws:iot}
+    http://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html
 \bibitem{hive}
 @INPROCEEDINGS{5447738, 
 author={A. Thusoo and J. S. Sarma and N. Jain and Z. Shao and P. Chakka and N. Zhang and S. Antony and H. Liu and R. Murthy}, 
@@ -582,6 +613,8 @@ pages={1-10},
 keywords={routing protocols;telecommunication computing;vehicular ad hoc networks;VANET simulator;general purpose distributed wireless networks;inter vehicle communication;mobility model;mobility survey;network simulator;routing protocol;vehicular ad hoc networks;vehicular traffic simulator;Ad hoc networks;Object oriented modeling;Roads;Routing;Routing protocols;Vehicles;Mobility Models;Routing Protocols;Simulators;VANETs}, 
 doi={10.1109/BWCCA.2011.11}, 
 month={Oct},}
+\bibitem{greengrass}
+    https://aws.amazon.com/greengrass/faqs/
 %TODO: figure out bibtex
     
 \end{thebibliography}
