@@ -132,12 +132,32 @@ Write your abstract here. Again, the heading does receive a number.
         a developer to write map/reduce-style programs for streaming data with relative ease
         \cite{spark:streaming}.
     \subsection{Kafka}
-        %TODO
+        Apache Kafka is primarily a high-throughput publish-subscribe message bus that runs as a cluster
+        of message "brokers" which provide clients access to partitions of logical groups of message streams
+        called topics; Kafka brokers support master/slave partition replication and support multiple
+        producers and multiple consumers within and across topics and their partitions \cite{kafka}.
+        A recent addition to Kafka is Kafka Streams, a streaming data processing framework that
+        provides some of the functionality offered by Apache Spark as it pertains to performing basic
+        map/reduce-style transformations to streams of tuples. Though Kafka Streams provides per-message
+        processing rather than Spark Streaming's micro-batch processing, Kafka Streams provides a similar
+        programming interface in which a developer writes map, reduce, filter, and other
+        transformations as function applications to data passing through KStreams \cite{kafka:streams}.
     \section{Other Software}
     \subsection{Akka}
-        %TODO
+        Akka is a JVM library that implements an actor-model system with an Erlang-like structure.
+        Akka includes as key features "simple and high-level abstractions for distribution,
+        concurrency, and parallelism\dots lightweight event-driven processes\dots[that] can span
+        over multiple JVMs;" Akka includes among its use cases "Simulation\dots Automobile and
+        Traffic Systems\dots [and] Data Analytics" \cite{akka}. %TODO: ensure this is correct citation for quotes
     \subsection{Postgres}
+        Postgres is a relational database with a SQL language interface that supports view, aggregate
+        functions, transactions, indices, and joins \cite{postgres}. Postgres is a robust and, when
+        properly configured, performant database.
+    \section{Related Work}
+    \subsection{C-DRIVE} %TODO
         %TODO
+    \subsection{Edgent} %TODO
+    \subsection{Greengrass} %TODO
 %TODO
 %TODO: need to explain how spark works, how akka works, 
 
@@ -441,20 +461,55 @@ Let's make it very long so it takes more than one line.
     http://docs.aws.amazon.com/gettingstarted/latest/awsgsg-intro/awsgsg-intro.pdf %March 1
 \bibitem{spark:streaming}
     http://people.csail.mit.edu/matei/papers/2013/sosp\_spark\_streaming.pdf %March 1
+\bibitem{kafka:streams}
+    http://docs.confluent.io/3.0.0/streams/
+\bibitem{akka}
+    http://doc.akka.io/docs/akka/2.4/AkkaScala.pdf
+\bibitem{postgres}
+    https://www.postgresql.org/files/documentation/pdf/9.6/postgresql-9.6-US.pdf
+\bibitem{kafka}
+@article{Wang:2015:BRL:2824032.2824063,
+     author = {Wang, Guozhang and Koshy, Joel and Subramanian, Sriram and Paramasivam, Kartik and Zadeh, Mammad and Narkhede, Neha and Rao, Jun and Kreps, Jay and Stein, Joe},
+     title = {Building a Replicated Logging System with Apache Kafka},
+     journal = {Proc. VLDB Endow.},
+     issue\_date = {August 2015},
+     volume = {8},
+     number = {12},
+     month = aug,
+     year = {2015},
+     issn = {2150-8097},
+     pages = {1654--1655},
+     numpages = {2},
+     url = {http://dx.doi.org/10.14778/2824032.2824063},
+     doi = {10.14778/2824032.2824063},
+     acmid = {2824063},
+     publisher = {VLDB Endowment},
+    } 
 \bibitem{connectivitypaper}
-    @ARTICLE{6823640, 
-        author={N. Lu and N. Cheng and N. Zhang and X. Shen and J. W. Mark}, 
-        journal={IEEE Internet of Things Journal}, 
-        title={Connected Vehicles: Solutions and Challenges}, 
-        year={2014}, 
-        volume={1}, 
-        number={4}, 
-        pages={289-299}, 
-        keywords={intelligent transportation systems;next generation networks;road vehicles;vehicular ad hoc networks;Internet of Vehicles;IoV;automotive revolution;connected vehicles;next generation intelligent transportation systems;vehicle communication;vehicle-to-Internet infrastructure connectivity;vehicle-to-road infrastructure connectivity;vehicle-to-sensor infrastructure connectivity;vehicle-to-vehicle infrastructure connectivity;vehicle-to-x connectivity;wireless
-        connectivities;Communication system security;Reliability;Safety;Vehicles;Wireless communication;Wireless sensor networks;Zigbee;Connected vehicles;Internet of Vehicles (IoV);intelligent transportation systems (ITSs);intra-vehicle wireless sensor networks;vehicular networks}, 
-        doi={10.1109/JIOT.2014.2327587}, 
-        ISSN={2327-4662}, 
-        month={Aug},}
+@ARTICLE{6823640, 
+    author={N. Lu and N. Cheng and N. Zhang and X. Shen and J. W. Mark}, 
+    journal={IEEE Internet of Things Journal}, 
+    title={Connected Vehicles: Solutions and Challenges}, 
+    year={2014}, 
+    volume={1}, 
+    number={4}, 
+    pages={289-299}, 
+    keywords={intelligent transportation systems;next generation networks;road vehicles;vehicular ad hoc networks;Internet of Vehicles;IoV;automotive revolution;connected vehicles;next generation intelligent transportation systems;vehicle communication;vehicle-to-Internet infrastructure connectivity;vehicle-to-road infrastructure connectivity;vehicle-to-sensor infrastructure connectivity;vehicle-to-vehicle infrastructure connectivity;vehicle-to-x connectivity;wireless
+    connectivities;Communication system security;Reliability;Safety;Vehicles;Wireless communication;Wireless sensor networks;Zigbee;Connected vehicles;Internet of Vehicles (IoV);intelligent transportation systems (ITSs);intra-vehicle wireless sensor networks;vehicular networks}, 
+    doi={10.1109/JIOT.2014.2327587}, 
+    ISSN={2327-4662}, 
+    month={Aug},}
+\bibitem{cdrive}
+@INPROCEEDINGS{5720653, 
+    author={N. Maslekar and M. Boussedjra and J. Mouzna and H. Labiod}, 
+    booktitle={2011 4th IFIP International Conference on New Technologies, Mobility and Security}, 
+    title={C-DRIVE: Clustering Based on Direction in Vehicular Environment}, 
+    year={2011}, 
+    pages={1-5}, 
+    keywords={pattern clustering;traffic engineering computing;vehicular ad hoc networks;C-DRIVE;VANET;adaptive traffic signal control;data dissemination;direction based clustering algorithm;vehicle density estimation;vehicular environment;Algorithm design and analysis;Bandwidth;Clustering algorithms;IP networks;Mobile communication;Protocols;Vehicles}, 
+    doi={10.1109/NTMS.2011.5720653}, 
+    ISSN={2157-4952}, 
+    month={Feb},}
 
 \end{thebibliography}
 \end{singlespace}
