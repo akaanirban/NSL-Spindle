@@ -14,6 +14,7 @@
 \documentclass{thesis}
 \usepackage{graphicx}   % if you want to include graphics files
 \usepackage{pdflscape}
+\usepackage[backend=bibtex]{biblatex}
 
 % Use the first command below if you want captions over 1 line indented.
 % A side effect of this is to remove the use of bold for captions. 
@@ -94,9 +95,45 @@ Write your abstract here. Again, the heading does receive a number.
 
 \chapter{Background and Related Work}
     \section{Connected Vehicles}
-        %TODO: VANET, quote bandwidth thing again, radio connectivity is different in each direction, etc...
+        \paragraph{VANETs}
+            The past few years have seen increasing interest in the area of "Intelligent Transportation
+            Systems (ITS)" in which wireless sensor technologies are put towards the improvement of
+            transportation infrastructure. VANETs are wireless ad-hoc networks of vehicles and other
+            road infrastructure. Active resarch is underway to find applications for VANETs to improving
+            transportation infrastructure and safety. 
+            VANETs have unique properties compared to general mesh and ad-hoc networks (MANETs) in that
+            the total number of unique nodes that might join a network is quite large and information
+            about the velocity and "trajectory" of each node is often available.
+            As such, there are a number of low-level VANET protocols being explored including broadcast,
+            unicast, and a variety of flooding protocols, however choosing an optimal low-level protocol is 
+            beyond the scope of this paper.
+            To aid in this research, a number of simulators have
+            come out. These simulators combine a mobility model, in which movement of vehicles througuh road
+            networks under a variety of driving conditions, and a connectivity model which simulates the
+            propagation of radio signals among vehicles in VANETs. OMNeT++ is one such network and connectivity
+            simulator.
+        \paragraph{Analysis of Vehicle Data with HIVE}
+            A 2016 IEEE International Conference on Big Data paper titled "Supporting large scale
+            connected vehicle data analysis using HIVE" illustrates practical use cases for analysis
+            of vehicle data. The authors use the HIVE \cite{hive} query language in conjunction with Apache Spark
+            \cite{spark} and Hadoop MapReduce \cite{hdfs}
+            to perform analyses of a 2013 "connected vehicle" dataset from
+            United States Department of Transportation. The authors combine the DoT dataset with
+            geo-spatial data to validate and improve "traffic demand" models which "can drastically
+            improve the planning of incident response strategies." The authors also test travel
+            time models for the generation of driving directions and create "traffic flow" visualizations
+            to facilitate understanding of road conditions and usage. While the authors demonstrate the 
+            usefulness of applying tools such as Apache Spark to data coming from connected vehicles, the
+            authors operate in a batched, offline, mode and do not perform edge computing optimizations \cite{cv:hive}.
     \subsection{Vehicle Clusters}
-        %TODO: C-DRIVE etc...
+        \paragraph{C-DRIVE}
+            C-DRIVE is an approach for forming logical clusters of network-connected vehicles.
+            C-DRIVE is specifically designed to take into consideration the properties
+            of VANETs with respect to vehicle movement. Specifically C-DRIVE attempts
+            to form clusters of networked vehicles by taking into consideration both
+            connectivity and direction of travel. These clusters are intended to be
+            used to propagate information throughout groups of vehicles in a bandwidth
+            -efficient manner \cite{cdrive}.
     \section{Cloud Data Processing Technologies}
         The past few years have seen a number of critical developments in IT
         infrastructure and data processing software that, combined, provide
@@ -153,17 +190,27 @@ Write your abstract here. Again, the heading does receive a number.
         Postgres is a relational database with a SQL language interface that supports view, aggregate
         functions, transactions, indices, and joins \cite{postgres}. Postgres is a robust and, when
         properly configured, performant database.
-    \section{Related Work}
-    \subsection{C-DRIVE} %TODO
-        %TODO
-    \subsection{Edgent} %TODO
+    \section{Edge Computing Technmologies}
+    \subsection{Edgent}
+        Apache Edgent, formerly Apache Quarks, is a general edge computing and IoT data processing
+        platform. Edgent provides connectors for a number of publish/subscribe systems such as 
+        MQTT and Apache Kafka as well as methods for performing transformations on streaming
+        data on edge devices using pre-programmed analytical subroutines that can be activated and
+        deactivated remotely through IBM's "Watson IoT Platform." Edgent appears to be designed
+        primarily to run on sensors for monitoring infrastructure and detecting exceptions, though
+        it provides a programming model similar to that of Kafka Streams. Edgent appears to be 
+        designed along the lines of traditional IoT data collection platforms in which the edge
+        device has some set of pre-configured features that can execute locally, while new and
+        ad-hoc analytics are run on the "back-end" using a subset of the data the edge device
+        was originally programmed to transmit. Edgent does not appear to be designed for executing
+        runtime-generated analytic queries in the context of dynamic clusters of vehicles with a diverse
+        array of sensor capabilities \cite{edgent}.
     \subsection{Greengrass} %TODO
+    \subsection{Cloud IoT Hubs}
+        %TODO: aws, bluemix, azure, google cloud, pubnub
 %TODO
-%TODO: need to explain how spark works, how akka works, 
 
-%TODO: related works (mention that C-DRIVE came up with clustered architecture)
 %TODO (meeting): fix positioing of page numbers
-%
 
 %TODO (meeting): feel free to check in by email to get feedback if necessary
 
@@ -226,12 +273,6 @@ Write your abstract here. Again, the heading does receive a number.
         \end{figure}
     \end{landscape}
 
-%TODO
-% DO THIS NEXT
-% Ask braden what good vis tools are out there
-
-% Want sequence diagram for a single map-reduce step
-% Component diagrams showing communications
 % Focus more on envisioned 
 % Follow Cloud Computing papers for format (upper bound on page count is 5-10 pages)
 
@@ -407,21 +448,8 @@ Write your abstract here. Again, the heading does receive a number.
         and reduce window size. The figure shows a similar reduction in data transfer by using clusters
         to that of the speedSum map/reduce job.}
     \end{figure}
-    %TODO
-    %GRAPHING:
-        % Generating six figures
-        % Message sizes:
-            % Normalize with 1 being message sizes with single clusterhead
-            % Plotting percentage savings with separate bars for dense/sparse wehre dense/sparse are normalized separately
-        % Total bandwidth:
-            % Total for dense with and without clustering
-            % Total for sparse with and without clustering
-        % Can include stddev bars
-        % Annotate graphs with things like "this shows a reduction..."
-            % try to give intuition as to why
-    % maybe look at variance in data sent at clusterhead 
-%TODO
 
+    %TODO: explain results in words
 \chapter{Conclusion}
 %TODO: what did we do/show?
 \section{Future Work}
@@ -436,11 +464,6 @@ Write your abstract here. Again, the heading does receive a number.
 \specialhead{LITERATURE CITED}
 \begin{singlespace}
 \begin{thebibliography}{99}
-\bibitem{thisbook} This is the first item in the Bibliography.
-Let's make it very long so it takes more than one line.
-Let's make it very long so it takes more than one line.
-\bibitem{anotherbook} The second item in the Bibliography.
-%%% TEMPLATE END
 \bibitem{veins}
     http://veins.car2x.org %TODO: proper citation format (Feb 22, 17)
 \bibitem{scala}
@@ -510,23 +533,57 @@ Let's make it very long so it takes more than one line.
     doi={10.1109/NTMS.2011.5720653}, 
     ISSN={2157-4952}, 
     month={Feb},}
-
+\bibitem{cv:hive}
+@INPROCEEDINGS{7840862, 
+    author={W. Xu and N. R. Juri and A. Gupta and A. Deering and C. Bhat and J. Kuhr and J. Archer}, 
+    booktitle={2016 IEEE International Conference on Big Data (Big Data)}, 
+    title={Supporting large scale connected vehicle data analysis using HIVE}, 
+    year={2016}, 
+    pages={2296-2304}, 
+    keywords={data analysis;data handling;road vehicles;traffic engineering computing;vehicular ad hoc networks;CV data analysis;HIVE;MapReduce programming framework;Spark programming framework;connected vehicle data analysis;data analytic tasks;data storage;roadside infrastructure;safety-related information;transportation operations;transportation planning research;vehicle connectivity;vehicle message exchange;Data analysis;Planning;Programming;Safety;Sparks;Vehicles;Big Data;Connected Vehicles Data;Hive;Spark;Transportation Planning}, 
+    doi={10.1109/BigData.2016.7840862}, 
+    month={Dec},}
+\bibitem{edgent}
+    https://edgent.apache.org
+\bibitem{hive}
+@INPROCEEDINGS{5447738, 
+author={A. Thusoo and J. S. Sarma and N. Jain and Z. Shao and P. Chakka and N. Zhang and S. Antony and H. Liu and R. Murthy}, 
+booktitle={2010 IEEE 26th International Conference on Data Engineering (ICDE 2010)}, 
+title={Hive - a petabyte scale data warehouse using Hadoop}, 
+year={2010}, 
+pages={996-1005}, 
+keywords={SQL;competitive intelligence;data warehouses;public domain software;query processing;Hadoop software;HiveQL language;Metastore system catalog;SQL-like declarative language;arrays;business intelligence;data exploration;map-reduce jobs;maps;nested compositions;open-source map-reduce implementation;petabyte scale data warehouse;primitive types;query compilation;query optimization;Companies;Data warehouses;Facebook;Hardware;Libraries;Open source software;Plugs;Query processing;Statistics;Warehousing}, 
+doi={10.1109/ICDE.2010.5447738}, 
+ISSN={1063-6382}, 
+month={March},}
+\bibitem{hdfs}
+@inproceedings{Shvachko:2010:HDF:1913798.1914427,
+ author = {Shvachko, Konstantin and Kuang, Hairong and Radia, Sanjay and Chansler, Robert},
+ title = {The Hadoop Distributed File System},
+ booktitle = {Proceedings of the 2010 IEEE 26th Symposium on Mass Storage Systems and Technologies (MSST)},
+ series = {MSST '10},
+ year = {2010},
+ isbn = {978-1-4244-7152-2},
+ pages = {1--10},
+ numpages = {10},
+ url = {http://dx.doi.org/10.1109/MSST.2010.5496972},
+ doi = {10.1109/MSST.2010.5496972},
+ acmid = {1914427},
+ publisher = {IEEE Computer Society},
+ address = {Washington, DC, USA},
+} 
+\bibitem{vanet:simulators}
+@INPROCEEDINGS{6103008, 
+author={E. Spaho and L. Barolli and G. Mino and F. Xhafa and V. Kolici}, 
+booktitle={2011 International Conference on Broadband and Wireless Computing, Communication and Applications}, 
+title={VANET Simulators: A Survey on Mobility and Routing Protocols}, 
+year={2011}, 
+pages={1-10}, 
+keywords={routing protocols;telecommunication computing;vehicular ad hoc networks;VANET simulator;general purpose distributed wireless networks;inter vehicle communication;mobility model;mobility survey;network simulator;routing protocol;vehicular ad hoc networks;vehicular traffic simulator;Ad hoc networks;Object oriented modeling;Roads;Routing;Routing protocols;Vehicles;Mobility Models;Routing Protocols;Simulators;VANETs}, 
+doi={10.1109/BWCCA.2011.11}, 
+month={Oct},}
+%TODO: figure out bibtex
+    
 \end{thebibliography}
 \end{singlespace}
-
-%%%%%%%%%%%%%%%%%%%%%%%  For Appendices  %%%%%%%%%%%%%%%%%%%
-\appendix    % This command is used only once!
-\addtocontents{toc}{\parindent0pt\vskip12pt APPENDICES} %toc entry, no page #
-\chapter{THIS IS AN APPENDIX}
-Note the numbering of the chapter heading is changed.
-This is a sentence to take up space and look like text.
-\section{A Section Heading}
-This is how equations are numbered in an appendix:
-\begin{equation}
-x^2 + y^2 = z^2
-\end{equation} 
-
-\chapter{THIS IS ANOTHER APPENDIX}
-This is a sentence to take up space and look like text.
-
 \end{document}
