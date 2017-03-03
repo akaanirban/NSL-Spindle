@@ -14,6 +14,8 @@
 \documentclass{thesis}
 \usepackage{graphicx}   % if you want to include graphics files
 \usepackage{pdflscape}
+\usepackage{caption}
+\usepackage{subcaption}
 
 % Use the first command below if you want captions over 1 line indented.
 % A side effect of this is to remove the use of bold for captions. 
@@ -45,10 +47,8 @@
 \listoffigures         % required if there are figures
 
 \specialhead{ACKNOWLEDGMENT}
-The acknowledgment text goes here. Unlike chapter headings, 
-this heading is not numbered.
-% Personal thing
-
+   TODO - right now I just wanna thank whoever is proofreading this, as well as whoever invented Redbull 
+    %TODO: write acknowledgement - thank patterson, xiaotian, mike, mentors throughout etc...
 \specialhead{ABSTRACT}
 Write your abstract here. Again, the heading does receive a number.
 
@@ -259,11 +259,12 @@ Write your abstract here. Again, the heading does receive a number.
     Spark streaming operations written for DStreams and RDDs.
 
 \section{Theorized Architecture}
-%GENERAL NOTE: need to be able to understand what the figure is solely through the caption (fine to duplicate text)
-    %TODO: walk through spark query, middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to middleware, transmission to spark streaming, secondary reduce, etc..
+    Spindle is a hybrid vehicle-to-cloud architecture with three major components: a client Spark program,
+    an in-cloud middleware, and edge computing software.
+
     \begin{figure}
         \centering
-        \includegraphics[width=\linewidth]{binImages/theoretical-system.png}
+        \includegraphics[width=0.5\linewidth]{binImages/theoretical-system.png}
         \caption{A diagram of the theorized system's major components. Vehicles
         send data to their Cluster Heads, which perform reduce operations over
         incoming mapped tuples. The resultant reduced tuples are then sent to
@@ -279,13 +280,127 @@ Write your abstract here. Again, the heading does receive a number.
         \label{fig:theoretical:sequence}
     \end{figure}
 
-    %TODO(meeting): do physical
+\subsection{Spark Clients}
+    Spindle is ultimately designed to provide streaming data from network-connected vehicles to a streaming data
+    analytics platform. We chose Apache Spark as our target platform. Apache Spark allows a user to analyze
+    streams of tuples using the DStream programming abstraction previously described. In a traditional Spark
+    Streaming program, a user creates a connection to some message bus such as Apache Kafka and programs against
+    a DStream representing the micro-batches of messages being received from the connected message bus. The user
+    is then free to analyze the data by applying functional transformations such as map, filter, and reduce
+    to the batches of streamed tuples. 
+    
+    A naive analytics architecture for vehicle data with no edge computing optimizations
+    would likely have each connected vehicle send all of its data directly over the internet to a message bus such as
+    Apache Kafka running in the cloud. The user would then write a Spark Streaming program to create a DStream
+    to receive the stream of all data coming from the vehicles and apply a map operation to extract only the 
+    relevant values from the flood of incoming data. To perform an aggregate analysis of the data, the user would then
+    apply a reduce operation, for example to get average fuel economy in real time for a given region or set of
+    regions. While the naive example is extremely inefficient in terms of bandwidth consumption and compute resource
+    utilization, the programming model is extremely simple and convenient. All the end-user writing the analysis
+    has to do is connect, map, reduce, and output the results (or perform further analyses). 
+
+    With the Spindle architecture, we attempt to preserve convenience of the naive model while greatly reducing
+    bandwidth consumption and wasted cloud resources. To do so, Spindle includes a small Scala library that can be
+    imported to a Spark Streaming program. Rather than calling the Kafka Spark Streaming library to create a 
+    DStream, the user instead calls the Spindle Spark Streaming library to create their DStream. The user then
+    writes their map and reduce functions as before, with the additional (current) requirement that the reduce function
+    call be annotated with a descriptive enum to indicate the category of reduce operation taking place (e.g.\ min,
+    max, mean, etc\dots).%TODO: reducebykey not reduce bah
+
+    The Spindle Spark Streaming library is then able to serialize the user's map and reduce functions and transmit
+    them to the middleware for de-duplication and distribution to vehicles and Clusterheads. The middleware
+    sends back partially reduced results which the library running on Spark then re-runs the reduce function over.
+    The final output is a DStream of reduced tuples, which from the user's perspective has the same attributes as 
+    a DStream that would have been produced by running the naive implementation.
+
+    We have developed a proof-of-concept implementation of the Spindle library for Spark Streaming described above.
+    A future version will include the ability to pass filter functions to the middlware as well in order to support
+    more selective queries.
+\subsection{Middleware}
+    Spindle's cloud middleware design consists of two components: a message bus and a query manager.
+    \paragraph{Kafka Message Bus}
+        Required vehicle data is published to a Kafka cluster, to which the Spindle Spark Streaming client can
+        connect to consume partially reduced tuples for further processing as described above. Kafka provides
+        a scalable platform with logical partitioning of messages (topics) that allows data from vehicle clusters
+        for multiple Spark Clients to be ingested and routed to client-specific topics so that data for overlapping
+        queries need only be sent once and so that each client can be required to process only the data required by
+        its analysis.
+    \paragraph{Query Manager}
+        The query manager is responsible for storing, de-duplicating, and disseminating active Spark client queries.
+        Duplicate map operations can be detected by their return types, while duplicate reducers can be detected
+        by detecting duplicate inputs types, return types, and by their category annotations. Two queries can be
+        de-duplicated if their mappers match, their reducers match, and their geographic regions overlap; if the
+        geographic overlap is complete, then a single query is sent to the vehicles and clusterheads.
+        As Kafka requires Zookeeper, a consistent distributed key/value store, the middleware will store its
+        state and look for client queries in Zookeeper directories.
+        Incoming data, from the cluster heads, will be loaded into Kafka. The query manager will then perform
+        streaming map operations using Kafka Streams to route data to Kafka topics for the dependent queries.
+        %SECONDPASS: flesh out how query manager works - describe how duplicate queries are not a problem, describe how messages are routed through kafka streams (by reducerIds)
+
+\subsection{Vehicles and Clusterheads}
+    The vehicles and Clusterheads run a similar software stack to that of the middleware, with data being
+    processed through Kafka Streams. Each vehicle and Clusterhead is expected to have its own internal
+    single-node Kafka cluster as well as supporting software for marshalling data, managing cluster membership,
+    and applying map and reduce functions to the streaming data.
+    Specific implementations of the protocols used to connected vehicles to one another, to clusterheads, and Clusterheads
+    to the internet are beyond the scope of this work, as are the specifics of how best to propagate queries from the middleware
+    query manager to vehicles and Clusterheads. Spindle's architecture requires only that vehicles be able to exchange binary
+    data with clusterheads and that Clusterheads be able to send binary data to the cloud middleware. We anticipate that queries
+    will be transmitted to vehicles by their Clusterheads, though a model in which vehicles periodically poll the cloud middleware
+    directly is also compatible with the Spindle architecture.
+    Every vehicle can act as a Clusterhead, though a Clusterhead need not be a vehicle and can instead be some other piece of
+    connected infrastructure. The Spindle architecture is also agnostic to clustering algorithms and protocols, but merely requires
+    that each vehicle know the identity of and be able to communicate with its Clusterhead (where the vehicle may be its own Clusterhead).
+\subsubsection{Vehicle Components}
+    \paragraph{Sensor Producer} 
+        Each vehicle has a sensor producer, which is a Kafka message producer that periodically reads the current sensor data (e.g.\
+        speedometer, tachometer, fuel consumption, fuel level, tire pressure, O2 sensors, lat/lon, etc\dots) and publishes the data
+        as a single serialized VehicleMessage object to the onboard Kafka cluster. The VehicleMessage class is what the Spark client
+        map functions take as input.
+    \paragraph{Mappers}
+        Each vehicle has a set of map functions loaded from the Middlewware. A local vehicle-level query manager periodically checks
+        for updates to the set of active map functions. When a new map function arrives, the vehicle-level query manager
+        launches a new Kafka Streams topology that reads data from the Sensor Producer topic, applies the map function to the 
+        deserialized data, and publishes the serialized map function output to a dedicated output topic.
+    \paragraph{Clusterhead Relay}
+        Finally, each vehicle has a Clusterhead relay, which reads data from the mapper output topics and relays the data to
+        the vehicle's current Clusterhead. This is where data is transmitted from vehicle to vehicle or vehicle to infrastructure
+        over a wireless communication protocol. Spindle is protocol agnostic, as described above.
+\subsubsection{Clusterhead Components}
+    \paragraph{Clusterhead Input}
+        The Clusterhead Input is a Kafka producer, which receives messages transmitted by the member vehicle
+        Clusterhead Relays and publishes the messages to a single local Kafka topic.
+    \paragraph{Reducers}
+        Just as on the vehicles, the Clusterheads have a local query manager which is responsible for loading and unloading
+        query functions. Instead of loading and unloading map functions, the Clusterhead query manager loads and unloads
+        reduce functions. Once again, the reduce functions run on Kafka Streams topologies, with the distinction that the
+        reducer topologies include buffers, which cache intermediate reduce results until some pre-defined time window
+        has passed, at which point the reduced data for a time window is published to a Middleware Uplink Kafka topic.
+    \paragraph{Middleware Uplink}
+        The Middleware Uplink serves a similar purpose to that of the vehicle's Clusterhead Relay. The uplink
+        reads messages published to the Middleware Uplink Kafka topic and sends the messages to the cloud Middleware.
+        It is at the Middleware Uplink that message compression and de-duplication can occur. If two reducers produce
+        the same output in a given time window, the Middleware Uplink should send only one tuple, tagged with the UIDs
+        of both reducers. %SECONDPASS: go into more detail about deduplication (walk through a scenario, possibly write a new subsection)
+
+
+%GENERAL NOTE: need to be able to understand what the figure is solely through the caption (fine to duplicate text)
+    %TODO: walk through spark query, middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to middleware, transmission to spark streaming, secondary reduce, etc..
+
+    %TODO(meeting): do simple physical layout diagram
 
 \section{Simulation Architecture}
+    We have developed a simulator to evaluate the vehicle and Clusterhead architecture under a variety of clustering,
+    vehicle density, and query configurations.
+
+    The simulator implements the basic features of the vehicle and Clusterhead software described above, including
+    Sensor producers, mappers, reducers, simulated Clusterhead relays, query managers, and simulated middleware uplinks.
+    The core simulation software is implemented in Scala using the Akka actor framework.
+    %SECONDPASS: do a system diagram for the simulator
     \begin{landscape}
         \begin{figure}
             \centering
-            \includegraphics[scale=.3]{binImages/simulator-sequence.png}
+            \includegraphics[width=\textwidth]{binImages/simulator-sequence.png}
             %TODO (meeting): increase font size and increase size of figure to be as large as will fit in margin
             \caption{A sequence diagram showing the high-level interactions of
             the Spindle simulator components. A Postgres database stores the
@@ -294,6 +409,41 @@ Write your abstract here. Again, the heading does receive a number.
         \end{figure}
     \end{landscape}
 
+\subsection{SpindleSim}
+    The Spindle simulator (SpindleSim) is implemented in several thousand lines of Scala \cite{scala} 
+    and is implemented on top of the Akka
+    actor model framework. The Scala/Akka portions of the simulator implement as realistically
+    as is practical the software that would run on a real-world deployment of Spindle. This is
+    accomplished by creating a separate Akka actor for each simulated vehicle, where each actor
+    is given a cache of time-series simulation events and data and a connection to a ``World''
+    actor responsible for keeping track of global simulation time; this global time-keeper 
+    can be thought of as a stand-in for a GPS clock running on each vehicle. Each vehicle
+    actor is then responsible for managing its publish-subscribe streams and messages, as well
+    as its simulated connections to other vehicles in its cluster. Messages are exchanged between
+    vehicles and send from vehicles to ``the cloud" by way of special "Stream Relay" Kakfa Streams
+    programs. The Stream Relay programs operate as simulated versions of the Clusterhead Relay
+    and Middleware Uplink programs. Stream Relays are also responsible for filtering 
+    expired and "Canary" messages; the verison of Kakfa Streams being used (the latest version
+    at the start of development) has implementation bugs that mean new message consumers must
+    read old messages and that a topic may not fully initialize until a message is produced to it;
+    our solution is to send "Canary" messages to ensure topic initialization and to filter out messages
+    that have already been processed. Finally Stream Relays are responsible for keeping a 
+    running sum of the number of bytes sent on a per-relay basis and logging these sums to separate 
+    CSV files at run-time.
+\subsection{AutoSim}
+    The Scala/Akka simulator (SpindleSim) currently has a number of pre-configured map/reduce jobs written
+    that can be turned on or off using the program's \verb|application.conf| file. A secondary
+    program, dubbed AutoSim, runs the simulator iteratively, writing to the conf file, launching
+    SpindleSim, then gathering the results and uploading them to a database and permanent storage.
+    In order to iterate through the desired test configurations, AutoSim reads from a table \verb|sim_configs_vx| in a 
+    Postgres 9.6.1 database hosted on an AWS EC2 \verb|m4.large| reserved instance.
+    AutoSim will choose among the least-tested configurations in the configs table, write the configuration to
+    the SpindleSim \verb|application.conf|, and launch an instance of SpindleSim. While SpindleSim is running, AutoSim
+    greps the console logs for exception messages. If an exception is detected, the current SpindleSim instance is killed
+    and a notification is sent via AWS SNS topic reporting the error message in order to facilitate debugging. If the SpindleSim
+    operation completes, AutoSim uploads the CSV logs to an AWS S3 bucket and parses the final message byte sums from the CSV
+    files then writes the results to a \verb|sim_results_vx| table in Postgres. AutoSim is a simple Node.JS ES6 application
+    that is run from the Babel-Node \cite{babel} transpiler.
 % Focus more on envisioned 
 % Follow Cloud Computing papers for format (upper bound on page count is 5-10 pages)
 
@@ -315,9 +465,8 @@ Write your abstract here. Again, the heading does receive a number.
    %TODO(MEETING): insert information about City of Cologne
    % insert information about node count, length of time here
    % Saw we pick sparse, dense region, etc... here (move from subsection below)
-\subsection{Test Regions} %TODO(MEETING): make sub-sub section of Vehicle traces subsection
+\subsubsection{Test Regions} %TODO(MEETING): make sub-sub section of Vehicle traces subsection
     \paragraph{Original VEINS Traces}
-    %TODO (MEETING): insert VEINS visualization here
         The original VEINS traces span a region from $(41735, 85178.4)$ to $(63071.5, 114426)$ and includes 3340 distinct
         vehicles. This dataset includes more vehicles than the current simulator implementation can handle due to the large
         number of threads, network connections, and Kakfa topics that would be required (the thread/topic count scales with the
@@ -368,57 +517,26 @@ Write your abstract here. Again, the heading does receive a number.
     %TODO: include information about cluster density for each clustering (sparse/dense)
     %TODO: Fix the quotes!
 
-\section{Test Software}
-    \paragraph{SpindleSim}
-        The Spindle simulator (SpindleSim) is implemented in several thousand lines of Scala %TODO: cite
-        and is implemented on top of the Akka %TODO: cite
-        actor model framework. The Scala/Akka portions of the simulator implement as realistically
-        as is practical the software that would run on a real-world deployment of Spindle. This is
-        accomplished by creating a separate Akka actor for each simulated vehicle, where each actor
-        is given a cache of time-series simulation events and data and a connection to a ``World''
-        actor responsible for keeping track of global simulation time; this global time-keeper 
-        can be thought of as a stand-in for a GPS clock running on each vehicle. Each vehicle
-        actor is then responsible for managing its publish-subscribe streams and messages, as well
-        as its simulated connections to other vehicles in its cluster. Messages are exchanged between
-        vehicles and send from vehicles to ``the cloud" by way of special "Stream Relay" Kakfa Streams
-        programs responsible for filtering expired and "Canary" messages %TODO: explain redundant messages in architecture
-        and responsible for keeping a running sum of the number of bytes sent on a per-relay basis and logging
-        these sums to separate CSV files at run-time.
-    \paragraph{AutoSim}
-        The Scala/Akka simulator (SpindleSim) currently has a number of pre-configured map/reduce jobs written
-        that can be turned on or off using the program's \verb|application.conf| file. A secondary
-        program, dubbed AutoSim, runs the simulator iteratively, writing to the conf file, launching
-        SpindleSim, then gathering the results and uploading them to a database and permanent storage.
-        In order to iterate through the desired test configurations, AutoSim reads from a table \verb|sim_configs_vx| in a 
-        Postgres 9.6.1 database hosted on an AWS EC2 \verb|m4.large| reserved instance.
-        AutoSim will choose among the least-tested configurations in the configs table, write the configuration to
-        the SpindleSim \verb|application.conf|, and launch an instance of SpindleSim. While SpindleSim is running, AutoSim
-        greps the console logs for exception messages. If an exception is detected, the current SpindleSim instance is killed
-        and a notification is sent via AWS SNS topic reporting the error message in order to facilitate debugging. If the SpindleSim
-        operation completes, AutoSim uploads the CSV logs to an AWS S3 bucket and parses the final message byte sums from the CSV
-        files then writes the results to a \verb|sim_results_vx| table in Postgres. AutoSim is a simple Node.JS ES6 application
-        that is run from the Babel-Node %TODO: CITE
-        transpiler.
-    \paragraph{Environment}
-        AutoSim and SpindleSim are packaged inside a docker image, \\\verb|wkronmiller/nsl-spindle-simulator| that can be run from
-        a laptop, desktop, or EC2 instance. The test framework and container are designed to survive the total loss of local
-        storage and/or the running simulator container by storing the results of all completed simiulation operations on
-        S3 and a remote database. This design decision allows the test framework to be run on an AWS EC2 Spot Fleet %TODO: citation
-        which offers discounts of roughly 70-90\% in exchange for the requirement that any software running on a Spot instance
-        be designed to killed at any time with little or no warning. %TODO citation
-        The architecture also enables trivial transfer of the simulator across different machines, easing debugging and mitigating
-        problems related to transient EC2 network problems. 
+\section{Test Software Environment}
+    AutoSim and SpindleSim are packaged inside a docker image, \\\verb|wkronmiller/nsl-spindle-simulator| that can be run from
+    a laptop, desktop, or EC2 instance. The test framework and container are designed to survive the total loss of local
+    storage and/or the running simulator container by storing the results of all completed simiulation operations on
+    S3 and a remote database. This design decision allows the test framework to be run on an AWS EC2 Spot Fleet %TODO: citation
+    which offers discounts of roughly 70-90\% in exchange for the requirement that any software running on a Spot instance
+    be designed to killed at any time with little or no warning. %TODO citation
+    The architecture also enables trivial transfer of the simulator across different machines, easing debugging and mitigating
+    problems related to transient EC2 network problems. 
+
 \section{Test Configurations}
 \subsection{Example Map/Reduce Programs}
     \paragraph{speedSum}
-        The most simple map/reduce operation tested is the "speedSum" job, which simply maps each vehicle's available data to a
-        tuple containing only the vehicle's speed. The reduce operation run at the clusterheads takes the sum of the speeds
+        The most simple map/reduce operation tested is the "speedSum" job, which simply takes the sum of the speeds of all
+        vehicles in the simulation in each time step. The map operation takes the vehicle state as input and returns only
+        the vehicle speed. The reduce operation run at the clusterheads takes the sum of the speeds
         of each of the cluster member vehicles.
-%TODO (MEETING): each paragraph should be formatted as: use case, query format
-        % first sentence - query computes x
-        % follow-on: uses this map function, uses reduce function
     \paragraph{geoFiltered}
-        This map/reduce job extends speedSum by performing a word-count-style map operation that maps each vehicle's sensors
+        The geoFiltered operation collects the data required to compute the average speed of all vehicles in a selected
+        geographic region. This map/reduce job extends speedSum by performing a word-count-style map operation that maps each vehicle's sensors
         to the vehicle count and the vehicle speed: \verb|(1, [speed])|. The reduce operation again simply sums the count
         and speed of each member vehicle \verb|([numVehiclesInCluster], [sumOfSpeeds])|. The geoFiltered query also is selective,
         in that for a given test region the geoFiltered query operates only on a subset of the test region containing approximately
@@ -430,193 +548,154 @@ Write your abstract here. Again, the heading does receive a number.
         \verb|(regionId) -> (1, [speed])| and the reduce produces \verb|(regionId) -> ([numVehiclesInCluster], [sumOfSpeeds])|.
 
 \section{Simulator Results}
-    \begin{figure}
-        \centering
-        \includegraphics[scale=.8]{binImages/speedSum-runplot.pdf}
-        %NOTE (Meeting)
-        \caption{The total number of bytes sent to the middleware,
-        averaged over multiple trials for the speedSum map/reduce job. The x-axis contians different
-        configurations of regions, clusterings, and reduce window sizes (10, 15, and 30 seconds). Smaller
-        values in the same geographic region indicate better performance, where the best performance
-        comes from using clustering with a 30 second window size.}
-    \end{figure}
     %TODO (meeting): need number of trials
-    %TODO (meeting): put related figures (normed not normed) on same page, try using subfig package 
+
+   A total of 114 trials were carried out for the geoMapped query and a totla of 111 trials for speesSum.
+   Figures \ref{results:speedsum} and \ref{results:geomapped} show the bandwidth consumed by the speedSum
+   and geoMapped map/reduce queries, respectively. We see from both sets of graphs the same pattern: that
+   the higher density region has better performance than the lower density region, that larger window
+   sizes have better performance than smaller window sizes, and that, critically, the use of clustering
+   results in a 50-75\% savings in bandwidth.
+
     \begin{figure}
         \centering
-        \includegraphics[scale=.8]{binImages/speedSum-runplot-normalized.pdf}
-        \caption{shows the scaled number of bytes sent to the middleware in a given region and window size
-        configuration where y=1 indicates the number of bytes sent without clustering for a given region
-        and reduce window size. The figure demonstrates the data savings that occur as a result of using
-        vehicle clusters. The figure also illustrates how data reduction is affected by regional vehicle
-        density - areas of high vehicle density can take better advantage of clustering to get more savings.}
+        \begin{subfigure}[h]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{binImages/speedSum-runplot.pdf}
+            %NOTE (Meeting)
+            \caption{The total number of bytes sent to the middleware,
+            averaged over multiple trials for the speedSum map/reduce job.} 
+        \end{subfigure}
+        \begin{subfigure}[h]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{binImages/speedSum-runplot-normalized.pdf}
+            \caption{The scaled number of bytes sent to the middleware in a given region and window size
+            configuration where y=1 indicates the number of bytes sent without clustering for a given region
+            and reduce window size.}
+        \end{subfigure}
+        \caption{Results from running the speedSum map/reduce query. The x-axis contians different
+            configurations of regions, clusterings, and reduce window sizes (10, 15, and 30 seconds). Smaller
+            values in the same geographic region indicate better performance, where the best performance
+            comes from using clustering with a 30 second window size. Demonstrates the data savings that occur as a result of using
+            vehicle clusters. Also illustrates how data reduction is affected by regional vehicle
+            density - areas of high vehicle density can take better advantage of clustering to get more savings.}
+        \label{results:speedsum}
     \end{figure}
     \begin{figure}
-        \centering
-        \includegraphics[scale=.8]{binImages/geoMapped-runplot.pdf}
-        \caption{shows the total number of bytes sent to the middleware,
-        averaged over multiple trials for the geoMapped map/reduce job. The x-axis contians different
-        configurations of regions, clusterings, and reduce window sizes (10, 15, and 30 seconds).
-        Despite being a slightly different map/reduce query, the performance of the geoMapped tests
-        is similar to that of the speedSum tests, where the best performing configuration is the clustered
-        configuration with a 30-second reduce window size.}
-    \end{figure}
-    \begin{figure}
-        \centering
-        \includegraphics[scale=.8]{binImages/geoMapped-runplot-normalized.pdf}
-        \caption{shows the scaled number of bytes sent to the middleware in a given region and window size
-        configuration where y=1 indicates the number of bytes sent without clustering for a given region
-        and reduce window size. The figure shows a similar reduction in data transfer by using clusters
-        to that of the speedSum map/reduce job.}
+        \begin{subfigure}[h]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{binImages/geoMapped-runplot.pdf}
+            \caption{The total number of bytes sent to the middleware,
+            averaged over multiple trials for the geoMapped map/reduce job.}
+        \end{subfigure}
+        \begin{subfigure}[h]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{binImages/geoMapped-runplot-normalized.pdf}
+            \caption{shows the scaled number of bytes sent to the middleware in a given region and window size
+            configuration where y=1 indicates the number of bytes sent without clustering for a given region
+            and reduce window size.}
+        \end{subfigure}
+        \caption{Results from running the geoMapped map/reduce query. The x-axis contians different
+            configurations of regions, clusterings, and reduce window sizes (10, 15, and 30 seconds). Smaller
+            values in the same geographic region indicate better performance, where the best performance
+            comes from using clustering with a 30 second window size. Demonstrates the data savings that occur as a result of using
+            vehicle clusters. Also illustrates how data reduction is affected by regional vehicle
+            density - areas of high vehicle density can take better advantage of clustering to get more savings.}
+        \label{results:geomapped}
     \end{figure}
 
-    %TODO: explain results in words
+    The results make logical sense. A higher density region allows for better clustering - more vehicles to a cluster.
+    A larger window size results in a smaller number of transmissions from the reducers to the middleware, so even
+    though the serialized messages may be larger (because the values contained within are larger), the larger message
+    size is outweighed by the lower transmision frequency; this makes sense when one considers the inevitable boilerplate
+    required in each message that gets wrapped around the changing values. Finally, the use of clusters makes sense for
+    similar reasons to those of having larger window sizes - fewer overall messages are sent.
+    %SECONDPASS: table of results
+
 \chapter{Conclusion}
-%TODO: what did we do/show?
+    In this paper, we discuss the state of the art in connected vehicle technologies as well as the problem
+    of managing the vast quantities of data these vehicles are expected to produce. We further discuss
+    some of the use cases that are being explored for the wealth of information that researchers expect
+    to be available in these new connected cars. Finally, we review current and upcoming cloud technologies
+    related to data processing, particularly with respect to the Internet of Things. Next, we provide an
+    overview of a novel solution to the problem of managing vehicle data by extending cloud and big data 
+    technologies such as the map/reduce paradigm and Apache Kafka to the edge using the Spindle architecture.
+    We discuss how existing tools such as Apache Spark can interfaced with edge computing systems through
+    the use of the Spindle library for Spark Streaming.
+
+    We demonstrate the power of our paradigm by creating a simulator for our vehicle and Clusterhead software,
+    which we test under a number of different workloads. We then demonstrate that the combination of clustering
+    and message reduction used in our architecture produces significant bandwidth savings.
+
 \section{Future Work}
 %TODO
 
-%\chapter{THE NEXT CHAPTER}
-%And so on, for more chapters.
-%Another citation for the bibliography:\cite{anotherbook}
-
-% The following produces a numbered bibliography where the numbers
-% correspond to the \cite commands in the text.
 \specialhead{LITERATURE CITED}
 \begin{singlespace}
-\begin{thebibliography}{99}
-\bibitem{veins}
-    http://veins.car2x.org %TODO: proper citation format (Feb 22, 17)
-\bibitem{scala}
-    http://www.scala-lang.org %TODO: proper citation format Feb 26, 17
-\bibitem{akka}
-    http://akka.io % Feb 26
-\bibitem{kafka}
-    https://kafka.apache.org % Feb 26
-        %TODO: cite papers
-\bibitem{spark}
-    http://spark.apache.org/streaming/ %Feb 26
-        %TODO: cite spark and spark streaming papers, not the URL
-\bibitem{hitachi}
-    https://www.hds.com/en-ous/pdf/white-paper/hitachi-white-paper-internet-on-wheels.pdf
-\bibitem{mapreduce}
-    https://research.google.com/archive/mapreduce.html
-\bibitem{aws}
-    http://docs.aws.amazon.com/gettingstarted/latest/awsgsg-intro/awsgsg-intro.pdf %March 1
-\bibitem{spark:streaming}
-    http://people.csail.mit.edu/matei/papers/2013/sosp\_spark\_streaming.pdf %March 1
-\bibitem{kafka:streams}
-    http://docs.confluent.io/3.0.0/streams/
-\bibitem{akka}
-    http://doc.akka.io/docs/akka/2.4/AkkaScala.pdf
-\bibitem{postgres}
-    https://www.postgresql.org/files/documentation/pdf/9.6/postgresql-9.6-US.pdf
-\bibitem{azure:iot}
-    https://azure.microsoft.com/en-us/develop/iot/
-\bibitem{kafka}
-@article{Wang:2015:BRL:2824032.2824063,
-     author = {Wang, Guozhang and Koshy, Joel and Subramanian, Sriram and Paramasivam, Kartik and Zadeh, Mammad and Narkhede, Neha and Rao, Jun and Kreps, Jay and Stein, Joe},
-     title = {Building a Replicated Logging System with Apache Kafka},
-     journal = {Proc. VLDB Endow.},
-     issue\_date = {August 2015},
-     volume = {8},
-     number = {12},
-     month = aug,
-     year = {2015},
-     issn = {2150-8097},
-     pages = {1654--1655},
-     numpages = {2},
-     url = {http://dx.doi.org/10.14778/2824032.2824063},
-     doi = {10.14778/2824032.2824063},
-     acmid = {2824063},
-     publisher = {VLDB Endowment},
-    } 
-\bibitem{connectivitypaper}
-@ARTICLE{6823640, 
-    author={N. Lu and N. Cheng and N. Zhang and X. Shen and J. W. Mark}, 
-    journal={IEEE Internet of Things Journal}, 
-    title={Connected Vehicles: Solutions and Challenges}, 
-    year={2014}, 
-    volume={1}, 
-    number={4}, 
-    pages={289-299}, 
-    keywords={intelligent transportation systems;next generation networks;road vehicles;vehicular ad hoc networks;Internet of Vehicles;IoV;automotive revolution;connected vehicles;next generation intelligent transportation systems;vehicle communication;vehicle-to-Internet infrastructure connectivity;vehicle-to-road infrastructure connectivity;vehicle-to-sensor infrastructure connectivity;vehicle-to-vehicle infrastructure connectivity;vehicle-to-x connectivity;wireless
-    connectivities;Communication system security;Reliability;Safety;Vehicles;Wireless communication;Wireless sensor networks;Zigbee;Connected vehicles;Internet of Vehicles (IoV);intelligent transportation systems (ITSs);intra-vehicle wireless sensor networks;vehicular networks}, 
-    doi={10.1109/JIOT.2014.2327587}, 
-    ISSN={2327-4662}, 
-    month={Aug},}
-\bibitem{google:iot}
-    https://cloud.google.com/solutions/iot/
-\bibitem{ibm:iot}
-    https://www.ibm.com/internet-of-things/platform/watson-iot-platform/
-\bibitem{forbes:iot}
-    https://www.forbes.com/sites/f5/2017/01/25/four-things-to-watch-for-in-your-cloud-blind-spots/\#52ecf647ad8a
-\bibitem{cdrive}
-@INPROCEEDINGS{5720653, 
-    author={N. Maslekar and M. Boussedjra and J. Mouzna and H. Labiod}, 
-    booktitle={2011 4th IFIP International Conference on New Technologies, Mobility and Security}, 
-    title={C-DRIVE: Clustering Based on Direction in Vehicular Environment}, 
-    year={2011}, 
-    pages={1-5}, 
-    keywords={pattern clustering;traffic engineering computing;vehicular ad hoc networks;C-DRIVE;VANET;adaptive traffic signal control;data dissemination;direction based clustering algorithm;vehicle density estimation;vehicular environment;Algorithm design and analysis;Bandwidth;Clustering algorithms;IP networks;Mobile communication;Protocols;Vehicles}, 
-    doi={10.1109/NTMS.2011.5720653}, 
-    ISSN={2157-4952}, 
-    month={Feb},}
-\bibitem{cv:hive}
-@INPROCEEDINGS{7840862, 
-    author={W. Xu and N. R. Juri and A. Gupta and A. Deering and C. Bhat and J. Kuhr and J. Archer}, 
-    booktitle={2016 IEEE International Conference on Big Data (Big Data)}, 
-    title={Supporting large scale connected vehicle data analysis using HIVE}, 
-    year={2016}, 
-    pages={2296-2304}, 
-    keywords={data analysis;data handling;road vehicles;traffic engineering computing;vehicular ad hoc networks;CV data analysis;HIVE;MapReduce programming framework;Spark programming framework;connected vehicle data analysis;data analytic tasks;data storage;roadside infrastructure;safety-related information;transportation operations;transportation planning research;vehicle connectivity;vehicle message exchange;Data analysis;Planning;Programming;Safety;Sparks;Vehicles;Big Data;Connected Vehicles Data;Hive;Spark;Transportation Planning}, 
-    doi={10.1109/BigData.2016.7840862}, 
-    month={Dec},}
-\bibitem{edgent}
-    https://edgent.apache.org
-\bibitem{aws:iot}
-    http://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html
-\bibitem{hive}
-@INPROCEEDINGS{5447738, 
-author={A. Thusoo and J. S. Sarma and N. Jain and Z. Shao and P. Chakka and N. Zhang and S. Antony and H. Liu and R. Murthy}, 
-booktitle={2010 IEEE 26th International Conference on Data Engineering (ICDE 2010)}, 
-title={Hive - a petabyte scale data warehouse using Hadoop}, 
-year={2010}, 
-pages={996-1005}, 
-keywords={SQL;competitive intelligence;data warehouses;public domain software;query processing;Hadoop software;HiveQL language;Metastore system catalog;SQL-like declarative language;arrays;business intelligence;data exploration;map-reduce jobs;maps;nested compositions;open-source map-reduce implementation;petabyte scale data warehouse;primitive types;query compilation;query optimization;Companies;Data warehouses;Facebook;Hardware;Libraries;Open source software;Plugs;Query processing;Statistics;Warehousing}, 
-doi={10.1109/ICDE.2010.5447738}, 
-ISSN={1063-6382}, 
-month={March},}
-\bibitem{hdfs}
-@inproceedings{Shvachko:2010:HDF:1913798.1914427,
- author = {Shvachko, Konstantin and Kuang, Hairong and Radia, Sanjay and Chansler, Robert},
- title = {The Hadoop Distributed File System},
- booktitle = {Proceedings of the 2010 IEEE 26th Symposium on Mass Storage Systems and Technologies (MSST)},
- series = {MSST '10},
- year = {2010},
- isbn = {978-1-4244-7152-2},
- pages = {1--10},
- numpages = {10},
- url = {http://dx.doi.org/10.1109/MSST.2010.5496972},
- doi = {10.1109/MSST.2010.5496972},
- acmid = {1914427},
- publisher = {IEEE Computer Society},
- address = {Washington, DC, USA},
-} 
-\bibitem{vanet:simulators}
-@INPROCEEDINGS{6103008, 
-author={E. Spaho and L. Barolli and G. Mino and F. Xhafa and V. Kolici}, 
-booktitle={2011 International Conference on Broadband and Wireless Computing, Communication and Applications}, 
-title={VANET Simulators: A Survey on Mobility and Routing Protocols}, 
-year={2011}, 
-pages={1-10}, 
-keywords={routing protocols;telecommunication computing;vehicular ad hoc networks;VANET simulator;general purpose distributed wireless networks;inter vehicle communication;mobility model;mobility survey;network simulator;routing protocol;vehicular ad hoc networks;vehicular traffic simulator;Ad hoc networks;Object oriented modeling;Roads;Routing;Routing protocols;Vehicles;Mobility Models;Routing Protocols;Simulators;VANETs}, 
-doi={10.1109/BWCCA.2011.11}, 
-month={Oct},}
-\bibitem{greengrass}
-    https://aws.amazon.com/greengrass/faqs/
-%TODO: figure out bibtex
-    
-\end{thebibliography}
+\bibliographystyle{acm}
+\bibliography{rpithes-short}
+%\begin{thebibliography}{99}
+%\bibitem{hitachi}
+%    https://www.hds.com/en-ous/pdf/white-paper/hitachi-white-paper-internet-on-wheels.pdf
+%\bibitem{mapreduce}
+%    https://research.google.com/archive/mapreduce.html
+%\bibitem{aws}
+%    http://docs.aws.amazon.com/gettingstarted/latest/awsgsg-intro/awsgsg-intro.pdf %March 1
+%\bibitem{spark:streaming}
+%    http://people.csail.mit.edu/matei/papers/2013/sosp\_spark\_streaming.pdf %March 1
+%\bibitem{kafka:streams}
+%    http://docs.confluent.io/3.0.0/streams/
+%\bibitem{akka}
+%    http://doc.akka.io/docs/akka/2.4/AkkaScala.pdf
+%\bibitem{postgres}
+%    https://www.postgresql.org/files/documentation/pdf/9.6/postgresql-9.6-US.pdf
+%\bibitem{azure:iot}
+%    https://azure.microsoft.com/en-us/develop/iot/
+%\bibitem{babel}
+%    https://babeljs.io
+% 
+%\bibitem{google:iot}
+%    https://cloud.google.com/solutions/iot/
+%\bibitem{ibm:iot}
+%    https://www.ibm.com/internet-of-things/platform/watson-iot-platform/
+%\bibitem{forbes:iot}
+%    https://www.forbes.com/sites/f5/2017/01/25/four-things-to-watch-for-in-your-cloud-blind-spots/\#52ecf647ad8a
+%\bibitem{edgent}
+%    https://edgent.apache.org
+%\bibitem{aws:iot}
+%    http://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html
+%
+%\bibitem{hdfs}
+%@inproceedings{Shvachko:2010:HDF:1913798.1914427,
+% author = {Shvachko, Konstantin and Kuang, Hairong and Radia, Sanjay and Chansler, Robert},
+% title = {The Hadoop Distributed File System},
+% booktitle = {Proceedings of the 2010 IEEE 26th Symposium on Mass Storage Systems and Technologies (MSST)},
+% series = {MSST '10},
+% year = {2010},
+% isbn = {978-1-4244-7152-2},
+% pages = {1--10},
+% numpages = {10},
+% url = {http://dx.doi.org/10.1109/MSST.2010.5496972},
+% doi = {10.1109/MSST.2010.5496972},
+% acmid = {1914427},
+% publisher = {IEEE Computer Society},
+% address = {Washington, DC, USA},
+%} 
+%\bibitem{vanet:simulators}
+%@INPROCEEDINGS{6103008, 
+%author={E. Spaho and L. Barolli and G. Mino and F. Xhafa and V. Kolici}, 
+%booktitle={2011 International Conference on Broadband and Wireless Computing, Communication and Applications}, 
+%title={VANET Simulators: A Survey on Mobility and Routing Protocols}, 
+%year={2011}, 
+%pages={1-10}, 
+%keywords={routing protocols;telecommunication computing;vehicular ad hoc networks;VANET simulator;general purpose distributed wireless networks;inter vehicle communication;mobility model;mobility survey;network simulator;routing protocol;vehicular ad hoc networks;vehicular traffic simulator;Ad hoc networks;Object oriented modeling;Roads;Routing;Routing protocols;Vehicles;Mobility Models;Routing Protocols;Simulators;VANETs}, 
+%doi={10.1109/BWCCA.2011.11}, 
+%month={Oct},}
+%\bibitem{greengrass}
+%    https://aws.amazon.com/greengrass/faqs/
+%%TODO: figure out bibtex
+%
+%    
+%\end{thebibliography}
 \end{singlespace}
 \end{document}
