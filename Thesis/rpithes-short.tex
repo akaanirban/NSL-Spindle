@@ -45,8 +45,10 @@
 \listoffigures         % required if there are figures
 
 \specialhead{ACKNOWLEDGMENT}
-   TODO - right now I just wanna thank whoever is proofreading this, as well as whoever invented Redbull 
-    %TODO: write acknowledgement - thank patterson, xiaotian, mike, mentors throughout etc...
+The acknowledgment text goes here. Unlike chapter headings, 
+this heading is not numbered.
+% Personal thing
+
 \specialhead{ABSTRACT}
 Write your abstract here. Again, the heading does receive a number.
 
@@ -257,12 +259,11 @@ Write your abstract here. Again, the heading does receive a number.
     Spark streaming operations written for DStreams and RDDs.
 
 \section{Theorized Architecture}
-    Spindle is a hybrid vehicle-to-cloud architecture with three major components: a client Spark program,
-    an in-cloud middleware, and edge computing software.
-
+%GENERAL NOTE: need to be able to understand what the figure is solely through the caption (fine to duplicate text)
+    %TODO: walk through spark query, middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to middleware, transmission to spark streaming, secondary reduce, etc..
     \begin{figure}
         \centering
-        \includegraphics[width=0.5\linewidth]{binImages/theoretical-system.png}
+        \includegraphics[width=\linewidth]{binImages/theoretical-system.png}
         \caption{A diagram of the theorized system's major components. Vehicles
         send data to their Cluster Heads, which perform reduce operations over
         incoming mapped tuples. The resultant reduced tuples are then sent to
@@ -278,58 +279,7 @@ Write your abstract here. Again, the heading does receive a number.
         \label{fig:theoretical:sequence}
     \end{figure}
 
-\subsection{Spark Clients}
-    Spindle is ultimately designed to provide streaming data from network-connected vehicles to a streaming data
-    analytics platform. We chose Apache Spark as our target platform. Apache Spark allows a user to analyze
-    streams of tuples using the DStream programming abstraction previously described. In a traditional Spark
-    Streaming program, a user creates a connection to some message bus such as Apache Kafka and programs against
-    a DStream representing the micro-batches of messages being received from the connected message bus. The user
-    is then free to analyze the data by applying functional transformations such as map, filter, and reduce
-    to the batches of streamed tuples. 
-    
-    A naive analytics architecture for vehicle data with no edge computing optimizations
-    would likely have each connected vehicle send all of its data directly over the internet to a message bus such as
-    Apache Kafka running in the cloud. The user would then write a Spark Streaming program to create a DStream
-    to receive the stream of all data coming from the vehicles and apply a map operation to extract only the 
-    relevant values from the flood of incoming data. To perform an aggregate analysis of the data, the user would then
-    apply a reduce operation, for example to get average fuel economy in real time for a given region or set of
-    regions. While the naive example is extremely inefficient in terms of bandwidth consumption and compute resource
-    utilization, the programming model is extremely simple and convenient. All the end-user writing the analysis
-    has to do is connect, map, reduce, and output the results (or perform further analyses). 
-
-    With the Spindle architecture, we attempt to preserve convenience of the naive model while greatly reducing
-    bandwidth consumption and wasted cloud resources. To do so, Spindle includes a small Scala library that can be
-    imported to a Spark Streaming program. Rather than calling the Kafka Spark Streaming library to create a 
-    DStream, the user instead calls the Spindle Spark Streaming library to create their DStream. The user then
-    writes their map and reduce functions as before, with the additional (current) requirement that the reduce function
-    call be annotated with a descriptive enum to indicate the category of reduce operation taking place (e.g.\ min,
-    max, mean, etc\dots).%TODO: reducebykey not reduce bah
-
-    The Spindle Spark Streaming library is then able to serialize the user's map and reduce functions and transmit
-    them to the middleware for de-duplication and distribution to vehicles and Clusterheads. The middleware
-    sends back partially reduced results which the library running on Spark then re-runs the reduce function over.
-    The final output is a DStream of reduced tuples, which from the user's perspective has the same attributes as 
-    a DStream that would have been produced by running the naive implementation.
-
-    We have developed a proof-of-concept implementation of the Spindle library for Spark Streaming described above.
-
-\subsection{Middleware}
-    %TODO: note that it will contain a Kafka Cluster
-    %TODO: say that it will have Zookeeper and will read serialized queries from Spark libs, deduplicate queries, send
-    % resultant derived queries to vehicle and clusterhead layer for processing
-    %TODO: middleware then responsible for sending partially-reduced results to kafka topic exclusively for single
-    % Spark Streaming job
-
-\subsection{Vehicles and Clusterheads}
-    %TODO: describe vehicle software components
-    %TODO: describe role of clusterhead
-    %TODO: note that protocol and clustering algorithm agnostic
-
-
-%GENERAL NOTE: need to be able to understand what the figure is solely through the caption (fine to duplicate text)
-    %TODO: walk through spark query, middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to middleware, transmission to spark streaming, secondary reduce, etc..
-
-    %TODO(meeting): do simple physical layout diagram
+    %TODO(meeting): do physical
 
 \section{Simulation Architecture}
     \begin{landscape}
