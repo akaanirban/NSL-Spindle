@@ -548,7 +548,6 @@ Write your abstract here. Again, the heading does receive a number.
         \verb|(regionId) -> (1, [speed])| and the reduce produces \verb|(regionId) -> ([numVehiclesInCluster], [sumOfSpeeds])|.
 
 \section{Simulator Results}
-    %TODO (meeting): need number of trials
 
    A total of 114 trials were carried out for the geoMapped query and a totla of 111 trials for speesSum.
    Figures \ref{results:speedsum} and \ref{results:geomapped} show the bandwidth consumed by the speedSum
@@ -628,74 +627,33 @@ Write your abstract here. Again, the heading does receive a number.
     and message reduction used in our architecture produces significant bandwidth savings.
 
 \section{Future Work}
-%TODO
+    In this work, we have demonstrated the efficacy of the core of the Spindle architecture - dynamic map/reduce
+    on vehicles. There are a number of directions for future work, including extensions to the simulator and, 
+    more critically, extensions to the architecture.
+    It should be possible in the future to implement a full-stack simulator that launches spark clients, runs
+    the cloud middleware, and interfaces with the existing SpindleSim software. We also believe it is worth
+    investigating what other functions can be run at the edge, such as join and group functions, as well
+    as how multiple simultaneous queries with such functions can be optimized to minimize the duplication
+    of messages. By developing a more rich edge computation system, it will be possible to run more sophisticated
+    algorithms at the edge, for example with the addition of stateful operators it might be possible to run
+    machine learning algorithms at the vehicle and Clusterhead level.
+    %SECONDPASS: give a concrete example of a machine learning algorithm
+
+    Beyond tweaking Spindle, itself, we believe there is now an opportunity for further research that builds
+    upon the framework. Particularly, there are opportunities for improvements to vehicle clustering algorithms
+    to improve cluster size and stability by integrating available information. Furthermore, the topic of what
+    useful information can be gathered from connected vehicles will likely remain a perpetually open question,
+    now that it is possible to combine sensor and traffic information with other online data sources; we saw
+    how one group combined the data with geographic information, but there may be other interesting datasets
+    to pull in - everything from data on road construction to public event lists to economic data could be
+    correlated with traffic flows. Furthermore, as has is being addressed in other research projects %TODO: cite a reference
+    vehicles are themselves rich sensor platforms that can be used for gathering environmental data; it must
+    now be determined what data is worth storing and to what degree of granularity it should be kept.
+    %SECONDPASS: more ideas please
 
 \specialhead{LITERATURE CITED}
 \begin{singlespace}
 \bibliographystyle{acm}
 \bibliography{rpithes-short}
-%\begin{thebibliography}{99}
-%\bibitem{hitachi}
-%    https://www.hds.com/en-ous/pdf/white-paper/hitachi-white-paper-internet-on-wheels.pdf
-%\bibitem{mapreduce}
-%    https://research.google.com/archive/mapreduce.html
-%\bibitem{aws}
-%    http://docs.aws.amazon.com/gettingstarted/latest/awsgsg-intro/awsgsg-intro.pdf %March 1
-%\bibitem{spark:streaming}
-%    http://people.csail.mit.edu/matei/papers/2013/sosp\_spark\_streaming.pdf %March 1
-%\bibitem{kafka:streams}
-%    http://docs.confluent.io/3.0.0/streams/
-%\bibitem{akka}
-%    http://doc.akka.io/docs/akka/2.4/AkkaScala.pdf
-%\bibitem{postgres}
-%    https://www.postgresql.org/files/documentation/pdf/9.6/postgresql-9.6-US.pdf
-%\bibitem{azure:iot}
-%    https://azure.microsoft.com/en-us/develop/iot/
-%\bibitem{babel}
-%    https://babeljs.io
-% 
-%\bibitem{google:iot}
-%    https://cloud.google.com/solutions/iot/
-%\bibitem{ibm:iot}
-%    https://www.ibm.com/internet-of-things/platform/watson-iot-platform/
-%\bibitem{forbes:iot}
-%    https://www.forbes.com/sites/f5/2017/01/25/four-things-to-watch-for-in-your-cloud-blind-spots/\#52ecf647ad8a
-%\bibitem{edgent}
-%    https://edgent.apache.org
-%\bibitem{aws:iot}
-%    http://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html
-%
-%\bibitem{hdfs}
-%@inproceedings{Shvachko:2010:HDF:1913798.1914427,
-% author = {Shvachko, Konstantin and Kuang, Hairong and Radia, Sanjay and Chansler, Robert},
-% title = {The Hadoop Distributed File System},
-% booktitle = {Proceedings of the 2010 IEEE 26th Symposium on Mass Storage Systems and Technologies (MSST)},
-% series = {MSST '10},
-% year = {2010},
-% isbn = {978-1-4244-7152-2},
-% pages = {1--10},
-% numpages = {10},
-% url = {http://dx.doi.org/10.1109/MSST.2010.5496972},
-% doi = {10.1109/MSST.2010.5496972},
-% acmid = {1914427},
-% publisher = {IEEE Computer Society},
-% address = {Washington, DC, USA},
-%} 
-%\bibitem{vanet:simulators}
-%@INPROCEEDINGS{6103008, 
-%author={E. Spaho and L. Barolli and G. Mino and F. Xhafa and V. Kolici}, 
-%booktitle={2011 International Conference on Broadband and Wireless Computing, Communication and Applications}, 
-%title={VANET Simulators: A Survey on Mobility and Routing Protocols}, 
-%year={2011}, 
-%pages={1-10}, 
-%keywords={routing protocols;telecommunication computing;vehicular ad hoc networks;VANET simulator;general purpose distributed wireless networks;inter vehicle communication;mobility model;mobility survey;network simulator;routing protocol;vehicular ad hoc networks;vehicular traffic simulator;Ad hoc networks;Object oriented modeling;Roads;Routing;Routing protocols;Vehicles;Mobility Models;Routing Protocols;Simulators;VANETs}, 
-%doi={10.1109/BWCCA.2011.11}, 
-%month={Oct},}
-%\bibitem{greengrass}
-%    https://aws.amazon.com/greengrass/faqs/
-%%TODO: figure out bibtex
-%
-%    
-%\end{thebibliography}
 \end{singlespace}
 \end{document}
