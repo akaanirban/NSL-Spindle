@@ -46,16 +46,16 @@ case class KvReducerFunc[K: TypeTag, V: TypeTag](override val funcId: String,
 case class MapperFunc[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](override val funcId: String,
                                                                         inTopic: String,
                                                                         outTopic: String,
-                                                                        mapFunc: (K, V) => (K1, V1))
+                                                                        mapFunc: (K, V) => (K1, V1),
+                                                                        filterFunc: (K,V) => Boolean = (_: K ,_: V) => true)
     extends TransformationFunc(funcId, inTopic, outTopic) {
   def getStreamMapper(clientFactory: ClientFactory): StreamMapper[K, V, K1, V1] = {
-    clientFactory.mkMapper(inTopic, outTopic, mapFunc, funcId)
+    clientFactory.mkMapper(inTopic, outTopic, mapFunc, filterFunc, funcId)
   }
   def getTransformExecutor(clientFactory: ClientFactory): StreamExecutor = getStreamMapper(clientFactory)
 }
 
 case class ActiveTransformations(mappers: Iterable[MapperFunc[_, _, _, _]], reducers: Iterable[KvReducerFunc[_, _]])
-
 abstract class TransformationStore(nodeId: NodeId) {
   def getActiveTransformations(timestamp: Timestamp, position: (Lat, Lon)): ActiveTransformations
 }

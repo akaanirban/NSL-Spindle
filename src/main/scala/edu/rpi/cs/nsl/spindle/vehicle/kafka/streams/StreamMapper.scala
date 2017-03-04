@@ -20,6 +20,7 @@ import scala.reflect.runtime.universe._
 class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String,
                                  outTopic: String,
                                  mapFunc: (K, V) => (K1, V1),
+                                 filterFunc: (K,V) => Boolean,
                                  protected val config: StreamsConfig,
                                  startEpochOpt: Option[Long] = None)
     extends StreamExecutor(startEpochOpt) {
@@ -30,7 +31,11 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
     val builder = new KStreamBuilder
     val inStream: ByteStream = builder.stream(inTopic)
     val deserializedStream: KStream[K, V] = deserializeAndFilter(inStream)
-    val mappedStream: KStream[K1, V1] = deserializedStream.map { (k, v) =>
+    val mappedStream: KStream[K1, V1] = deserializedStream
+    .filter{(k,v)=>
+        filterFunc(k,v)
+    }
+    .map { (k, v) =>
       val (k1, v1) = mapFunc(k, v)
       //logger.debug(s"Mapping $k, $v -> $k1, $v1")
       logger.trace(s"Mapping $k, $v -> $k1, $v1")

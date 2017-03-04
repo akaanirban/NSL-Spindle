@@ -86,10 +86,10 @@ class ClientFactory(zkString: String,
     initTopic(outTopic)
     new StreamKVReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this, startEpochOpt = getStartEpochOpt)
   }
-  def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), mapId: String): StreamMapper[K, V, K1, V1] = {
+  def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String, outTopic: String, mapFunc: (K, V) => (K1, V1), filterFunc: (K,V) => Boolean, mapId: String): StreamMapper[K, V, K1, V1] = {
     initTopic(inTopic)
     initTopic(outTopic)
-    new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, buildConfig(mapId), startEpochOpt = getStartEpochOpt)
+    new StreamMapper[K, V, K1, V1](inTopic, outTopic, mapFunc, filterFunc, buildConfig(mapId), startEpochOpt = getStartEpochOpt)
   }
 
   def mkRelay(inTopics: Set[String], outTopic: String, relayId: String): StreamRelay = {

@@ -225,23 +225,12 @@ trait DynamicQuery {
     val mapperId = s"getSpeed-filtered-mapper-$nodeId-$uuid"
     val inTopic = TopicLookupService.getVehicleStatus(nodeId)
     val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
-    MapperFunc[NodeId, VehicleMessage, String, (Boolean, MPH, Long)](mapperId, inTopic, outTopic, (_, v) => {
-      val isInside = isInsideBound((v.lat, v.lon), latRange, lonRange)
-      (mapperId, (isInside, v.mph, 1): (Boolean, MPH, Long))
-    })
-  }
-
-  private def mkSpeedAvgFilteredReducer(nodeId: NodeId) = {
-    val reducerId = s"getSpeed-avg-reducer-$nodeId-$uuid"
-    val inTopic = TopicLookupService.getClusterInput(nodeId)
-    val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
-    KvReducerFunc[String, (Boolean, MPH, Long)](reducerId, inTopic, outTopic, (a, b) => {
-      Seq(a,b)
-        .filter(_._1)
-        .reduceOption{(a1,b1) =>
-          (a1._1, a1._2 + b1._2, a1._3 + b1._3)
-        }
-        .getOrElse((false, 0, 0): (Boolean, MPH, Long))
+    MapperFunc[NodeId, VehicleMessage, String, (MPH, Long)](mapperId, inTopic, outTopic,
+      mapFunc = (_, v) => {
+        (mapperId, (v.mph, 1): (MPH, Long))
+      },
+      filterFunc = (_,v) => {
+        isInsideBound((v.lat, v.lon), latRange, lonRange)
     })
   }
 
@@ -268,7 +257,7 @@ trait DynamicQuery {
 
   private def mkGeoFilteredSpeedAvg(latRange: (Lat, Lat), lonRange: (Lon, Lon)): TransformationStoreFactory = {
     new GenerativeStaticTransformationFactory(nodeId => {
-      ActiveTransformations(Set(mkRegionSpeedFilterMapper(nodeId, latRange, lonRange)), Set(mkSpeedAvgFilteredReducer(nodeId)))
+      ActiveTransformations(Set(mkRegionSpeedFilterMapper(nodeId, latRange, lonRange)), Set(mkSpeedAvgReducer(nodeId)))
     })
   }
 
