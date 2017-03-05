@@ -25,14 +25,41 @@ VALUES (6, 1000, 'clusterinfo_dense_v1', 'geoFiltered', 30000, 'dense_positions'
 -- Geo-mapped queries
 
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
-VALUES (7, 1000, 'clusterinfo_dense_v1', 'geoMapped', 10000, 'sparse_positions');
+VALUES (7, 1000, 'clusterinfo_dense_v1', 'geoMapped', 10000, 'dense_positions');
 
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
-VALUES (8, 1000, 'clusterinfo_dense_v1', 'geoMapped', 15000, 'sparse_positions');
+VALUES (8, 1000, 'clusterinfo_dense_v1', 'geoMapped', 15000, 'dense_positions');
 
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
-VALUES (9, 1000, 'clusterinfo_dense_v1', 'geoMapped', 30000, 'sparse_positions');
+VALUES (9, 1000, 'clusterinfo_dense_v1', 'geoMapped', 30000, 'dense_positions');
 
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (25, 1000, 'self_clusters', 'geoMapped', 10000, 'dense_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (26, 1000, 'self_clusters', 'geoMapped', 15000, 'dense_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (27, 1000, 'self_clusters', 'geoMapped', 30000, 'dense_positions');
+
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (28, 1000, 'self_clusters', 'geoMapped', 10000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (29, 1000, 'self_clusters', 'geoMapped', 15000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (30, 1000, 'self_clusters', 'geoMapped', 30000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (31, 1000,  'clusterinfo_sparse_v1', 'geoMapped', 10000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (32, 1000,  'clusterinfo_sparse_v1', 'geoMapped', 15000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (33, 1000,  'clusterinfo_sparse_v1', 'geoMapped', 30000, 'sparse_positions');
 -- Sparse config
 
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
