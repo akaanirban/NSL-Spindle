@@ -14,6 +14,7 @@
 \documentclass{thesis}
 \usepackage{graphicx}   % if you want to include graphics files
 \usepackage{pdflscape}
+\usepackage{rotating}
 \usepackage{caption}
 \usepackage{subcaption}
 
@@ -298,7 +299,7 @@
     Apache Kafka running in the cloud. The user would then write a Spark Streaming program to create a DStream
     to receive the stream of all data coming from the vehicles and apply a map operation to extract only the 
     relevant values from the flood of incoming data. To perform an aggregate analysis of the data, the user would then
-    apply a reduce operation, for example to get average fuel economy in real time for a given region or set of
+    apply a reduce (\verb|reduceByKey|) operation, for example to get average fuel economy in real time for a given region or set of
     regions. While the naive example is extremely inefficient in terms of bandwidth consumption and compute resource
     utilization, the programming model is extremely simple and convenient. All the end-user writing the analysis
     has to do is connect, map, reduce, and output the results (or perform further analyses). 
@@ -401,17 +402,15 @@
     Sensor producers, mappers, reducers, simulated Clusterhead relays, query managers, and simulated middleware uplinks.
     The core simulation software is implemented in Scala using the Akka actor framework.
     %SECONDPASS: do a system diagram for the simulator
-    \begin{landscape}
-        \begin{figure}
-            \centering
-            \includegraphics[width=\textwidth]{binImages/simulator-sequence.png}
-            %TODO (meeting): increase font size and increase size of figure to be as large as will fit in margin
-            \caption{A sequence diagram showing the high-level interactions of
-            the Spindle simulator components. A Postgres database stores the
-            simulation configurations and pre-computed velocity and connectivity
-            data, as well as simulation results.}
-        \end{figure}
-    \end{landscape}
+    \begin{sidewaysfigure}
+        \centering
+        \includegraphics[width=\textheight]{binImages/simulator-sequence.png}
+        %TODO (meeting): increase font size and increase size of figure to be as large as will fit in margin
+        \caption{A sequence diagram showing the high-level interactions of
+        the Spindle simulator components. A Postgres database stores the
+        simulation configurations and pre-computed velocity and connectivity
+        data, as well as simulation results.}
+    \end{sidewaysfigure}
 
 \subsection{SpindleSim}
     The Spindle simulator (SpindleSim) is implemented in several thousand lines of Scala \cite{scala} 
@@ -492,12 +491,14 @@
     \begin{figure}
         \centering
         \includegraphics[scale=.2]{binImages/cars.png}
-        \caption{A Snapshot of Active Vehicles in VEINS Traces with Selected Regions Highlighted}
+        \caption{A Snapshot of Active Vehicles in VEINS Traces with Selected Regions Highlighted.
+                The dense region is marked by the dark red box near the center of the graph. The
+                sparse region is marked by the dashed blue box towards the center-top of the graph.}
         \label{fig:regions}
     \end{figure}
     \paragraph{Sparse Region}
         The sparse region is transited by 148 distinct vehicles over the course of the simulation and defines a bounding
-        box from $(40000, 106800)$ to $(53000, 114000)$. The sparse region covers an area on the outskirts of the city,
+        box from $(47150, 106801)$ to $(53000, 112545)$. The sparse region covers an area on the outskirts of the city,
         with a relatively low density of vehicles. The sparse region is illustrated by a purple box in \ref{fig:regions}.
     \paragraph{Dense Region}
         The dense region defines a bounding box from $(50000, 100000)$ to $(51000, 102000)$ and is transitied by
@@ -560,7 +561,7 @@
    sizes have better performance than smaller window sizes, and that, critically, the use of clustering
    results in a 50-75\% savings in bandwidth.
 
-    \begin{figure}
+    \begin{sidewaysfigure}
         \centering
         \begin{subfigure}[h]{0.45\textwidth}
             \centering
@@ -583,8 +584,8 @@
             vehicle clusters. Also illustrates how data reduction is affected by regional vehicle
             density - areas of high vehicle density can take better advantage of clustering to get more savings.}
         \label{results:speedsum}
-    \end{figure}
-    \begin{figure}
+    \end{sidewaysfigure}
+    \begin{sidewaysfigure}
         \begin{subfigure}[h]{0.45\textwidth}
             \centering
             \includegraphics[width=\textwidth]{binImages/geoMapped-runplot.pdf}
@@ -605,7 +606,26 @@
             vehicle clusters. Also illustrates how data reduction is affected by regional vehicle
             density - areas of high vehicle density can take better advantage of clustering to get more savings.}
         \label{results:geomapped}
-    \end{figure}
+    \end{sidewaysfigure}
+
+    \begin{sidewaysfigure}
+        \begin{subfigure}[h]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{binImages/geoFiltered-runplot.pdf}
+            \caption{The total number of bytes sent to the middleware,
+            averaged over multiple trials for the geoFiltered map/reduce job.}
+        \end{subfigure}
+        \begin{subfigure}[h]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{binImages/geoFiltered-runplot-normalized.pdf}
+            \caption{shows the scaled number of bytes sent to the middleware in a given region and window size
+            configuration where y=1 indicates the number of bytes sent without clustering for a given region
+            and reduce window size.}
+        \end{subfigure}
+        %TODO: caption
+    \end{sidewaysfigure}
+
+    %TODO: figure comparing all queries' total data in one place
 
     The results make logical sense. A higher density region allows for better clustering - more vehicles to a cluster.
     A larger window size results in a smaller number of transmissions from the reducers to the middleware, so even
@@ -613,6 +633,7 @@
     size is outweighed by the lower transmision frequency; this makes sense when one considers the inevitable boilerplate
     required in each message that gets wrapped around the changing values. Finally, the use of clusters makes sense for
     similar reasons to those of having larger window sizes - fewer overall messages are sent.
+
     %SECONDPASS: table of results
 
 \chapter{Conclusion}
