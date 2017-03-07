@@ -10,7 +10,9 @@ watch.createMonitor('./', (monitor) => {
     monitor.files[filePath];
     monitor.on('changed', (f, stat) => {
         if(f.endsWith('.mmd')){
-            exec(`mermaid --width 1920 --outputDir ${binDir} ${f}`, (err) => {
+            var cssArg = '--css mermaid.css';
+            if(f.toLowerCase().indexOf('sequence') == -1) { cssArg = ''; }
+            exec(`mermaid ${cssArg} --width 1920 --outputDir ${binDir} ${f}`, (err) => {
                 if(err) { throw err; }
                 console.log('Compiled mermaid', f);
                 const [, fileNameWithExt] = f.split('/');

@@ -12,37 +12,68 @@ replaceText <- function(row_text) {
                         gsub("clusterinfo_dense_v1\ndense_positions", "dense-clustered", row_text)))))
 }
 
+rescaleWindow <- function(windowsizems) {
+    return(paste(sapply(windowsizems,function(x) x / 1000), "s", sep=""));
+}
+
 getRuns <- function(dbconn, mrJob) {
-    query <- {paste("select * from normed_runs where clustertable !='self_clusters' and mapreducename='", paste(mrJob, "'", sep=""), sep="")}
-    print(query);
-    df_results <- transform(dbGetQuery(dbconn, query), configuration=replaceText(interaction(clustertable, filtertablename, paste(sapply(windowsizems,function(x) x / 1000), "s"), sep="\n")))
-    normed_pot <- ggplot(df_results, aes(x=configuration, y=normed_total_bytes)) + 
+    xformMr <- function(df_results) {
+        return(transform(df_results, configuration=replaceText(interaction(clustertable, filtertablename, rescaleWindow(windowsizems), sep="\n"))));
+    }
+    formatPlot <- function(plot) {
+       return(plot + 
         theme_bw() +
         geom_bar(aes(fill = filtertablename), stat="identity") + 
-        scale_y_continuous(name="Normalized Bytes to Middleware", limits=c(0,1)) +
+        labs(x="Simulator Configuration", fill="Region Density") +
         theme(text=element_text(size=15), axis.text.x=element_text(angle=60, vjust=0.5),plot.title=element_text(hjust = 0.5)) + 
-        labs(title = paste(mrJob, "Normalized Bytes Transferred to Cloud")) +
-        scale_fill_grey()
+        scale_fill_grey());
+    }
+    query <- {paste("select * from normed_runs where clustertable !='self_clusters' and mapreducename='", paste(mrJob, "'", sep=""), sep="")}
+    df_results <- xformMr(dbGetQuery(dbconn, query))
+    normed_pot <- formatPlot(ggplot(df_results, aes(x=configuration, y=normed_total_bytes)) + 
+        scale_y_continuous(name="Normalized Bytes to Middleware", limits=c(0,1)) +
+        labs(title = paste(mrJob, "Normalized Bytes Transferred to Cloud")));
     normed_plot_path <- paste("binImages/", paste(mrJob, "runplot-normalized.pdf", sep="-"), sep="");
     ggsave(file=normed_plot_path)
     query <- {paste("select * from normed_runs where mapreducename='", paste(mrJob, "'", sep=""), sep="")}
-    df_results <- transform(dbGetQuery(dbconn, query), configuration=replaceText(interaction(clustertable, filtertablename, paste(sapply(windowsizems,function(x) x / 1000), "s"), sep="\n")))
-    total_plot <- ggplot(df_results, aes(x=configuration, y=avg_total_bytes)) + 
-        theme_bw() +
+    df_results <- xformMr(dbGetQuery(dbconn, query))
+    total_plot <- formatPlot(ggplot(df_results, aes(x=configuration, y=avg_total_bytes)) + 
         geom_bar(aes(fill = filtertablename), stat="identity") + 
-        theme(text=element_text(size=15), axis.text.x = element_text(angle=60, vjust=0.5), plot.title=element_text(hjust = 0.5)) + 
-        labs(title = paste(mrJob, "Total Bytes Transferred to Cloud")) + 
-        scale_fill_grey()
+        labs(title = paste(mrJob, "Total Bytes Transferred to Cloud")));
     avg_plot_path <- paste("binImages/", paste(mrJob, "runplot.pdf", sep="-"), sep="");
     ggsave(file=avg_plot_path)
 }
 
-compareAll <- function(dbconn) {
-    query <- {
-        "select * from normed_runs";
+renameClusterTable <- function(in_text) {
+    return (gsub("self_clusters", "unclustered", gsub("clusterinfo_", "", gsub("_v1", " clusters", in_text))));
+}
+
+
+mkGraphFilterType <- function(df_results) {
+    xformed_results <- transform(df_results, configuration=gsub("\\.", "\n", renameClusterTable(interaction(clustertable, rescaleWindow(windowsizems),mapreducename))))
+    plot <- ggplot(xformed_results, aes(x=configuration,y=avg_total_bytes)) +
+        theme_bw() +
+        geom_bar(aes(fill=mapreducename), stat="identity") +
+        scale_fill_grey() + 
+        theme(axis.text.x = element_text(angle=90, vjust=1, hjust=1), text=element_text(size=15)) +
+        scale_x_discrete(expand = c(0,.01)) +
+        labs(x="Simulator Configuration", y="Average Total Bytes", fill="MR Job")
+    return(plot);
+}
+
+compareSizes <- function(dbconn) {
+    query_header <- {
+        "select configid, clustertable, windowsizems, mapreducename, avg_total_bytes from normed_runs";
     }
-    df_results <- dbGetQuery(dbconn, query);
-    print(df_results);
+    dense_query = paste(query_header, "where filtertablename='dense_positions'", sep=" ");
+    dense_results <- dbGetQuery(dbconn, dense_query);
+    dense_plot <- mkGraphFilterType(dense_results) + labs(title="Dense Region Total Bytes Transferred to Cloud");
+    ggsave(file="binImages/denseConfigs.pdf", width=13);
+
+    sparse_query = paste(query_header, "where filtertablename='sparse_positions'", sep=" ");
+    sparse_results <- dbGetQuery(dbconn, sparse_query);
+    sparse_plot <- mkGraphFilterType(sparse_results) + labs(title="Sparse Region Total Bytes Transferred to Cloud");
+    ggsave(file="binImages/sparseConfigs.pdf", width=13);
 }
 
 main <- function() {
@@ -50,7 +81,7 @@ main <- function() {
     getRuns(dbconn, "speedSum");
     getRuns(dbconn, "geoMapped");
     getRuns(dbconn, "geoFiltered");
-    compareAll(dbconn);
+    compareSizes(dbconn);
 }
 
 main();

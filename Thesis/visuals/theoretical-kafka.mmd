@@ -1,0 +1,19 @@
+graph TB
+  subgraph middleware
+    qm[Query Manager]--- mk[Multi-Node Kafka Cluster]
+  end
+  subgraph sparkClient
+    mk-->sl[Spindle Library]
+  end
+  subgraph clusterHead
+    mu[Middleware Uplink] --> mk
+    ci[Clusterhead Input] --> ck[Single-Node Kafka Cluster]
+    reducers --> mu
+    ck-->reducers
+  end
+  subgraph vehicle
+    sp[Sensor Producer]-->vk[Single-Node Kafka Cluster]
+    vk --- mappers
+    vk --> cr[Clusterhead Relay]
+    cr --> ci
+  end
