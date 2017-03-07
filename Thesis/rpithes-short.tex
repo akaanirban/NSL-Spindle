@@ -7,7 +7,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 %
 %  To produce the abstract title page followed by the abstract,
-%  see the template file, "abstitle-mas.tex"
+%  see the template file, ``abstitle-mas.tex"
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -30,7 +30,7 @@
 \author{William Rory Kronmiller}        
 \degree{Master of Science}
 \department{Computer Science} % provide your area of study here; e.g.,
-%  "Mechanical Engineering", "Nuclear Engineering", "Physics", etc.
+%  ``Mechanical Engineering", ``Nuclear Engineering", ``Physics", etc.
 \thadviser{Dr. Stacy Patterson}
 %\cothadviser{First co-adviser} %if needed
 %\cocothadviser{Second co-adviser} % if needed
@@ -61,8 +61,8 @@
     Spindle serves as a scalable hybrid vehicle-to-vehicle and vehicle-to-internet architecture
     for efficient near-real-time processing of streaming sensor data from network-connected vehicles.
     According to a 2015 Hitachi white-paper, some contemporary vehicles produce as much
-    as 25 gigabytes of data every hour with prototype vehicles fitted with "cameras and additional
-    sensors" producing up to 250 gigabytes per hour \cite{hitachi}. At the same time, work is underway
+    as 25 gigabytes of data every hour with prototype vehicles fitted with ``cameras and additional
+    sensors'' producing up to 250 gigabytes per hour \cite{hitachi}. At the same time, work is underway
     to develop and test a variety of communications systems for connecting vehicles to one another
     and to road infrastructure and the internet \cite{connectivitypaper}. Spindle addresses the problem
     of managing the vast quantities of available vehicle data by applying the map/reduce \cite{mapreduce}
@@ -100,14 +100,14 @@
 \chapter{Background and Related Work}
     \section{Connected Vehicles}
         \paragraph{VANETs}
-            The past few years have seen increasing interest in the area of "Intelligent Transportation
-            Systems (ITS)" in which wireless sensor technologies are put towards the improvement of
+            The past few years have seen increasing interest in the area of ``Intelligent Transportation
+            Systems (ITS)'' in which wireless sensor technologies are put towards the improvement of
             transportation infrastructure. VANETs are wireless ad-hoc networks of vehicles and other
             road infrastructure. Active research is underway to find applications for VANETs to improving
             transportation infrastructure and safety. 
             VANETs have unique properties compared to general mesh and ad-hoc networks (MANETs) in that
             the total number of unique nodes that might join a network is quite large and information
-            about the velocity and "trajectory" of each node is often available.
+            about the velocity and ``trajectory'' of each node is often available.
             As such, there are a number of low-level VANET protocols being explored including broadcast,
             unicast, and a variety of flooding protocols, however choosing an optimal low-level protocol is 
             beyond the scope of this paper.
@@ -117,15 +117,15 @@
             propagation of radio signals among vehicles in VANETs. OMNeT++ is one such network and connectivity
             simulator.
         \paragraph{Analysis of Vehicle Data with HIVE}
-            A 2016 IEEE International Conference on Big Data paper titled "Supporting large scale
-            connected vehicle data analysis using HIVE" illustrates practical use cases for analysis
+            A 2016 IEEE International Conference on Big Data paper titled ``Supporting large scale
+            connected vehicle data analysis using HIVE'' illustrates practical use cases for analysis
             of vehicle data. The authors use the HIVE \cite{hive} query language in conjunction with Apache Spark
             \cite{spark} and Hadoop MapReduce \cite{hdfs}
-            to perform analyses of a 2013 "connected vehicle" data-set from
+            to perform analyses of a 2013 ``connected vehicle'' data-set from
             United States Department of Transportation. The authors combine the DoT data-set with
-            geo-spatial data to validate and improve "traffic demand" models which "can drastically
-            improve the planning of incident response strategies." The authors also test travel
-            time models for the generation of driving directions and create "traffic flow" visualizations
+            geo-spatial data to validate and improve ``traffic demand'' models which ``can drastically
+            improve the planning of incident response strategies.'' The authors also test travel
+            time models for the generation of driving directions and create ``traffic flow'' visualizations
             to facilitate understanding of road conditions and usage. While the authors demonstrate the 
             usefulness of applying tools such as Apache Spark to data coming from connected vehicles, the
             authors operate in a batched, offline, mode and do not perform edge computing optimizations \cite{cv:hive}.
@@ -144,9 +144,9 @@
         a formidable platform for extracting useful information from vast
         quantities of data at scale.
         \paragraph{Amazon Web Services}
-            Amazon Web Services (AWS) is a set of "Cloud Computing" offerings
+            Amazon Web Services (AWS) is a set of ``Cloud Computing'' offerings
             from Amazon.com that provide access to elastic computation and storage
-            resources on an "on-demand" basis \cite{aws}. One particularly valuable
+            resources on an ``on-demand'' basis \cite{aws}. One particularly valuable
             service offered is EC2, which provides access to collections of virtual
             machines running on Amazon's cloud. These EC2 virtual machines (instances)
             can be used to perform resource-intensive cluster computing operations without
@@ -166,7 +166,7 @@
         processing streaming data called Spark Streaming. Spark Streaming allows a developer (or other
         analyst) to manipulate time-bounded batches of streaming data tuples by writing a program that
         performs immutable transformations such as map, filter, and reduce on a Spark Streaming abstraction
-        called a DStream. Spark is able to take the client program, break it up into "stages" in which
+        called a DStream. Spark is able to take the client program, break it up into ``stages'' in which
         all processing across tuples can occur in parallel, then partition each stream and stage
         across nodes to be processed in parallel. %TODO: clarify how stages work (also double-check)
         In sum, Spark Streaming provides a computing framework and a set of abstractions which allow
@@ -174,7 +174,7 @@
         \cite{spark:streaming}.
     \subsection{Kafka}
         Apache Kafka is primarily a high-throughput publish-subscribe message bus that runs as a cluster
-        of message "brokers" which provide clients access to partitions of logical groups of message streams
+        of message ``brokers'' which provide clients access to partitions of logical groups of message streams
         called topics; Kafka brokers support master/slave partition replication and support multiple
         producers and multiple consumers within and across topics and their partitions \cite{kafka}.
         A recent addition to Kafka is Kafka Streams, a streaming data processing framework that
@@ -186,10 +186,10 @@
     \section{Other Software}
     \subsection{Akka}
         Akka is a JVM library that implements an actor-model system with an Erlang-like structure.
-        Akka includes as key features "simple and high-level abstractions for distribution,
+        Akka includes as key features ``simple and high-level abstractions for distribution,
         concurrency, and parallelism\dots lightweight event-driven processes\dots[that] can span
-        over multiple JVMs;" Akka includes among its use cases "Simulation\dots Automobile and
-        Traffic Systems\dots [and] Data Analytics" \cite{akka}. %TODO: ensure this is correct citation for quotes
+        over multiple JVMs;'' Akka includes among its use cases ``Simulation\dots Automobile and
+        Traffic Systems\dots [and] Data Analytics'' \cite{akka}. %TODO: ensure this is correct citation for quotes
     \subsection{Postgres}
         Postgres is a relational database with a SQL language interface that supports view, aggregate
         functions, transactions, indices, and joins \cite{postgres}. Postgres is a robust and, when
@@ -200,23 +200,23 @@
         platform. Edgent provides connectors for a number of publish/subscribe systems such as 
         MQTT and Apache Kafka as well as methods for performing transformations on streaming
         data on edge devices using pre-programmed analytical subroutines that can be activated and
-        deactivated remotely through IBM's "Watson IoT Platform." Edgent appears to be designed
+        deactivated remotely through IBM's ``Watson IoT Platform.'' Edgent appears to be designed
         primarily to run on sensors for monitoring infrastructure and detecting exceptions, though
         it provides a programming model similar to that of Kafka Streams. Edgent appears to be 
         designed along the lines of traditional IoT data collection platforms in which the edge
         device has some set of pre-configured features that can execute locally, while new and
-        ad-hoc analytics are run on the "back-end" using a subset of the data the edge device
+        ad-hoc analytics are run on the ``back-end'' using a subset of the data the edge device
         was originally programmed to transmit. Edgent does not appear to be designed for executing
         runtime-generated analytic queries in the context of dynamic clusters of vehicles with a diverse
         array of sensor capabilities \cite{edgent}.
     \subsection{Greengrass}
         Greengrass is a new product from Amazon Web Services that is currently in preview. While available
         documentation is limited as of this writing, Greengrass appears to be designed to perform some of
-        the event-driven logic offered by Amazon's cloud IoT platform on a "core" device operating
-        on the local area network. Amazon includes in its list of benefits that Greengrass "reduces the 
+        the event-driven logic offered by Amazon's cloud IoT platform on a ``core'' device operating
+        on the local area network. Amazon includes in its list of benefits that Greengrass ``reduces the 
         cost of running IoT applications\dots [by] only transmitting the data you need for your applications
-        to the cloud." IoT devices communicating with a given Greengrass Core are considered part of a
-        "Greengrass Group," for example "one floor of a building, one truck, or one home." While offering
+        to the cloud.'' IoT devices communicating with a given Greengrass Core are considered part of a
+        ``Greengrass Group,'' for example ``one floor of a building, one truck, or one home.'' While offering
         a similar model to that of Spindle: a unified programming layer that mixes edge and cloud computing
         in an effort to optimize bandwidth use, Greengrass appears to be a vendor-exclusive platform and does
         not appear to support dynamic clusters of connected devices. As such, Greengrass in its current state
@@ -423,13 +423,13 @@
     can be thought of as a stand-in for a GPS clock running on each vehicle. Each vehicle
     actor is then responsible for managing its publish-subscribe streams and messages, as well
     as its simulated connections to other vehicles in its cluster. Messages are exchanged between
-    vehicles and send from vehicles to ``the cloud" by way of special "Stream Relay" Kafka Streams
+    vehicles and send from vehicles to ``the cloud'' by way of special ``Stream Relay'' Kafka Streams
     programs. The Stream Relay programs operate as simulated versions of the Clusterhead Relay
     and Middleware Uplink programs. Stream Relays are also responsible for filtering 
-    expired and "Canary" messages; the version of Kafka Streams being used (the latest version
+    expired and ``Canary'' messages; the version of Kafka Streams being used (the latest version
     at the start of development) has implementation bugs that mean new message consumers must
     read old messages and that a topic may not fully initialize until a message is produced to it;
-    our solution is to send "Canary" messages to ensure topic initialization and to filter out messages
+    our solution is to send ``Canary'' messages to ensure topic initialization and to filter out messages
     that have already been processed. Finally Stream Relays are responsible for keeping a 
     running sum of the number of bytes sent on a per-relay basis and logging these sums to separate 
     CSV files at run-time.
@@ -457,8 +457,8 @@
 \section{Data Sets}
 \subsection{Vehicle Traces}
    The Spindle experiments depend on a set of vehicle traces 
-   generated using "the open source vehicular network simulation framework" VEINS, which simulates
-   vehicle movement and radio connectivity in a "realistic" manner \cite{veins}. The VEINS traces
+   generated using ``the open source vehicular network simulation framework'' VEINS, which simulates
+   vehicle movement and radio connectivity in a ``realistic'' manner \cite{veins}. The VEINS traces
    were generated by Mike Wittie of the Montana State University as part of a larger overall research
    project. 
    The traces come in the form of sharded CSV files containing time-series mappings of three different types:
@@ -535,7 +535,7 @@
 \section{Test Configurations}
 \subsection{Example Map/Reduce Programs}
     \paragraph{speedSum}
-        The most simple map/reduce operation tested is the "speedSum" job, which simply takes the sum of the speeds of all
+        The most simple map/reduce operation tested is the ``speedSum'' job, which simply takes the sum of the speeds of all
         vehicles in the simulation in each time step. The map operation takes the vehicle state as input and returns only
         the vehicle speed. The reduce operation run at the Clusterheads takes the sum of the speeds
         of each of the cluster member vehicles.
