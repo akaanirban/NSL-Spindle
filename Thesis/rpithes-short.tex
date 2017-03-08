@@ -36,7 +36,7 @@
 %\cocothadviser{Second co-adviser} % if needed
 %  For a masters project use \projadviser instead of \thadviser, 
 %  and \coprojadviser and \cocoprojadviser if needed. 
-\submitdate{March 3\\(For Graduation May 2017)}        
+\submitdate{March 7\\(For Graduation May 2017)}        
 %\copyrightyear{1685}  % if date omitted, current year is used. 
 %%%%%%%%%%%%%%%%%%%%%   end titlepage info  %%%%%%%%%%%%%%%%%%%%%%
       
@@ -61,14 +61,28 @@
     Spindle serves as a scalable hybrid vehicle-to-vehicle and vehicle-to-internet architecture
     for efficient near-real-time processing of streaming sensor data from network-connected vehicles.
     According to a 2015 Hitachi white-paper, some contemporary vehicles produce as much
-    as 25 gigabytes of data every hour with prototype vehicles fitted with ``cameras and additional
-    sensors'' producing up to 250 gigabytes per hour \cite{hitachi}. At the same time, work is underway
+    as 25 gigabytes of data every hour with prototype vehicles fitted with a variety of sensors
+    and cameras producing up to 250 gigabytes per hour \cite{hitachi}. At the same time, work is underway
     to develop and test a variety of communications systems for connecting vehicles to one another
-    and to road infrastructure and the internet \cite{connectivitypaper}. Spindle addresses the problem
-    of managing the vast quantities of available vehicle data by applying the map/reduce \cite{mapreduce}
-    paradigm to logical clusters of interconnected vehicles. In particular, Spindle exploits edge-computation
+    and to road infrastructure and the internet \cite{connectivitypaper}. 
+
+    One approach to marshaling data in networks with vehicles has been to create clusters of
+    vehicle-to-vehicle networks \cite{sbca}\cite{cdrive}\cite{clusterselection}\cite{clustering:mobaware}.
+    In such systems, vehicles form temporary ad-hoc wireless networks in which they can exchange
+    data with one another without the need to go over the internet; as such, vehicle-to-internet
+    bandwidth is conserved.
+    
+    We have developed Spindle, a hybrid vehicle-cloud architecture that addresses the problem of 
+    managing the vast quantities of available vehicle data by applying the map/reduce \cite{mapreduce}
+    paradigm to logical clusters of interconnected vehicles. Spindle exploits edge-computation
     by exchanging data over vehicle-to-vehicle communications systems in order to reduce the amount of data
-    that must be sent over the internet to the cloud. Spindle is designed to support the use case
+    that must be sent over the internet to the cloud. Among Spindle's most powerful features is its
+    integration with Apache Spark, which allows a user to write a Spark Streaming program with
+    map/reduce functions that Spindle automatically serializes and processes as an edge computation.
+    The end user writes a program that looks like a vanilla Spark Streaming application, but using
+    Spindle automatically applies edge-computing optimizations.
+    
+    Spindle is designed to support the use case
     of a developer or analyst writing a streaming map/reduce program that can then be deployed to the cloud
     and distributed to clusters of vehicles; vehicles in each cluster can apply the map operation to their
     incoming data streams and send the map outputs to a single leader (Clusterhead); the Clusterhead then
@@ -76,7 +90,10 @@
     operation to the cloud, which forwards the data to the user's client program where the data can be
     displayed or further analyzed.
 
-    Our contribution is to demonstrate the bandwidth savings of performing map/reduce at the edge, in
+    %TODO(meeting mar 8): split below paragrpah into "this is what we build" and "this is what we evaluate"
+    %TODO(meeting mar 8): our contribution is the architecture, our experiments demonste that our contributions are worthwhile
+    %TODO(meeting mar8): make a bulleted list of contributions
+    ur contribution is to demonstrate the bandwidth savings of performing map/reduce at the edge, in
     vehicle networks, by implementing a subset of the Spindle architecture inside a simulation framework.
     We implement the data Spindle processing pipeline for vehicles and Clusterheads, which we then integrate
     with a system that provides realistic mobility and connectivity data, such that we can simulate vehicles
@@ -86,6 +103,7 @@
     realistic position and connectivity information for vehicles in the simulation. We also work in
     collaboration with Xiaotian Duan, from whose work we get vehicle-to-cluster assignments over time
     for our simulation. In evaluating our experiments, we focus in particular on the effect of different
+    %TODO(meeting mar 8): simplify out reducer window to plain english description
     reducer window sizes on the amount of data sent to the cloud; in so doing, we explore the trade-off
     between resolution and latency versus bandwidth consumption. Having a smaller reducer window means
     that reduced messages are sent more frequently and client programs are given more data points to
@@ -97,53 +115,60 @@
     equates to a smaller number of Clusterheads transmitting data at any given time window, which
     has an effect on overall bandwidth usage.
 
+    %TODO(meeting mar 8): check Carlos examples to see if we should have a "roadmap" paragraph, a chapter-level description of what will follow
+        %if necessary, put something straightforward
+
 \chapter{Background and Related Work}
     \section{Connected Vehicles}
-        \paragraph{VANETs}
-            The past few years have seen increasing interest in the area of ``Intelligent Transportation
-            Systems (ITS)'' in which wireless sensor technologies are put towards the improvement of
-            transportation infrastructure. VANETs are wireless ad-hoc networks of vehicles and other
-            road infrastructure. Active research is underway to find applications for VANETs to improving
-            transportation infrastructure and safety. 
-            VANETs have unique properties compared to general mesh and ad-hoc networks (MANETs) in that
-            the total number of unique nodes that might join a network is quite large and information
-            about the velocity and ``trajectory'' of each node is often available.
-            As such, there are a number of low-level VANET protocols being explored including broadcast,
-            unicast, and a variety of flooding protocols, however choosing an optimal low-level protocol is 
-            beyond the scope of this paper.
-            To aid in this research, a number of simulators have
-            come out. These simulators combine a mobility model, in which movement of vehicles through road
-            networks under a variety of driving conditions, and a connectivity model which simulates the
-            propagation of radio signals among vehicles in VANETs. OMNeT++ is one such network and connectivity
-            simulator.
-        \paragraph{Analysis of Vehicle Data with HIVE}
-            A 2016 IEEE International Conference on Big Data paper titled ``Supporting large scale
-            connected vehicle data analysis using HIVE'' illustrates practical use cases for analysis
-            of vehicle data. The authors use the HIVE \cite{hive} query language in conjunction with Apache Spark
-            \cite{spark} and Hadoop MapReduce \cite{hdfs}
-            to perform analyses of a 2013 ``connected vehicle'' data-set from
-            United States Department of Transportation. The authors combine the DoT data-set with
-            geo-spatial data to validate and improve ``traffic demand'' models which ``can drastically
-            improve the planning of incident response strategies.'' The authors also test travel
-            time models for the generation of driving directions and create ``traffic flow'' visualizations
-            to facilitate understanding of road conditions and usage. While the authors demonstrate the 
-            usefulness of applying tools such as Apache Spark to data coming from connected vehicles, the
-            authors operate in a batched, offline, mode and do not perform edge computing optimizations \cite{cv:hive}.
+    \subsection{VANETs}
+        The past few years have seen increasing interest in the area of Intelligent Transportation
+        Systems (ITS) in which sensor technologies are put towards the improvement of
+        transportation infrastructure. VANETs are wireless ad-hoc networks of vehicles and other
+        road infrastructure. Active research is underway to find applications for VANETs to improving
+        transportation infrastructure and safety. 
+        VANETs have unique properties compared to general mesh and ad-hoc networks (MANETs) in that
+        the total number of unique nodes that might join a network is quite large and information
+        about the velocity and ``trajectory'' of each node is often available.
+        As such, there are a number of low-level VANET protocols being explored including broadcast,
+        unicast, and a variety of flooding protocols, however choosing an optimal low-level protocol is 
+        beyond the scope of this paper.
+        To aid in this research, a number of simulators have
+        come out. These simulators combine a mobility model, in which movement of vehicles through road
+        networks under a variety of driving conditions, and a connectivity model which simulates the
+        propagation of radio signals among vehicles in VANETs. OMNeT++ is one such network and connectivity
+        simulator.%TODO(meeting mar8): you forgot to put the citation
+        %TODO(meeting mar 8): cite more than one paper, quantity of papers indicates research interest
+
+    \subsection{Analysis of Vehicle Data}
+        %TODO(meeting mar 8): list a number of reesearch papers using vehcile data as input, frame HIVE as one exmaple
+        A 2016 IEEE International Conference on Big Data paper titled ``Supporting large scale
+        connected vehicle data analysis using HIVE'' illustrates practical use cases for analysis
+        of vehicle data. The authors use the HIVE \cite{hive} query language in conjunction with Apache Spark
+        \cite{spark} and Hadoop MapReduce \cite{hdfs}
+        to perform analyses of a 2013 ``connected vehicle'' data-set from
+        United States Department of Transportation. The authors combine the DoT data-set with
+        geo-spatial data to validate and improve ``traffic demand'' models which ``can drastically
+        improve the planning of incident response strategies.'' The authors also test travel
+        time models for the generation of driving directions and create ``traffic flow'' visualizations
+        to facilitate understanding of road conditions and usage. While the authors demonstrate the 
+        usefulness of applying tools such as Apache Spark to data coming from connected vehicles, the
+        authors operate in a batched, offline, mode and do not perform edge computing optimizations \cite{cv:hive}.
     \subsection{Vehicle Clusters}
-        \paragraph{C-DRIVE}
+        \paragraph{Clustering Algorithms}
+            %TODO(meeting mar8): cite more than c-drive (look in C-drive related work)
             C-DRIVE is an approach for forming logical clusters of network-connected vehicles.
             C-DRIVE is specifically designed to take into consideration the properties
             of VANETs with respect to vehicle movement. Specifically C-DRIVE attempts
             to form clusters of networked vehicles by taking into consideration both
             connectivity and direction of travel. These clusters are intended to be
             used to propagate information throughout groups of vehicles in a bandwidth
-            -efficient manner \cite{cdrive}.
+            -efficient manner \cite{cdrive}. %NOTE: this last sentence is good keep it
     \section{Cloud Data Processing Technologies}
         The past few years have seen a number of critical developments in IT
         infrastructure and data processing software that, combined, provide
         a formidable platform for extracting useful information from vast
-        quantities of data at scale.
-        \paragraph{Amazon Web Services}
+        quantities of data at scale. %TODO(meeting mar 8): mention that we are summarizing technologies that we are using and some sample of technologies that are related
+        \paragraph{Amazon Web Services}%NOTE: consider dropping this paragraph
             Amazon Web Services (AWS) is a set of ``Cloud Computing'' offerings
             from Amazon.com that provide access to elastic computation and storage
             resources on an ``on-demand'' basis \cite{aws}. One particularly valuable
@@ -161,6 +186,8 @@
             Finally of note, Amazon provides an object storage layer - one can associate a key string
             with some binary blob that is stored in a replicated file system - called S3.
     \subsection{Spark Streaming}
+        Spark Streaming provides a computing framework and a set of abstractions which allow
+        a developer to write map/reduce-style programs for streaming data with relative ease.
         One framework that is capable of processing large quantities of data in a distributed fashion,
         such as on a cluster of EC2 instances, is Apache Spark. Spark offers a micro-batch package for
         processing streaming data called Spark Streaming. Spark Streaming allows a developer (or other
@@ -168,9 +195,7 @@
         performs immutable transformations such as map, filter, and reduce on a Spark Streaming abstraction
         called a DStream. Spark is able to take the client program, break it up into ``stages'' in which
         all processing across tuples can occur in parallel, then partition each stream and stage
-        across nodes to be processed in parallel. %TODO: clarify how stages work (also double-check)
-        In sum, Spark Streaming provides a computing framework and a set of abstractions which allow
-        a developer to write map/reduce-style programs for streaming data with relative ease
+        across nodes to be processed in parallel %TODO: clarify how stages work (also double-check)
         \cite{spark:streaming}.
     \subsection{Kafka}
         Apache Kafka is primarily a high-throughput publish-subscribe message bus that runs as a cluster
@@ -185,6 +210,7 @@
         transformations as function applications to data passing through KStreams \cite{kafka:streams}.
     \section{Other Software}
     \subsection{Akka}
+        %TODO(meeting mar8): paraphrase more, quote less 
         Akka is a JVM library that implements an actor-model system with an Erlang-like structure.
         Akka includes as key features ``simple and high-level abstractions for distribution,
         concurrency, and parallelism\dots lightweight event-driven processes\dots[that] can span
@@ -195,6 +221,8 @@
         functions, transactions, indices, and joins \cite{postgres}. Postgres is a robust and, when
         properly configured, performant database.
     \section{Edge Computing Technologies}
+        %TODO(meeting mar8): do introduction to say why were are describing these things; explain how this builds on cloud tech
+    %TODO(meeting mar8): put edge computing before cloud technologies 
     \subsection{Edgent}
         Apache Edgent, formerly Apache Quarks, is a general edge computing and IoT data processing
         platform. Edgent provides connectors for a number of publish/subscribe systems such as 
@@ -210,6 +238,8 @@
         runtime-generated analytic queries in the context of dynamic clusters of vehicles with a diverse
         array of sensor capabilities \cite{edgent}.
     \subsection{Greengrass}
+        %TODO(meeting mar8): say what is being advertised, no need to try and figure it out; it's okay to say something along the lines of "this is what they claim...no details provided"
+%TODO(meeting mar8): use quotes selectively 
         Greengrass is a new product from Amazon Web Services that is currently in preview. While available
         documentation is limited as of this writing, Greengrass appears to be designed to perform some of
         the event-driven logic offered by Amazon's cloud IoT platform on a ``core'' device operating
@@ -241,6 +271,8 @@
 %TODO (meeting): fix positioing of page numbers
 
 \chapter{System Architecture}
+%TODO(meeting mar8): system architecture is "all entities" - vehicles, clusters, 
+%TODO(meeting mar8): before explaining software, explain physical compoentns (cars, etc...)
     Spindle provides a novel streaming data processing platform by building on
     existing cutting edge and industry standard distributed systems, primarily
     from the Apache ecosystem. 
@@ -560,6 +592,8 @@
    the higher density region has better performance than the lower density region, that larger window
    sizes have better performance than smaller window sizes, and that, critically, the use of clustering
    results in a 50-75\% savings in bandwidth.
+   %TODO(meeting mar8): need a text description for every single figure, say what they show, why it's important (insights)
+   % Minimum of one paragraph per experiment (geoFiltered, speedSum, geoMapped)
 
     \begin{sidewaysfigure}
         \centering
@@ -669,7 +703,7 @@
     which we test under a number of different workloads. We then demonstrate that the combination of clustering
     and message reduction used in our architecture produces significant bandwidth savings.
 
-\section{Future Work}
+\section*{Future Work}
     In this work, we have demonstrated the efficacy of the core of the Spindle architecture - dynamic map/reduce
     on vehicles. There are a number of directions for future work, including extensions to the simulator and, 
     more critically, extensions to the architecture.
@@ -705,7 +739,7 @@
 
 \specialhead{LITERATURE CITED}
 \begin{singlespace}
-\bibliographystyle{acm}
+\bibliographystyle{IEEEtran}
 \bibliography{rpithes-short}
 \end{singlespace}
 \end{document}
