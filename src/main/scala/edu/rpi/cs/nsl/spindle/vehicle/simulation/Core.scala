@@ -185,7 +185,8 @@ trait DynamicQuery {
     val inTopic = TopicLookupService.getVehicleStatus(nodeId)
     val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
     MapperFunc[NodeId, VehicleMessage, String, (MPH, Long)](mapperId, inTopic, outTopic, (_, v) => {
-      (mapperId: String, (v.mph, 1): (MPH, Long))
+      // Share key for max reduction
+      ("allNodes", (v.mph, 1): (MPH, Long))
     })
   }
 
