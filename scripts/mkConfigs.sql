@@ -22,6 +22,15 @@ VALUES (5, 1000, 'clusterinfo_dense_v1', 'geoFiltered', 15000, 'dense_positions'
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
 VALUES (6, 1000, 'clusterinfo_dense_v1', 'geoFiltered', 30000, 'dense_positions');
 
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (34, 1000, 'self_clusters', 'geoFiltered', 30000, 'dense_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (35, 1000, 'self_clusters', 'geoFiltered', 15000, 'dense_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (36, 1000, 'self_clusters', 'geoFiltered', 10000, 'dense_positions');
+
 -- Geo-mapped queries
 
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
@@ -82,6 +91,15 @@ VALUES (14, 1000, 'clusterinfo_sparse_v1', 'geoFiltered', 15000, 'sparse_positio
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
 VALUES (15, 1000, 'clusterinfo_sparse_v1', 'geoFiltered', 30000, 'sparse_positions');
 
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (37, 1000, 'self_clusters', 'geoFiltered', 30000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (38, 1000, 'self_clusters', 'geoFiltered', 15000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (39, 1000, 'self_clusters', 'geoFiltered', 10000, 'sparse_positions');
+
 -- Self Clusters
 
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
@@ -102,13 +120,3 @@ VALUES (23, 1000, 'self_clusters', 'speedSum', 15000, 'sparse_positions');
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
 VALUES (24, 1000, 'self_clusters', 'speedSum', 30000, 'sparse_positions');
 
--- Geo Filtered
-
-INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
-VALUES (16, 1000, 'self_clusters', 'geoFiltered', 10000, 'dense_positions');
-
-INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
-VALUES (17, 1000, 'self_clusters', 'geoFiltered', 15000, 'dense_positions');
-
-INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
-VALUES (18, 1000, 'self_clusters', 'geoFiltered', 30000, 'dense_positions');
