@@ -55,7 +55,7 @@ mkGraphFilterType <- function(df_results) {
         theme_bw() +
         geom_bar(aes(fill=mapreducename), stat="identity") +
         scale_fill_grey() + 
-        theme(axis.text.x = element_text(angle=90, vjust=1, hjust=1), text=element_text(size=15)) +
+        theme(axis.text.x = element_text(angle=90, vjust=1), text=element_text(size=15)) +
         scale_x_discrete(expand = c(0,.01)) +
         labs(x="Simulator Configuration", y="Average Total Bytes", fill="MR Job")
     return(plot);

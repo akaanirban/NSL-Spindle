@@ -1,0 +1,17 @@
+graph TB
+    subgraph cloud
+      middleware --> sparkJobs
+    end
+    subgraph clusterOne
+      v1[Vehicle] --> ch1[Cluster Head]
+      v2[Vehicle] --> ch1
+      v3[Vehicle] --> ch1
+      ch1 --> middleware
+    end
+    subgraph clusterTwo
+      v4[Vehicle] --> ch2[Cluster Head]
+      v5[Vehicle] --> ch2
+      v6[Vehicle] --> ch2
+      v7[Vehicle] --> ch2
+      ch2 --> middleware
+    end

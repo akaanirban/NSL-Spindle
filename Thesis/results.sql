@@ -29,7 +29,7 @@ GROUP BY jobuuid;
 
 DROP VIEW annotated_runs CASCADE;
 CREATE VIEW annotated_runs AS
-SELECT configs.*, total_bytes_to_middleware, total_bytes_to_middleware / node_counts.numnodes as avg_bytes_to_middleware, node_counts.numnodes true_num_nodes
+SELECT configs.*, total_bytes_to_middleware, total_bytes_to_middleware / node_counts.numnodes as avg_bytes_to_middleware, node_counts.numnodes true_num_nodes, runs.jobuuid
 FROM 
     sim_runs_v5 runs,
     sim_configs_v5 configs,
@@ -43,13 +43,13 @@ WHERE
 
 DROP VIEW simple_annotated_runs CASCADE;
 CREATE VIEW simple_annotated_runs AS
-SELECT configid, clustertable, filtertablename, windowsizems, mapreducename, total_bytes_to_middleware, true_num_nodes
+SELECT configid, clustertable, filtertablename, windowsizems, mapreducename, total_bytes_to_middleware, true_num_nodes, jobuuid
 FROM annotated_runs
 ;
 
 DROP VIEW byte_averaged_runs CASCADE;
 CREATE VIEW byte_averaged_runs AS
-SELECT configid, clustertable, filtertablename, windowsizems, mapreducename, avg(total_bytes_to_middleware) avg_total_bytes 
+SELECT configid, clustertable, filtertablename, windowsizems, mapreducename, avg(total_bytes_to_middleware) avg_total_bytes, count(jobuuid) as num_runs 
 FROM simple_annotated_runs
 GROUP BY configid, clustertable, filtertablename, windowsizems, mapreducename;
 
