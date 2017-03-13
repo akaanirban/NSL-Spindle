@@ -47,6 +47,12 @@
 \listoftables          % required if there are tables
 \listoffigures         % required if there are figures
 
+%TODO(meeting mar10): remove xiaotian cluster picture for now
+    % explain technologies more, e.g. docker, spark streaming, mapReduce, micro-batch
+%MINIMUM REQUIREMENTS BEFORE SENDING: reference EVERY FIGURE, intro, abstract, beginning of section 3 w/paragraph about vehicles, clusterheads, cloud, v2v - mention we assume vehicles have some capability (give example connections - 3g/4g, DSRC); put conclusion in past-tense 
+%TODO: guideline - have someone outside of CS read introduction- they should be able to get the gist of what is going on
+%WHEN SENDING: send pdf, can run by patterson first; mention that sending draft and may send small edits
+
 \specialhead{ACKNOWLEDGMENT}
    TODO - right now I just wannt to thank whoever is proofreading this, as well as whoever invented Redbull 
     %TODO: write acknowledgment - thank patterson, xiaotian, mike, mentors throughout etc...
@@ -59,6 +65,7 @@
     not only about traffic conditions, but also weather and climate, infrastructure usage over
     time, and possibly even social and economic information derived from long term movement
     patterns.
+    %TODO(Mar 10): explain why we dont send everything to cloud
     
     We present Spindle, a hybrid vehicle-to-cloud architecture that allows its users to make
     the most of the available vehicle data while preserving limited bandwidth; it provides a 
@@ -67,7 +74,6 @@
     work on the use of ad-hoc wireless network clusters of vehicles. Spindle builds on Spark
     to provide an edge computing framework that can run Spark Streaming  map/reduce functions on
     individual vehicles and inside vehicle clusters in order to increase bandwidth efficiency.
-
     Spindle's novelty and power lies in its ability to allow an end-user to leverage edge
     computing optimizations with dynamic clusters of connected vehicles without having to
     leave the familiar Spark Streaming ecosystem and syntax.
@@ -76,8 +82,12 @@
     with clustering information to provide a realistic facsimile of how a Spindle system
     would operate on the vehicle and vehicle cluster level. Our results show Spindle can
     produce bandwidth savings of over 75\% through vehicle clustering. %TODO: reference implementation that does no map or reduce (maybe collect message size counts for sensorDaemon messages at each vehicle with nullable new results column; filter not null results to calculate bandwidth savings
+    %TODO(mar 10): 75% savings over vehicles not forming clusters (self_clusters configuration)
+    %TODO(mar 10): have reference run with no map or reduce (reduce nop, self clusters)
 
 \chapter{INTRODUCTION}
+%TODO(mar 10): repeat introduction "this is why were are cool" stuff; applications and challenges need to be
+% listed
     Spindle serves as a scalable hybrid vehicle-to-vehicle and vehicle-to-internet architecture
     for efficient near-real-time processing of streaming sensor data from network-connected vehicles.
     According to a 2015 Hitachi white-paper, some contemporary vehicles produce as much
@@ -97,30 +107,12 @@
     paradigm to logical clusters of interconnected vehicles. Spindle exploits edge-computation
     by exchanging data over vehicle-to-vehicle communications systems in order to reduce the amount of data
     that must be sent over the internet to the cloud. Among Spindle's most powerful features is its
-    integration with Apache Spark, which allows a user to write a Spark Streaming program with
+    integration with Apache Spark, which allows a user to write a Spark Streaming %TODO(mar 10): add citation and parenthetical explanation of what Spark STreamign is 
+    program with
     map/reduce functions that Spindle automatically serializes and processes as an edge computation.
     The end user writes a program that looks like a vanilla Spark Streaming application, but using
     Spindle automatically applies edge-computing optimizations.
-    
-    Spindle is designed to support the use case
-    of a developer or analyst writing a streaming map/reduce program that can then be deployed to the cloud
-    and distributed to clusters of vehicles; vehicles in each cluster can apply the map operation to their
-    incoming data streams and send the map outputs to a single leader (Clusterhead); the Clusterhead then
-    applies the reduce operation to a buffer of incoming mapper outputs and sends the result of the reduce
-    operation to the cloud, which forwards the data to the user's client program where the data can be
-    displayed or further analyzed.
-
-    \paragraph{Contributions}
-        \begin{itemize}
-            \item Library for running Spark DStream map and reduce operations outside of Spark, then
-                re-integrating the results with the remainder of the Spark Streaming job
-            \item Implementation of map/reduce on dynamic clusters of vehicles connected by ad-hoc networks
-            \item Actor-model-based simulator for map/reduce queries on dynamic clusters of connected vehicles
-            \item Edge computing architecture that supports multiple concurrent map/reduce queries
-                and automatically eliminates duplicate queries and redundant messages (where a pair of
-                redundant messages is a pair of messages containing the same values but associated with
-                distinct map/reduce queries)
-        \end{itemize}
+    %TODO(mar 10): see sentence about why "this is great that everyone hwo can use spark can use spindle"
 
     We demonstrate the bandwidth savings of performing map/reduce at the edge, in
     vehicle networks, by implementing key components of the Spindle architecture inside a simulation framework.
@@ -135,7 +127,8 @@
     for our simulation \cite{xiaotian}. In evaluating our experiments, we focus in particular on the effect of different
     amounts of time for which to buffer messages before performing reduce operations
     on the amount of data sent to the cloud. We explore the trade-off
-    between resolution and latency versus bandwidth consumption. Having a smaller time window for reduction means
+    between resolution and latency versus bandwidth consumption. 
+    Having a smaller time window for reduction means
     that reduced messages are sent more frequently and client programs are given more data points to
     analyze, while having a larger time window for reduction means more messages can be batched together for
     reduction before data is transmitted to the cloud. We also explore the effects of regions with
@@ -144,8 +137,24 @@
     of clusters relative to the total number of vehicles present; a smaller number of clusters
     equates to a smaller number of Clusterheads transmitting data at any given time window, which
     has an effect on overall bandwidth usage.
+    %TODO(mar 10): move discussion of reduce window trade-offs w.r.t. resolution and latency to experimental results or conclusion; also define latency/resolution (maybe give example)
+
+    %TODO(mar 10): repeat abstract's "our results show" section
+
+    The major contributions of the work are:
+        \begin{itemize}
+            \item Edge computing architecture that supports multiple concurrent map/reduce queries
+                and automatically eliminates duplicate queries and redundant messages (where a pair of
+                redundant messages is a pair of messages containing the same values but associated with
+                distinct map/reduce queries). The framework integrates with Spark Streaming to allow
+                the trivial creation of edge computing queries that are ingested into Spark Streaming.
+            \item Implementation of map/reduce on dynamic clusters of vehicles connected by ad-hoc networks
+            \item Actor-model-based simulator for map/reduce queries on dynamic clusters of connected vehicles %TODO(mar 10): WHY DO WE CARE?
+        \end{itemize}
+
 
     %Roadmap paragraph
+    The remainder of this thesis is organized as follows.
     Chapter 2 documents key technologies and vocabulary as well as relevant systems and research relating
     to the Internet of Things, streaming data, cloud computing, and connected vehicles. Chapter 3
     describes they physical systems and software architectures pertaining to Spindle, as well as the
@@ -204,7 +213,8 @@
         The past few years have seen a number of critical developments in IT
         infrastructure and data processing software that, combined, provide
         a formidable platform for extracting useful information from vast
-        quantities of data at scale. %TODO(meeting mar 8): mention that we are summarizing technologies that we are using and some sample of technologies that are related
+        quantities of data at scale. 
+        %TODO(meeting mar 8): mention that we are summarizing technologies that we are using and some sample of technologies that are related
         \paragraph{Amazon Web Services}%NOTE: consider dropping this paragraph
             Amazon Web Services (AWS) is a set of ``Cloud Computing'' offerings
             from Amazon.com that provide access to elastic computation and storage
@@ -234,6 +244,8 @@
         all processing across tuples can occur in parallel, then partition each stream and stage
         across nodes to be processed in parallel %TODO: clarify how stages work (also double-check)
         \cite{spark:streaming}.
+        %TODO(meeting mar10): define micro-batch, give examples of map(), filter(), reduce()
+
     \subsection{Kafka}
         Apache Kafka is primarily a high-throughput publish-subscribe message bus that runs as a cluster
         of message ``brokers'' which provide clients access to partitions of logical groups of message streams
@@ -252,7 +264,7 @@
         Akka includes as key features programming abstractions that enable the quick and relatively
         painless development of parallel and concurrent programs which can be converted to distributed
         systems with relative ease \cite{akka}. Use cases include simulator software, data processing,
-        and ``Automobile and Traffic Systems`` \cite{akka}.
+        and ``Automobile and Traffic Systems'' \cite{akka}.
     \subsection{Postgres}
         Postgres is a relational database with a SQL language interface that supports view, aggregate
         functions, transactions, indices, and joins \cite{postgres}. Postgres is a robust and, when
@@ -306,6 +318,9 @@
 %TODO (meeting): fix positioing of page numbers
 
 \chapter{System Architecture}
+%TODO(mar 10): say that we have vehicles on roads, vehicles form clusters using wireless ad-hoc network, vehicles have cluster heads that talk to the cloud (reference figure 3.1); explain mapping of our software onto vehicles, clusters, cloud
+    %KEY TERMS: vanets/v2v, vehicles, clusterheads, cloud
+%TODO(mar 10): put function calls in verbatim
 %TODO(meeting mar8): system architecture is "all entities" - vehicles, clusters, 
 %TODO(meeting mar8): before explaining software, explain physical compoentns (cars, etc...)
     Spindle provides a novel streaming data processing platform by building on
@@ -339,7 +354,7 @@
         The middleware sends the processed results to client Spark Streaming programs}
     \end{figure}
 
-\section{Theorized Architecture}
+\section{Full Architecture}
     Spindle is a hybrid vehicle-to-cloud architecture with three major components: a client Spark program,
     an in-cloud Middleware, and edge computing software.
 
@@ -544,6 +559,10 @@
    %TODO(MEETING): insert information about City of Cologne
    % insert information about node count, length of time here
    % Saw we pick sparse, dense region, etc... here (move from subsection below)
+
+   %TODO(meeting mar10): this is a surprising result that ... for speedSum and geoMapped, give intuition for why this is case (small number of geoMap regions so each cluster probably has messages for only one region, therefore growth in data consumption is not large);  results dominated by messages from indivudal vehicles vs multiple messages per clusterhead
+   %TODO(meeting mar10): say explicitly that we care about v2I bandwidth being measured (say this repeatedly), say we are less concerned about v2v bandwidth consumption; also add that we have single-hop clusters
+
 \subsubsection{Test Regions} %TODO(MEETING): make sub-sub section of Vehicle traces subsection
     \paragraph{Original VEINS Traces}
         The original VEINS traces span a region from $(41735, 85178.4)$ to $(63071.5, 114426)$ and includes 3340 distinct
@@ -561,7 +580,7 @@
     \begin{figure}
         \centering
         \includegraphics[scale=.5]{binImages/xiaotian-clusters.png}
-        \caption{Illustration of VEINS Vehicles with MANET Clustering, Courtesy Mr. Duan \cite{xiaotian}}
+        \caption{Illustration of VEINS Vehicles with MANET Clustering, Courtesy Duan \cite{xiaotian}}
         \label{fig:clusters}
     \end{figure}
     \begin{figure}
@@ -588,11 +607,12 @@
     entry to some destination Kafka topic (in this case the Middleware). As such, Spindle supports micro-batch operations
     on Kafka streams with user-configurable window sizes. The sizes tested were 10, 15, and 30 seconds.
 \subsection{Test Clusters}
-    The cluster head assignments for each node are pre-computed using either Mr. Duan's
+    The cluster head assignments for each node are pre-computed using either Duan's
     clustering algorithm or some base-line \verb|single_clusterhead| (all vehicles in simulation share a single Clusterhead)
     or \verb|self_clusters| (all vehicles act as their own cluster heads) \cite{xiaotian}.
+    %TODO(mar 10): self clusters behaves as if vehicles didn't have clustering ability
 \subsection{Clustering Algorithms}
-    The spindle architecture takes advantage of work done by fellow RPI student Mr. Duan on generating
+    The spindle architecture takes advantage of work done by fellow RPI student Duan on generating
     clusters of vehicles based on vehicle connectivity and lane position \cite{xiaotian}. 
     %TODO: get permission from Xiaotian for using clustering images
     %TODO: include information about cluster density for each clustering (sparse/dense)
@@ -640,52 +660,6 @@
    results in a 50-75\% savings in bandwidth.
    %TODO(meeting mar8): need a text description for every single figure, say what they show, why it's important (insights)
    % Minimum of one paragraph per experiment (geoFiltered, speedSum, geoMapped)
-
-   \begin{table}
-       % select clustertable, filtertablename region, windowsizems / 1000 window_secs, ROUND(avg_total_bytes,2) total_bytes, ROUND(normed_total_bytes, 2) normed_bytes, num_runs FROM normed_runs;
-       \begin{Verbatim}[fontsize=\scriptsize]
-     clustertable      |      region      | window_secs | total_bytes | normed_bytes | num_runs
------------------------+------------------+-------------+-------------+--------------+----------
- clusterinfo_dense_v1  | dense_positions  |          10 |   325903.82 |         0.23 |       11
- clusterinfo_dense_v1  | dense_positions  |          15 |   229221.64 |         0.24 |       11
- clusterinfo_dense_v1  | dense_positions  |          30 |   137369.91 |         0.27 |       11
- clusterinfo_dense_v1  | dense_positions  |          10 |   204693.36 |         0.30 |       11
- clusterinfo_dense_v1  | dense_positions  |          15 |   147311.18 |         0.31 |       11
- clusterinfo_dense_v1  | dense_positions  |          30 |    86209.25 |         0.34 |       12
- clusterinfo_dense_v1  | dense_positions  |          10 |   315867.73 |         0.22 |       11
- clusterinfo_dense_v1  | dense_positions  |          15 |   221243.36 |         0.23 |       11
- clusterinfo_dense_v1  | dense_positions  |          30 |   129972.55 |         0.26 |       11
- clusterinfo_sparse_v1 | sparse_positions |          10 |  1320204.83 |         0.46 |       12
- clusterinfo_sparse_v1 | sparse_positions |          15 |   921419.36 |         0.47 |       11
- clusterinfo_sparse_v1 | sparse_positions |          30 |   500452.75 |         0.50 |       12
- clusterinfo_sparse_v1 | sparse_positions |          10 |   680126.75 |         0.55 |       12
- clusterinfo_sparse_v1 | sparse_positions |          15 |   466748.58 |         0.56 |       12
- clusterinfo_sparse_v1 | sparse_positions |          30 |   247315.00 |         0.58 |       11
- self_clusters         | dense_positions  |          10 |  1411252.83 |         1.00 |       12
- self_clusters         | dense_positions  |          15 |   957476.33 |         1.00 |       12
- self_clusters         | dense_positions  |          30 |   513734.82 |         1.00 |       11
- self_clusters         | sparse_positions |          10 |  2854338.27 |         1.00 |       11
- self_clusters         | sparse_positions |          15 |  1943005.25 |         1.00 |       12
- self_clusters         | sparse_positions |          30 |  1005156.67 |         1.00 |       12
- self_clusters         | dense_positions  |          10 |  1405860.64 |         1.00 |       11
- self_clusters         | dense_positions  |          15 |   954038.36 |         1.00 |       11
- self_clusters         | dense_positions  |          30 |   496234.09 |         1.00 |       11
- self_clusters         | sparse_positions |          10 |  2841283.83 |         1.00 |       12
- self_clusters         | sparse_positions |          15 |  1938500.33 |         1.00 |       12
- self_clusters         | sparse_positions |          30 |   996546.82 |         1.00 |       11
- clusterinfo_sparse_v1 | sparse_positions |          10 |  1301719.45 |         0.46 |       11
- clusterinfo_sparse_v1 | sparse_positions |          15 |   907851.58 |         0.47 |       12
- clusterinfo_sparse_v1 | sparse_positions |          30 |   480055.50 |         0.48 |       12
- self_clusters         | dense_positions  |          30 |   254855.58 |         1.00 |       12
- self_clusters         | dense_positions  |          15 |   468076.36 |         1.00 |       11
- self_clusters         | dense_positions  |          10 |   675473.45 |         1.00 |       11
- self_clusters         | sparse_positions |          30 |   426113.73 |         1.00 |       11
- self_clusters         | sparse_positions |          15 |   831415.75 |         1.00 |       12
- self_clusters         | sparse_positions |          10 |  1229630.83 |         1.00 |       12
-        \end{Verbatim}
-        \label{table:normedruns}
-        \caption{The rounded byte counts (total and normalized) from all test configurations.}
-    \end{table}
 
     \begin{sidewaysfigure}
         \centering
@@ -789,6 +763,7 @@
     %SECONDPASS: table of results
 
 \chapter{Conclusion}
+    %TODO (mar10): change to past tense
     In this paper, we discuss the state of the art in connected vehicle technologies as well as the problem
     of managing the vast quantities of data these vehicles are expected to produce. We further discuss
     some of the use cases that are being explored for the wealth of information that researchers expect
@@ -802,6 +777,7 @@
     We demonstrate the power of our paradigm by creating a simulator for our vehicle and Clusterhead software,
     which we test under a number of different workloads. We then demonstrate that the combination of clustering
     and message reduction used in our architecture produces significant bandwidth savings.
+    %TODO(mar 10): add "our results achieved n% improvement..." passage
 
 \section*{Future Work}
     In this work, we have demonstrated the efficacy of the core of the Spindle architecture - dynamic map/reduce
@@ -821,7 +797,7 @@
 
     Beyond tweaking Spindle, itself, we believe there is now an opportunity for further research that builds
     upon the framework. Particularly, there are opportunities for improvements to vehicle clustering algorithms
-    to improve cluster size and stability by integrating available information. Furthermore, the topic of what
+    to improve cluster size and stability by integrating available information. The topic of what
     useful information can be gathered from connected vehicles will likely remain a perpetually open question,
     now that it is possible to combine sensor and traffic information with other online data sources; we saw
     how one group combined the data with geographic information, but there may be other interesting data-sets
@@ -829,7 +805,7 @@
     correlated with traffic flows. It might, for example, be possible to glean social and economic information
     from traffic flows based on variation in travel among seasons (indicating which areas host people with full
     time versus seasonal jobs). The real-time element might also allow real-time response to potential accidents
-    and obstructions based on live traffic data.Furthermore, as has is being addressed in other research projects %TODO: cite a reference
+    and obstructions based on live traffic data. Furthermore, as has is being addressed in other research projects %TODO: cite a reference
     vehicles are themselves rich sensor platforms that can be used for gathering environmental data; it must
     now be determined what data is worth storing and to what degree of granularity it should be kept.
 
