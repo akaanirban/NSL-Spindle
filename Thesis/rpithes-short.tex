@@ -36,7 +36,7 @@
 \thadviser{Dr. Stacy Patterson} %TODO: dissertation adviser vs thesis adviser
 \memberone{Mohammed J. Zaki}
 \membertwo{Magdon-Ismail Malik}
-\submitdate{March 7\\(For Graduation May 2017)}        
+\submitdate{March 13\\(For Graduation May 2017)}        
 %\copyrightyear{1685}  % if date omitted, current year is used. 
 %%%%%%%%%%%%%%%%%%%%%   end titlepage info  %%%%%%%%%%%%%%%%%%%%%%
       
@@ -54,8 +54,7 @@
 %WHEN SENDING: send pdf, can run by patterson first; mention that sending draft and may send small edits
 
 \specialhead{ACKNOWLEDGMENT}
-   TODO - right now I just wannt to thank whoever is proofreading this, as well as whoever invented Redbull 
-    %TODO: write acknowledgment - thank patterson, xiaotian, mike, mentors throughout etc...
+    Warmest thanks to my collaborators and mentors, Xiaotian, Mike Wittie, and Dr. Patterson.
 \specialhead{ABSTRACT}
     In the coming years, automobiles are expected to become increasingly connected and are
     also expected to become sources for vast amounts of data. Vehicles are increasingly 
@@ -64,8 +63,13 @@
     By combining vehicle data with other data sources, one could potentially glean information
     not only about traffic conditions, but also weather and climate, infrastructure usage over
     time, and possibly even social and economic information derived from long term movement
-    patterns.
-    %TODO(Mar 10): explain why we dont send everything to cloud
+    patterns. While aggregate data from these connected vehicles is valuable, it is expensive
+    and potentially impractical to transmit to and store in the cloud all data produced by 
+    all operating vehicles all the time. While the cloud offers invaluable resources for
+    extracting useful information from large volumes of data, cloud resources are not 
+    free and must be shared among a growing set of organizations with an ever-expanding
+    list of use cases. Connected vehicles must also compete with smartphones, cellular
+    modems, and other IoT devices for bandwidth.
     
     We present Spindle, a hybrid vehicle-to-cloud architecture that allows its users to make
     the most of the available vehicle data while preserving limited bandwidth; it provides a 
@@ -81,20 +85,29 @@
     Finally, we evaulate Spindle using a custom-built simulator that combines trace data
     with clustering information to provide a realistic facsimile of how a Spindle system
     would operate on the vehicle and vehicle cluster level. Our results show Spindle can
-    produce bandwidth savings of over 75\% through vehicle clustering. %TODO: reference implementation that does no map or reduce (maybe collect message size counts for sensorDaemon messages at each vehicle with nullable new results column; filter not null results to calculate bandwidth savings
-    %TODO(mar 10): 75% savings over vehicles not forming clusters (self_clusters configuration)
+    produce bandwidth savings of over 75\% compared to an implementation that does not
+    use clustering. %TODO: reference implementation that does no map or reduce (maybe collect message size counts for sensorDaemon messages at each vehicle with nullable new results column; filter not null results to calculate bandwidth savings
     %TODO(mar 10): have reference run with no map or reduce (reduce nop, self clusters)
 
 \chapter{INTRODUCTION}
-%TODO(mar 10): repeat introduction "this is why were are cool" stuff; applications and challenges need to be
-% listed
-    Spindle serves as a scalable hybrid vehicle-to-vehicle and vehicle-to-internet architecture
-    for efficient near-real-time processing of streaming sensor data from network-connected vehicles.
     According to a 2015 Hitachi white-paper, some contemporary vehicles produce as much
     as 25 gigabytes of data every hour with prototype vehicles fitted with a variety of sensors
-    and cameras producing up to 250 gigabytes per hour \cite{hitachi}. At the same time, work is underway
+    and cameras producing up to 250 gigabytes per hour \cite{hitachi}. Another analysis estimates
+    that autonomous vehicles will produce a gigabyte per second of data, which ``needs to be
+    processed at the edge for\dots smaller network pressure'' \cite{edgecomputing}.
+    At the same time, work is underway
     to develop and test a variety of communications systems for connecting vehicles to one another
-    and to road infrastructure and the internet \cite{connectivitypaper}. 
+    and to road infrastructure and the internet often referred to as VANETs \cite{connectivitypaper}.  
+    One expects the coming generation
+    of connected vehicles to contribute to the anticipated growth in generated data to 600 zettabytes
+    of data by 2020, with the anticipated amount of generated data being two orders of magnitude
+    greater than the amount stored \cite{cisco:cloudindex}.
+
+    Some applications of connected vehicle data include congestion and pollution reduction \cite{cv:trafficmonitoring}
+    and traffic model improvements to facilitate better ``incident response'' planning and
+    vehicle navigation \cite{hive}. Very likely, far more applications will be discovered
+    as more connected vehicle data becomes available. A major challenge is extracting useful
+    information from connected vehicles in a manner that minimizes bandwidth consumption.
 
     One approach to marshaling data in networks with vehicles has been to create clusters of
     vehicle-to-vehicle networks \cite{sbca}\cite{cdrive}\cite{clusterselection}\cite{clustering:mobaware}.
@@ -107,12 +120,13 @@
     paradigm to logical clusters of interconnected vehicles. Spindle exploits edge-computation
     by exchanging data over vehicle-to-vehicle communications systems in order to reduce the amount of data
     that must be sent over the internet to the cloud. Among Spindle's most powerful features is its
-    integration with Apache Spark, which allows a user to write a Spark Streaming %TODO(mar 10): add citation and parenthetical explanation of what Spark STreamign is 
-    program with
-    map/reduce functions that Spindle automatically serializes and processes as an edge computation.
+    integration with Apache Spark, which allows a user to write a Spark Streaming (a near-real-time streaming
+    data analysis framework \cite{spark:streaming}) program with map/reduce functions that Spindle 
+    automatically serializes and processes as an edge computation.
     The end user writes a program that looks like a vanilla Spark Streaming application, but using
-    Spindle automatically applies edge-computing optimizations.
-    %TODO(mar 10): see sentence about why "this is great that everyone hwo can use spark can use spindle"
+    Spindle automatically applies edge-computing optimizations. Spark integration of this kind 
+    allows for trivial integration of connected vehicle data with existing data processing pipelines
+    as well as a near-nonexistant learning curve for experienced Spark users.
 
     We demonstrate the bandwidth savings of performing map/reduce at the edge, in
     vehicle networks, by implementing key components of the Spindle architecture inside a simulation framework.
@@ -126,20 +140,23 @@
     collaboration with Xiaotian Duan, from whose work we get vehicle-to-cluster assignments over time
     for our simulation \cite{xiaotian}. In evaluating our experiments, we focus in particular on the effect of different
     amounts of time for which to buffer messages before performing reduce operations
-    on the amount of data sent to the cloud. We explore the trade-off
-    between resolution and latency versus bandwidth consumption. 
-    Having a smaller time window for reduction means
-    that reduced messages are sent more frequently and client programs are given more data points to
-    analyze, while having a larger time window for reduction means more messages can be batched together for
-    reduction before data is transmitted to the cloud. We also explore the effects of regions with
-    differing vehicle densities on bandwidth savings; regions of space that have a higher density
-    of vehicles offer the opportunity to form larger clusters and to reduce the total number
-    of clusters relative to the total number of vehicles present; a smaller number of clusters
-    equates to a smaller number of Clusterheads transmitting data at any given time window, which
-    has an effect on overall bandwidth usage.
+    on the amount of data sent to the cloud. 
+    
+   % We explore the trade-off
+   % between resolution and latency versus bandwidth consumption. 
+   % Having a smaller time window for reduction means
+   % that reduced messages are sent more frequently and client programs are given more data points to
+   % analyze, while having a larger time window for reduction means more messages can be batched together for
+   % reduction before data is transmitted to the cloud. We also explore the effects of regions with
+   % differing vehicle densities on bandwidth savings; regions of space that have a higher density
+   % of vehicles offer the opportunity to form larger clusters and to reduce the total number
+   % of clusters relative to the total number of vehicles present; a smaller number of clusters
+   % equates to a smaller number of Clusterheads transmitting data at any given time window, which
+   % has an effect on overall bandwidth usage.
     %TODO(mar 10): move discussion of reduce window trade-offs w.r.t. resolution and latency to experimental results or conclusion; also define latency/resolution (maybe give example)
 
-    %TODO(mar 10): repeat abstract's "our results show" section
+    Our results show Spindle offers potential vehicle-to-internet (V2I) savings of over 75\% as
+    compared to an implementation that does map/reduce but does not perform vehicle clustering.  
 
     The major contributions of the work are:
         \begin{itemize}
@@ -149,9 +166,10 @@
                 distinct map/reduce queries). The framework integrates with Spark Streaming to allow
                 the trivial creation of edge computing queries that are ingested into Spark Streaming.
             \item Implementation of map/reduce on dynamic clusters of vehicles connected by ad-hoc networks
-            \item Actor-model-based simulator for map/reduce queries on dynamic clusters of connected vehicles %TODO(mar 10): WHY DO WE CARE?
+            \item Actor-model-based simulator for map/reduce queries on dynamic clusters of connected vehicles.
+                Enables the testing of V2V edge computing architectures with large numbers of simulated
+                nodes.
         \end{itemize}
-
 
     %Roadmap paragraph
     The remainder of this thesis is organized as follows.
@@ -201,7 +219,7 @@
     \subsection{Vehicle Clusters}
         \paragraph{Clustering Algorithms}
             The creation of clusters of connected vehicles using ad-hoc wireless networks
-            is an area of active research \cite{cdrive}\cite{sbca}\cite{clusterselection}\cite{clustering:mobware}.
+            is an area of active research \cite{cdrive}\cite{sbca}\cite{clusterselection}.%TODO: fix citation \cite{clustering:mobware}.
             C-DRIVE is an approach for forming logical clusters of network-connected vehicles \cite{cdrive}.
             C-DRIVE is specifically designed to take into consideration the properties
             of VANETs with respect to vehicle movement. Specifically C-DRIVE attempts
@@ -318,18 +336,22 @@
 %TODO (meeting): fix positioing of page numbers
 
 \chapter{System Architecture}
-%TODO(mar 10): say that we have vehicles on roads, vehicles form clusters using wireless ad-hoc network, vehicles have cluster heads that talk to the cloud (reference figure 3.1); explain mapping of our software onto vehicles, clusters, cloud
-    %KEY TERMS: vanets/v2v, vehicles, clusterheads, cloud
-%TODO(mar 10): put function calls in verbatim
-%TODO(meeting mar8): system architecture is "all entities" - vehicles, clusters, 
-%TODO(meeting mar8): before explaining software, explain physical compoentns (cars, etc...)
+    Spindle is a hybrid vehicle-cloud architecture. New generations of vehicles
+    will be capable of forming ad-hoc wireless networks (VANETs) with one another and
+    with network-enabled road infrastructure \cite{vanets:overview}. Spindle depends
+    on single-hop clusters of connected vehicles in VANETs, where each cluster has a
+    single Cluster Head with an internet (V2I) connection such as a 3G modem. Spindle
+    expects the Cluster Heads to communicate with software running on a private or 
+    public cloud such as Amazon Web Services. Figure \ref{fig:theoretical:hlcomponents}
+    shows a high-level view of how vehicles, clusters, and the cloud interact.
+
     Spindle provides a novel streaming data processing platform by building on
     existing cutting edge and industry standard distributed systems, primarily
     from the Apache ecosystem. Spindle applies these technologies to a hybrid
     vehicle and cloud architecture.
 
     Spindle software consists of three major components: a set of Apache Spark %TODO: cite
-    streaming programs managed by one or more clients, a custom data ingestion and
+    Streaming \cite{spark:streaming} programs managed by one or more clients, a custom data ingestion and
     query management Middleware, and edge computing software running on network
     connected vehicles.
     
@@ -352,11 +374,14 @@
         \caption{A simple diagram of the Spindle system components. Vehicles form ad-hoc clusters.
         Each vehicle cluster has one cluster head, which sends reduced data to the middleware.
         The middleware sends the processed results to client Spark Streaming programs}
+        \label{fig:theoretical:hlcomponents}
     \end{figure}
 
 \section{Full Architecture}
     Spindle is a hybrid vehicle-to-cloud architecture with three major components: a client Spark program,
-    an in-cloud Middleware, and edge computing software.
+    an in-cloud Middleware, and edge computing software. Figure \ref{fig:theoretical:component} shows
+    a detailed view of how the major software and physical components interact. Figure \ref{fig:theoretical:sequence}
+    is a sequence diagram showing how queries propagate to vehicles and how data passes to the cloud.
 
     \begin{figure}
         \centering
@@ -382,13 +407,13 @@
     streams of tuples using the DStream programming abstraction previously described. In a traditional Spark
     Streaming program, a user creates a connection to some message bus such as Apache Kafka and programs against
     a DStream representing the micro-batches of messages being received from the connected message bus. The user
-    is then free to analyze the data by applying functional transformations such as map, filter, and reduce
+    is then free to analyze the data by applying functional transformations such as \verb|map()|, \verb|filter()|, and \verb|reduceByKey()|
     to the batches of streamed tuples. 
     
     A naive analytics architecture for vehicle data with no edge computing optimizations
     would likely have each connected vehicle send all of its data directly over the internet to a message bus such as
     Apache Kafka running in the cloud. The user would then write a Spark Streaming program to create a DStream
-    to receive the stream of all data coming from the vehicles and apply a map operation to extract only the 
+    to receive the stream of all data coming from the vehicles and apply a \verb|map()| operation to extract only the 
     relevant values from the flood of incoming data. To perform an aggregate analysis of the data, the user would then
     apply a reduce (\verb|reduceByKey|) operation, for example to get average fuel economy in real time for a given region or set of
     regions. While the naive example is extremely inefficient in terms of bandwidth consumption and compute resource
@@ -483,8 +508,6 @@
 %GENERAL NOTE: need to be able to understand what the figure is solely through the caption (fine to duplicate text)
     %TODO: walk through spark query, Middleware update, propagation through vehicle networks, vehicle-level-map, clusterhead-reduce, transmission to Middleware, transmission to spark streaming, secondary reduce, etc..
 
-    %TODO(meeting): do simple physical layout diagram
-
 \section{Simulation Architecture}
     We have developed a simulator to evaluate the vehicle and Clusterhead architecture under a variety of clustering,
     vehicle density, and query configurations.
@@ -492,6 +515,10 @@
     The simulator implements the basic features of the vehicle and Clusterhead software described above, including
     Sensor producers, mappers, reducers, simulated Clusterhead relays, query managers, and simulated Middleware Uplinks.
     The core simulation software is implemented in Scala using the Akka actor framework.
+
+    Figure \ref{sim:sequence} is a sequence diagram showing how data is processed by the Spindle simulator, including
+    how configurations are loaded, actors are launched, and data is collected and stored.
+
     %SECONDPASS: do a system diagram for the simulator
     \begin{sidewaysfigure}
         \centering
@@ -501,6 +528,7 @@
         the Spindle simulator components. A Postgres database stores the
         simulation configurations and pre-computed velocity and connectivity
         data, as well as simulation results.}
+        \label{sim:sequence}
     \end{sidewaysfigure}
 
 \subsection{SpindleSim}
@@ -538,8 +566,6 @@
     operation completes, AutoSim uploads the CSV logs to an AWS S3 bucket and parses the final message byte sums from the CSV
     files then writes the results to a \verb|sim_results_vx| table in Postgres. AutoSim is a simple Node.JS ES6 application
     that is run from the Babel-Node \cite{babel} transpiler.
-% Focus more on envisioned 
-% Follow Cloud Computing papers for format (upper bound on page count is 5-10 pages)
 
 %separate sections for envisioned architecture and for test design ("accommodations for testing")
     %TODO(meeting): describe mapping of theorized system onto simulator
@@ -577,12 +603,12 @@
         being transited by approximately the same number of vehicles. The sparse and dense regions were selected based
         on the number of vehicles transiting them and based on the layout of the underlying road networks.
 
-    \begin{figure}
-        \centering
-        \includegraphics[scale=.5]{binImages/xiaotian-clusters.png}
-        \caption{Illustration of VEINS Vehicles with MANET Clustering, Courtesy Duan \cite{xiaotian}}
-        \label{fig:clusters}
-    \end{figure}
+    %\begin{figure}
+    %    \centering
+    %    \includegraphics[scale=.5]{binImages/xiaotian-clusters.png}
+    %    \caption{Illustration of VEINS Vehicles with MANET Clustering, Courtesy Duan \cite{xiaotian}}
+    %    \label{fig:clusters}
+    %\end{figure}
     \begin{figure}
         \centering
         \includegraphics[scale=.2]{binImages/cars.png}
@@ -594,11 +620,11 @@
     \paragraph{Sparse Region}
         The sparse region is transited by 148 distinct vehicles over the course of the simulation and defines a bounding
         box from $(47150, 106801)$ to $(53000, 112545)$. The sparse region covers an area on the outskirts of the city,
-        with a relatively low density of vehicles. The sparse region is illustrated by a purple box in \ref{fig:regions}.
+        with a relatively low density of vehicles. The sparse region is illustrated by a dashed blue box in \ref{fig:regions}.
     \paragraph{Dense Region}
         The dense region defines a bounding box from $(50000, 100000)$ to $(51000, 102000)$ and is transited by
         131 vehicles over the course of the simulation. The dense region covers a small area near the city center
-        where the density of vehicles is higher. The dense region is illustrated by an orange box in \ref{fig:regions}.
+        where the density of vehicles is higher. The dense region is illustrated by a solid red box in \ref{fig:regions}.
 
 \subsection{Window Sizes}
     Kafka Streams can perform reduce operations over messages received over the course of a user-defined time-window
@@ -650,8 +676,7 @@
 
 \section{Simulator Results}
 
-   A total of 412 tests were carried out, across all configurations. Table \ref{table:normedruns} shows
-   the byte counts and number of tests for each configuration evaluated.
+   A total of 336 tests were carried out, across all configurations. 
    Figures \ref{results:speedsum} and \ref{results:geomapped} show the bandwidth consumed by the speedSum
    and geoMapped map/reduce queries, respectively. Figure \ref{results:geofiltered} shows bandwidth consumption
    for the geoFiltered query. We see from all of the aforementioned graphs the same pattern: that
@@ -744,7 +769,6 @@
             \caption{The total number of bytes sent to the Middleware from the sparse region, averaged over all trials of a given configuration.
                 The geoMapped and speedSum queries use approximately the same amount of data, while the geoFiltered
                 query uses less as a result of fewer vehicles producing data for the query.}
-
             \label{results:sparseconfigs}
     \end{sidewaysfigure}
 
@@ -763,21 +787,20 @@
     %SECONDPASS: table of results
 
 \chapter{Conclusion}
-    %TODO (mar10): change to past tense
-    In this paper, we discuss the state of the art in connected vehicle technologies as well as the problem
-    of managing the vast quantities of data these vehicles are expected to produce. We further discuss
-    some of the use cases that are being explored for the wealth of information that researchers expect
-    to be available in these new connected cars. Finally, we review current and upcoming cloud technologies
-    related to data processing, particularly with respect to the Internet of Things. Next, we provide an
+    In this paper, we discussed the state of the art in connected vehicle technologies as well as the problem
+    of managing the vast quantities of data these vehicles are expected to produce. We further discussed
+    some of the use cases that were being explored for the wealth of information that researchers expected
+    to be available in these new connected cars. Finally, we reviewed current and upcoming cloud technologies
+    related to data processing, particularly with respect to the Internet of Things. Next, we provided an
     overview of a novel solution to the problem of managing vehicle data by extending cloud and big data 
     technologies such as the map/reduce paradigm and Apache Kafka to the edge using the Spindle architecture.
-    We discuss how existing tools such as Apache Spark can interfaced with edge computing systems through
+    We discussed how existing tools such as Apache Spark could interface with edge computing systems through
     the use of the Spindle library for Spark Streaming.
 
-    We demonstrate the power of our paradigm by creating a simulator for our vehicle and Clusterhead software,
-    which we test under a number of different workloads. We then demonstrate that the combination of clustering
-    and message reduction used in our architecture produces significant bandwidth savings.
-    %TODO(mar 10): add "our results achieved n% improvement..." passage
+    We demonstrated the power of our paradigm by creating a simulator for our vehicle and Clusterhead software,
+    which we tested under a number of different workloads. We then demonstrated that the combination of clustering
+    and message reduction used in our architecture produced significant bandwidth savings. Our results achieved
+    over 75\% bandwidth reduction in some cases as compared to a map/reduce system with no clustering.
 
 \section*{Future Work}
     In this work, we have demonstrated the efficacy of the core of the Spindle architecture - dynamic map/reduce
