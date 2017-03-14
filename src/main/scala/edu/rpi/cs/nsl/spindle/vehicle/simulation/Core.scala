@@ -121,7 +121,7 @@ trait SpeedSumSimulation {
       val inTopic = TopicLookupService.getVehicleStatus(nodeId)
       val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
       MapperFunc[NodeId, VehicleMessage, String, MPH](mapperId, inTopic, outTopic, (_, v) => {
-        (mapperId: String, v.mph: MPH)
+        ("allNodes", v.mph: MPH)
       })
     }
     val reducer = {
@@ -180,15 +180,6 @@ trait DualQuery {
 trait DynamicQuery {
   private def uuid = java.util.UUID.randomUUID.toString
 
-  private def mkSpeedAvgMapper(nodeId: NodeId) = {
-    val mapperId = s"getSpeed-mapper-$nodeId-$uuid"
-    val inTopic = TopicLookupService.getVehicleStatus(nodeId)
-    val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
-    MapperFunc[NodeId, VehicleMessage, String, (MPH, Long)](mapperId, inTopic, outTopic, (_, v) => {
-      // Share key for max reduction
-      ("allNodes", (v.mph, 1): (MPH, Long))
-    })
-  }
 
   case class Region(latRange: (Lat, Lat), lonRange: (Lon, Lon), id: String = uuid) {
     def containsVehicle(vehicleMessage: VehicleMessage): Boolean = {
@@ -203,6 +194,28 @@ trait DynamicQuery {
     MapperFunc[NodeId, VehicleMessage, String, (MPH, Long)](mapperId, inTopic, outTopic, (_, v) => {
       val region = regions.filter(_.containsVehicle(v)).head
       (region.id: String, (v.mph, 1): (MPH, Long))
+    })
+  }
+
+  private def mkSendAll(): TransformationStoreFactory = {
+    new GenerativeStaticTransformationFactory(nodeId => {
+      val mapper ={
+        val mapperId = s"sendAll-mapper-$nodeId-$uuid"
+        val inTopic = TopicLookupService.getVehicleStatus(nodeId)
+        val outTopic = TopicLookupService.getMapperOutput(nodeId, mapperId)
+        MapperFunc[NodeId, VehicleMessage, NodeId, VehicleMessage](mapperId, inTopic, outTopic, (k,v) =>{
+          (k,v)
+        })
+      }
+      val reducer = {
+        val reducerId = s"sendAll-reducer-$nodeId-$uuid"
+        val inTopic = TopicLookupService.getClusterInput(nodeId)
+        val outTopic = TopicLookupService.getReducerOutput(nodeId, reducerId)
+        KvReducerFunc[NodeId, VehicleMessage](reducerId, inTopic, outTopic, (a,b) => {
+          a
+        })
+      }
+      ActiveTransformations(Set(mapper), Set(reducer))
     })
   }
 
@@ -267,15 +280,19 @@ trait DynamicQuery {
       ActiveTransformations(Set(mkRegionSpeedAvgMapper(nodeId, regions)), Set(mkSpeedAvgReducer(nodeId)))
     })
   }
+
   //TODO: generate geo filter based on node region filter
   //TODO: clean this up
   lazy protected val transformationStoreFactory: TransformationStoreFactory = Configuration.Vehicles.mapReduceConfigName match {
     case "dualQuery" => (new DualQuery {
       def getXformFactory = this.transformationStoreFactory
     }).getXformFactory
-    case "speedSum" => (new SpeedSumSimulation {
+    case "speedSum2" => (new SpeedSumSimulation {
       def getXformFactory = this.transformationStoreFactory
     }).getXformFactory
+    case "sendAll" => {
+     mkSendAll()
+    }
     case "geoFiltered" => {
       Configuration.Vehicles.nodePositionsTable match {
         case "dense_positions" => mkGeoFilteredSpeedAvg(DENSE_LAT_RANGE, DENSE_LON_RANGE)
@@ -288,6 +305,7 @@ trait DynamicQuery {
         case "sparse_positions" => mkGeoMappedSpeedAvg(SPARSE_REGIONS)
       }
     }
+    case c: Any => throw new RuntimeException(s"Unrecognized configuration: $c")
   }
 }
 
@@ -311,6 +329,7 @@ object Core extends Simulator with DynamicQuery {
     val resultsDir = new File(Configuration.simResultsDir)
     Files.move(resultsDir.toPath, completedDir.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
   }
+  //
 
   def main(args: Array[String]) {
     import scala.concurrent.ExecutionContext.Implicits.global
