@@ -120,3 +120,25 @@ VALUES (23, 1000, 'self_clusters', 'speedSum', 15000, 'sparse_positions');
 INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
 VALUES (24, 1000, 'self_clusters', 'speedSum', 30000, 'sparse_positions');
 
+
+-- Speed Sum 2 --
+insert into sim_configs_v5(configid, clustertable, numnodes, windowsizems, maxiterations, enabled, mapreducename, filtertablename, description) select (100 - configid), clustertable, numnodes, windowsizems, maxiterations, enabled, 'speedSum2', filtertablename, description from sim_configs_v5 where mapreducename='speedSum';
+
+-- Identity --
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (101, 1000, 'self_clusters', 'sendAll', 10000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (102, 1000, 'self_clusters', 'sendAll', 15000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (103, 1000, 'self_clusters', 'sendAll', 30000, 'sparse_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (104, 1000, 'self_clusters', 'sendAll', 10000, 'dense_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (105, 1000, 'self_clusters', 'sendAll', 15000, 'dense_positions');
+
+INSERT INTO sim_configs_v5(configId, numNodes, clusterTable, mapReduceName, windowSizeMs, filtertablename)
+VALUES (106, 1000, 'self_clusters', 'sendAll', 30000, 'dense_positions');
