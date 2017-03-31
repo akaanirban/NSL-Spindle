@@ -2,7 +2,7 @@ organization := "net.kronmiller.william"
 version := "0.0.2"
 scalaVersion := "2.11.8"
 
-name := "Spindle Vehicle Cluster Simulator"
+name := "VehicleSimulator"
 
 libraryDependencies += "com.typesafe" % "config" % "1.3.0"
 libraryDependencies += "org.apache.kafka" % "kafka-streams" % "0.10.1.1"
