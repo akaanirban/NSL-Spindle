@@ -1,8 +1,8 @@
 organization := "net.kronmiller.william"
-version := "0.0.1"
+version := "0.0.2"
 scalaVersion := "2.11.8"
 
-name := "Spindle Vehicle"
+name := "Spindle Vehicle Cluster Simulator"
 
 libraryDependencies += "com.typesafe" % "config" % "1.3.0"
 libraryDependencies += "org.apache.kafka" % "kafka-streams" % "0.10.1.1"
@@ -34,7 +34,8 @@ libraryDependencies += "com.typesafe.akka" %% "akka-remote" % "2.4.16"
 //libraryDependencies += "edu.rpi.cs.nsl.spindle" %% "shared-lib" % "1.4.0"
 
 
-lazy val sharedLib = RootProject(file("../Shared"))
+lazy val sharedLib = RootProject(file("../../Shared"))
+lazy val vehicleNode = RootProject(file("../Vehicle-Node"))
 lazy val CloudTest = config("cloud") extend(Test)
 lazy val SmallTest = config("small") extend(Test)
 lazy val DevTest = config("dev") extend(Test)
