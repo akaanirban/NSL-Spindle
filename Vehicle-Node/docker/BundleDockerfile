@@ -1,0 +1,22 @@
+FROM wkronmiller/scala-sbt
+
+ENV workdir /opt
+
+ENV kafkadir $workdir/kafka
+ENV vehicledir $workdir/vehicle
+
+ENV kafkatar kafka_2.11-0.10.1.1.tgz
+
+RUN mkdir -p $kafkadir
+
+COPY ./$kafkatar $kafkadir/kafka.tgz
+
+RUN cd $kafkadir && tar -xvf kafka.tgz
+
+COPY entrypoint.sh $workdir/
+
+RUN chmod +x $workdir/entrypoint.sh
+
+WORKDIR $workdir
+
+CMD ["./entrypoint.sh"]

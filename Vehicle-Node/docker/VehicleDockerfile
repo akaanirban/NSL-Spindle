@@ -1,0 +1,15 @@
+FROM wkronmiller/scala-sbt
+
+ENV workdir /opt
+
+ENV JAR_NAME {{jarName}}
+
+ENV vehicledir $workdir/vehicle
+
+RUN mkdir -p $vehicledir
+
+COPY ./$JAR_NAME $vehicledir/run.jar
+
+WORKDIR $vehicledir
+
+CMD ["java", "-jar", "run.jar"]
