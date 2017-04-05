@@ -1,4 +1,4 @@
-FROM wkronmiller/scala-sbt
+FROM wkronmiller/spindle-node-base
 
 ENV workdir /opt
 
@@ -6,6 +6,12 @@ ENV kafkadir $workdir/kafka
 ENV vehicledir $workdir/vehicle
 
 ENV kafkatar kafka_2.11-0.10.1.1.tgz
+
+RUN apt-get install -y supervisor && mkdir -p /var/log/supervisor
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 9001
 
 RUN mkdir -p $kafkadir
 

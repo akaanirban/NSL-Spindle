@@ -4,18 +4,21 @@ VEHICLE_ROOT_DIR=./
 
 PROJECT_NAME=SpindleVehicle
 
-DOCKER_DIR=docker/
+DOCKER_DIR=docker
 
-JAR_DIR=$VEHICLE_ROOT_DIR/target/scala-2.11/
+JAR_DIR=$VEHICLE_ROOT_DIR/target/scala-2.11
 
-export JAR_NAME=$PROJECT_NAME-assembly-*.jar
+JAR_REGEX=$PROJECT_NAME-assembly-*.jar
+
+export JAR_NAME=vehicle.jar
 
 function buildJar() {
     sbt assembly
 }
 
 function moveJar() {
-    mv $JAR_DIR/$JAR_NAME $DOCKER_DIR
+    JAR_SOURCE=`ls $JAR_DIR/$JAR_REGEX`
+    mv $JAR_SOURCE $DOCKER_DIR/$JAR_NAME
 }
 
 function buildDocker() {
