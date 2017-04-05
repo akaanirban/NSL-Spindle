@@ -74,14 +74,7 @@ object Configuration extends ConfigurationSingleton {
   }
   val simReportSeconds = 10
 
-  object Streams {
-    val maxBatchSize = 9500
-    val commitMs = 500
-    val maxBufferRecords = 2
-    val pollMs = (1 seconds).toMillis
-    val sessionTimeout = (6 seconds).toMillis
-    val reduceWindowSizeMs: Long = conf.getLong("spindle.sim.streams.reduce.window.ms")
-  }
+
 
   object Vehicles {
     private val vehiclePrefix = "spindle.sim.vehicle"

@@ -4,11 +4,7 @@ import org.apache.kafka.streams.StreamsConfig
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.kstream.KStreamBuilder
 import org.slf4j.LoggerFactory
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 import org.apache.kafka.streams.KeyValue
-import org.apache.kafka.streams.kstream.Reducer
-import org.apache.kafka.streams.kstream.KTable
-import org.apache.kafka.streams.kstream.KGroupedStream
 import scala.reflect.runtime.universe._
 
 /**

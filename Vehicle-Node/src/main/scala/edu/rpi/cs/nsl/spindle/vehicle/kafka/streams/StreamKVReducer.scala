@@ -3,13 +3,12 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 import org.apache.kafka.streams.{KeyValue, StreamsConfig}
 import org.apache.kafka.streams.kstream._
 import org.slf4j.LoggerFactory
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.SingleTopicProducerKakfa
 import org.apache.kafka.streams.kstream.internals.TimeWindow
 import org.apache.kafka.streams.processor.{AbstractProcessor, Processor, ProcessorContext, ProcessorSupplier}
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
 
-import scala.concurrent.Future
 import scala.reflect.runtime.universe._
 
 /**

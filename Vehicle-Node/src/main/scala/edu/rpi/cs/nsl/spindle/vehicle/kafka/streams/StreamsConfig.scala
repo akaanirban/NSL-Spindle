@@ -3,8 +3,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 import java.util.Properties
 import org.apache.kafka.streams.StreamsConfig
 import org.slf4j.LoggerFactory
-import kafka.consumer.ConsumerConfig
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.Configuration
 
 class StreamConfigException(message: String) extends RuntimeException(message)
 

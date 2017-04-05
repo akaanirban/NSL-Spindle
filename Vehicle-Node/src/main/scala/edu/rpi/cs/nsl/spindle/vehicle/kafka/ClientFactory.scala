@@ -2,7 +2,6 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka
 
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaConfig
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ProducerKafka
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamReducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamKVReducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamsConfigBuilder
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamMapper
@@ -14,8 +13,6 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamRelay
 import org.slf4j.LoggerFactory
 import scala.reflect.runtime.universe._
 import org.apache.kafka.common.errors.TopicExistsException
-
-//import edu.rpi.cs.nsl.spindle.datatypes.{ Vehicle => VehicleData }
 
 case class ClientFactoryConfig(zkString: String,
                                kafkaBaseConfig: KafkaConfig,
@@ -75,11 +72,6 @@ class ClientFactory(zkString: String,
   def mkProducer[K: TypeTag, V: TypeTag](outTopic: String): SingleTopicProducerKakfa[K, V] = {
     initTopic(outTopic)
     new SingleTopicProducerKakfa[K, V](outTopic, producerConfig)
-  }
-  def mkReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamReducer[K, V] = {
-    initTopic(inTopic)
-    initTopic(outTopic)
-    new StreamReducer[K, V](inTopic, outTopic, reduceFunc, buildConfig(reduceId), this, startEpochOpt = getStartEpochOpt)
   }
   def mkKvReducer[K: TypeTag, V: TypeTag](inTopic: String, outTopic: String, reduceFunc: (V, V) => V, reduceId: String): StreamKVReducer[K, V] = {
     initTopic(inTopic)

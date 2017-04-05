@@ -1,10 +1,8 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
-import edu.rpi.cs.nsl.spindle.vehicle.simulation.Configuration
-
 trait TopicLookupService {
   type NodeId = Int
-  private val globalPrefix = s"sim-${Configuration.simUid}"
+  private val globalPrefix = s"spindle-vehicle"
   private def getNodePrefix(node: NodeId): String = s"$globalPrefix-vehicle-stream-$node"
   private def mkTopic(node: NodeId, suffix: String): String = s"${getNodePrefix(node)}-$suffix"
   /**
