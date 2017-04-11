@@ -11,3 +11,13 @@ object Main {
     //TODO
   }
 }
+
+object StartupManager {
+  private def waitZkKafka(zkString: String, kafkaBrokers: String): Unit = {
+    //TODO: wait zk, then wait kafka
+  }
+  def waitLocal: Unit = {
+    waitZkKafka(Configuration.Local.zkString, Configuration.Local.kafkaBrokers)
+  }
+  //TODO: waitCloud
+}

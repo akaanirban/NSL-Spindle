@@ -18,17 +18,17 @@ import kafka.cluster.Broker
 
 
 class KafkaAdmin(zkString: String) {
+  import edu.rpi.cs.nsl.spindle.vehicle.Configuration.Zookeeper.{sessionTimeoutMs, connectTimeoutMs}
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  val ZK_CONNECT_TIMEOUT_MS = 1000
-  val ZK_SESSION_TIMEOUT_MS = 10000
 
   val THREAD_SLEEP_MS = 100
 
   // Code returned when there is no error
   private val KAFKA_PARTITION_NO_ERROR_CODE = 0
 
-  private val zkClient = ZkUtils.createZkClient(zkString, ZK_SESSION_TIMEOUT_MS, ZK_CONNECT_TIMEOUT_MS)
+  private val zkClient = ZkUtils.createZkClient(zkString, sessionTimeoutMs, connectTimeoutMs)
   private val zkUtils = new ZkUtils(zkClient, new ZkConnection(zkString), isSecure = false)
 
   def getBrokers: Seq[Broker] = {

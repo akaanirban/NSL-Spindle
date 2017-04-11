@@ -62,8 +62,6 @@ abstract class MessageLogger(inTopics: Set[String], outTopic: String) extends Cl
   def logMessageSize(messageSize: Long): Unit
 }
 
-//TODO: log directly to database
-
 class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopic: String) extends MessageLogger(inTopics: Set[String], outTopic: String) {
   private def currentTime = System.currentTimeMillis()
   private def getNewPath(pathPrefix: String, pathSuffix: String, appendNum: Long = 0): String = {

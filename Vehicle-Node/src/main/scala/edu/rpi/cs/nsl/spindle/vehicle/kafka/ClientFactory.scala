@@ -96,9 +96,9 @@ class ClientFactory(zkString: String,
     new StreamRelay(relayId, inTopics, outTopic, buildConfig(relayId))
   }
 
-  def close(nodeId: Int): Unit = {
+  def close: Unit = {
     if(this.closed){
-      val exception = new RuntimeException(s"Trying to use closed clientfactory: $nodeId")
+      val exception = new RuntimeException(s"Trying to use closed clientfactory")
       System.out.println(exception)
       exception.printStackTrace(System.out)
       System.out.println(s"Previously closed by $closedId: ${closedStack.toList.mkString("\n")}")
@@ -107,7 +107,6 @@ class ClientFactory(zkString: String,
       System.out.println("Closing client factory")
       closedStack = Thread.getAllStackTraces.get(Thread.currentThread())
     }
-    closedId = nodeId
     logger.info("Closing client factory")
     kafkaAdmin.close
     canaryProducer.close

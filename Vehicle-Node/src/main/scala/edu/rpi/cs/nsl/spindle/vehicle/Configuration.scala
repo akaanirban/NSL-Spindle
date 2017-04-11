@@ -14,12 +14,26 @@ object Configuration {
 
   lazy val nodeId: Long = conf.getLong("spindle.vehicle.id")
 
+  object Local {
+    lazy val zkString = conf.getString("local.zookeeper.connection-string")
+    lazy val kafkaBrokers = conf.getString("local.kafka.brokers")
+  }
+
+  object Kafka {
+    lazy val testTopicName = conf.getString("spindle.vehicle.kafka.test-topic.name")
+  }
+
+  object Zookeeper {
+    val connectTimeoutMs = 1000
+    val sessionTimeoutMs = 10000
+  }
+
   object Streams {
     val maxBatchSize = 9500
     val commitMs = 500
     val maxBufferRecords = 2
     val pollMs = (1 seconds).toMillis
     val sessionTimeout = (6 seconds).toMillis
-    val reduceWindowSizeMs: Long = conf.getLong("spindle.sim.streams.reduce.window.ms")
+    val reduceWindowSizeMs: Long = conf.getLong("spindle.streams.reduce.window.ms")
   }
 }
