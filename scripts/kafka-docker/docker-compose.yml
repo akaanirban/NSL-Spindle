@@ -9,11 +9,12 @@ services:
   kafka:
     build: .
     ports:
-      - "9092"
+        - "9092:9092"
     labels:
       edu.rpi.cs.nsl.type: "Kafka"
     environment:
       KAFKA_ADVERTISED_HOST_NAME: $HOSTNAME
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://$HOSTNAME:9092"
       KAFKA_ZOOKEEPER_CONNECT: $HOSTNAME:2181
       KAFKA_LISTENERS: "PLAINTEXT://:9092"
       KAFKA_DELETE_TOPIC_ENABLE: "true"
