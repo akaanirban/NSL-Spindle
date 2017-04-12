@@ -1,9 +1,20 @@
 package edu.rpi.cs.nsl.spindle.vehicle
 
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
+
+import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections.{Connection, KafkaConnection, Server, ZookeeperConnection}
-import edu.rpi.cs.nsl.spindle.vehicle.queries.QueryLoader
+import edu.rpi.cs.nsl.spindle.vehicle.events.SensorProducer
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.{StreamExecutor, StreamKVReducer, StreamMapper}
+import edu.rpi.cs.nsl.spindle.vehicle.queries.{Query, QueryLoader}
+import org.apache.kafka.streams.StreamsConfig
+import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
+
+import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 /**
   * Handle cluster connections on startup
@@ -26,6 +37,82 @@ object StartupManager {
   }
   def waitCloud: (ZookeeperConnection, KafkaConnection) = {
     waitZkKafka(Configuration.Cloud.zkString, Configuration.Cloud.kafkaBrokers)
+  }
+}
+
+class QueryManager(kafkaLocal: KafkaConnection) {
+  type StreamExecutors = (StreamMapper[_, _, _, _], StreamKVReducer[_,_])
+  @volatile private var prevQueries: Map[Query[_,_], StreamExecutors] = Map()
+  def updateQueries(newQueries: Iterable[Query[_,_]]): Future[Unit] = {
+    println(s"Updating with queries $newQueries")
+    val prevQuerySet = prevQueries.keySet
+    val newQuerySet = newQueries.toSet
+    val queriesToStop = prevQuerySet diff newQuerySet
+    val stopFutures: Seq[Future[Any]] = queriesToStop
+      .flatMap{query =>
+        val streamExecutors = prevQueries(query)
+        println(s"Stopping queries $streamExecutors")
+        Seq(streamExecutors._1.stopStream, streamExecutors._2.stopStream)
+      }
+      .toSeq
+    val queriesToStart = newQuerySet diff prevQuerySet
+    val newExecutors: Map[Query[_,_], StreamExecutors] = queriesToStart
+      .map{query =>
+        (query -> query.mkExecutors(kafkaLocal.getStreamsConfigBuilder))
+      }
+      .toMap
+    // Update queries map
+    this.prevQueries = newExecutors
+      .foldLeft(prevQueries.filterKeys(queriesToStop.contains(_) == false)){case (queries, queryMap) =>
+          queries + queryMap
+      }
+    Future.sequence(stopFutures).map{_ =>
+      newExecutors.values.foreach{case (m,r) =>
+        //TODO: send canary messages
+          println(s"Running $m $r")
+          m.run
+          r.run
+          println(s"Started $m $r")
+      }
+    }
+      .map(_ => println(s"Updated queries to $prevQueries by adding $newExecutors"))
+  }
+}
+
+class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
+  import Configuration.Vehicle.{numIterations, iterationLengthMs}
+  private val queryLoader: QueryLoader = QueryLoader.getLoader
+  private val executionCount = new AtomicLong(0)
+  private val queryManager = new QueryManager(kafkaLocal)
+  private val sensorProducer = SensorProducer.load(kafkaLocal)
+  private def executeInterval(timestamp: Timestamp): Future[Unit] ={
+    val queryFuture = queryLoader.executeInterval(timestamp)
+    //TODO: clusterhead relay
+    //TODO: middleware uplink
+    queryFuture
+      .flatMap(queryManager.updateQueries)
+      .map(_ => println("Updated queries"))
+      .flatMap(_ => sensorProducer.executeInterval(timestamp))
+      .map(_ => println("Sent sensor data"))
+  }
+  def start: Future[Unit] = {
+    val executor = Executors.newScheduledThreadPool(1)
+    val completionPromise = Promise[Unit]()
+    val runnable = new Runnable {
+      private val logger = LoggerFactory.getLogger("EventHandlerThread")
+      override def run() = {
+        logger.debug("Executing")
+        Await.result(executeInterval(System.currentTimeMillis()), Duration.Inf)
+        logger.debug("Completed iteration")
+        if (executionCount.getAndIncrement() == numIterations) {
+          logger.info("All iterations completed")
+          completionPromise.success(Unit)
+        }
+      }
+    }
+    val initialDelay = 0//TODO: calculate based on current time modulo pre-set value s.t. all nodes start at roughly same time
+    val execFuture = executor.scheduleAtFixedRate(runnable, initialDelay, iterationLengthMs, TimeUnit.MILLISECONDS)
+    completionPromise.future.map(_ => execFuture.cancel(true)).map(_ => executor.shutdownNow()).map(_ => Unit)
   }
 }
 
@@ -52,15 +139,10 @@ object Main {
   def main(argv: Array[String]): Unit ={
     val (zkLocal, kafkaLocal) = StartupManager.waitLocal
     val (zkCloud, kafkaCloud) = StartupManager.waitCloud
-    println(s"Vehicle started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
+    println(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
 
-    val queryLoader: QueryLoader = QueryLoader.getLoader
-
-    queryLoader.executeInterval(System.currentTimeMillis()).map{queries =>
-      println(s"Got queries: $queries")
-      //TODO
-      shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud)
-    }
+    val eventHandler = new EventHandler(kafkaLocal, kafkaCloud)
+    eventHandler.start.map(_ => shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud))
   }
 }
 

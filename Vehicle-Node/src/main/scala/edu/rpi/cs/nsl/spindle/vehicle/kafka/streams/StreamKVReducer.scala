@@ -4,10 +4,9 @@ import org.apache.kafka.streams.{KeyValue, StreamsConfig}
 import org.apache.kafka.streams.kstream._
 import org.slf4j.LoggerFactory
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.Configuration
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.SingleTopicProducerKakfa
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{SingleTopicProducerKakfa, TopicLookupService}
 import org.apache.kafka.streams.kstream.internals.TimeWindow
-import org.apache.kafka.streams.processor.{AbstractProcessor, Processor, ProcessorContext, ProcessorSupplier}
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.ClientFactory
+import edu.rpi.cs.nsl.spindle.datatypes.operations.ReduceByKeyOperation
 
 import scala.reflect.runtime.universe._
 
@@ -18,7 +17,6 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
                                               outTopic: String,
                                               reduceFunc: (V, V) => V,
                                               intermediateConfig: StreamsConfig,
-                                              clientFactory: ClientFactory,
                                               startEpochOpt: Option[Long] = None)
     extends TypedStreamExecutor[K, V](startEpochOpt, readableId = s"$inTopic->$outTopic") {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -57,8 +55,12 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
       .reduce(reducer, reduceWindows, reduceTableName)//TODO: wait for watermark then publish
       .toStream()
 
-    val batcherSupplier = new StreamBatcherSupplier[K,V](outTopic, clientFactory)
-    reducedWindowedStream.process(batcherSupplier)
+    val serializedStream = serialize(reducedWindowedStream)
+    writeOut(serializedStream, outTopic)
+
+    //TODO: implement batcher in uploader
+    /*val batcherSupplier = new StreamBatcherSupplier[K,V](outTopic, clientFactory)
+    reducedWindowedStream.process(batcherSupplier)*/
 
     builder
   }
@@ -69,7 +71,17 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
   }
 }
 
+object StreamKVReducer {
+  def mkReducer[K: TypeTag, V: TypeTag](mapperId: String,
+                                        configBuilder: StreamsConfigBuilder,
+                                        reduceOperation: ReduceByKeyOperation[V]): StreamKVReducer[K,V] = {
+    val inTopic = TopicLookupService.getMapperOutput(mapperId)
+    val outTopic = TopicLookupService.getReducerOutput(reduceOperation.uid)
+    new StreamKVReducer[K, V](inTopic, outTopic, reduceOperation.f, configBuilder.withId(reduceOperation.uid).build)
+  }
+}
 
+/*
 class StreamBatcherSupplier[K: TypeTag, V: TypeTag](outTopic: String, clientFactory: ClientFactory) extends ProcessorSupplier[Windowed[K],V] {
   private val logger = LoggerFactory.getLogger("StreamBatcherSupplier")
   override def get: Processor[Windowed[K],V] = {
@@ -127,4 +139,4 @@ class StreamBatcher[K: TypeTag, V: TypeTag](producer: SingleTopicProducerKakfa[K
     this.producer.flush
     this.producer.close
   }
-}
+}*/

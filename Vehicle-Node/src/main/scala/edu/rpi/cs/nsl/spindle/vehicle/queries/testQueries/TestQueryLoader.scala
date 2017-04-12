@@ -2,7 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.queries.testQueries
 
 import edu.rpi.cs.nsl.spindle.datatypes.Vehicle
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes._
-import edu.rpi.cs.nsl.spindle.datatypes.operations.{MapOperation, OperationIds, ReduceOperation}
+import edu.rpi.cs.nsl.spindle.datatypes.operations.{MapOperation, OperationIds, ReduceByKeyOperation}
 import edu.rpi.cs.nsl.spindle.vehicle.queries.Query
 
 /**
@@ -11,8 +11,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.queries.Query
 object TestQueryLoader {
   val testQueries: Map[String, Query[_, _]] = {
     Seq(Query("globalSpeedAvg",
-      MapOperation[Vehicle, (_, (MPH, Long))](TestMappers.getSpeedAndCount),
-      ReduceOperation[(MPH, Long),  (MPH, Long)](TestReducers.sumSpeedAndCount, OperationIds.sum)))
+      MapOperation[(_, Vehicle), (_, (MPH, Long))](f=TestMappers.getSpeedAndCount),
+      ReduceByKeyOperation[(MPH, Long)](TestReducers.sumSpeedAndCount, OperationIds.sum)))
       .map(entry => (entry.id -> entry))
       .toMap
   }
@@ -30,10 +30,11 @@ object TestReducers {
 }
 
 object TestMappers {
-  def getSpeedAndCount(v: Vehicle): (String, (MPH, Long)) = {
+  def getSpeedAndCount(kv: (Any, Vehicle)): (String, (MPH, Long)) = {
+    val (k,v) = kv
     ("speedAndCount", (v.mph, 1))
   }
-  def getPosAndAccel(v: Vehicle): (String, (MPH, Acceleration)) = {
+  def getPosAndAccel(k: Any, v: Vehicle): (String, (MPH, Acceleration)) = {
     ("posAndAccel", (v.mph, v.acceleration))
   }
 }

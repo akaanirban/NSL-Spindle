@@ -107,6 +107,7 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None, readableId: St
   protected def handleException(id: String, t: Thread, e: Throwable) {
     e match {
       case cfe: CommitFailedException => {
+        logger.warn(s"Commit failed $cfe")
         restartStream
       }
       /*case ise: java.lang.IllegalStateException => {
@@ -126,8 +127,7 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None, readableId: St
         logger.error(s"Unknown exception in stream executor. Killing process")
         e.printStackTrace(System.err)
         System.err.println(s"Exception cause ${e.getCause}")
-        throw e//TODO
-        System.exit(1)
+        throw e
       }
     }
   }
@@ -135,7 +135,6 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None, readableId: St
   private lazy val id: String = config.getString(StreamsConfig.APPLICATION_ID_CONFIG)
 
   def run {
-
     logger.debug(s"Building stream $id")
     stream = new KafkaStreams(builder, config)
     logger.info(s"Starting stream $id")

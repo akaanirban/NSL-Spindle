@@ -1,6 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.connections
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamsConfigBuilder
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{ConsumerKafka, KafkaAdmin, KafkaConfig, SingleTopicProducerKakfa}
 import org.slf4j.LoggerFactory
 
@@ -19,6 +20,11 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
     this
   }
 
+  def getProducerConfig = config.withProducerDefaults
+  def getStreamsConfigBuilder = StreamsConfigBuilder()
+    .withDefaults.withServers(brokers)
+    .withZk(zkString)
+
   private def testSendRecv(topic: String): Future[Unit] = {
     val consumer = new ConsumerKafka[String, String](config.withConsumerDefaults.withConsumerGroup("testSendRecv"))
     consumer.subscribe(topic)
@@ -31,7 +37,7 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
       }
     }
 
-    val producer = new SingleTopicProducerKakfa[String, String](topic, config.withProducerDefaults)
+    val producer = new SingleTopicProducerKakfa[String, String](topic, getProducerConfig)
     producer
       .send(testKV, testKV)
       .flatMap(_ => Future { blocking { waitMessage() }})

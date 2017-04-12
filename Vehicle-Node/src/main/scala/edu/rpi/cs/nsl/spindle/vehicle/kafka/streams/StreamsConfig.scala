@@ -1,9 +1,11 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
 import java.util.Properties
+
 import org.apache.kafka.streams.StreamsConfig
 import org.slf4j.LoggerFactory
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import edu.rpi.cs.nsl.spindle.vehicle.connections.Server
 
 class StreamConfigException(message: String) extends RuntimeException(message)
 
@@ -50,6 +52,9 @@ case class StreamsConfigBuilder(properties: Properties = new Properties()) {
   def withServers(bootstrapServers: String): StreamsConfigBuilder = {
     logger.info(s"Using servers $bootstrapServers with key $BOOTSTRAP_SERVERS_CONFIG")
     this.withProperty(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+  }
+  def withServers(bootstramServers: Iterable[Server]): StreamsConfigBuilder = {
+    this.withServers(bootstramServers.map(_.toString).mkString(","))
   }
   def withZk(zkString: String): StreamsConfigBuilder = this.withProperty(ZOOKEEPER_CONNECT_CONFIG, zkString)
   def withCommitInterval(intervalMs: Long = Configuration.Streams.commitMs): StreamsConfigBuilder = this.withProperty(COMMIT_INTERVAL_MS_CONFIG, intervalMs.toString)

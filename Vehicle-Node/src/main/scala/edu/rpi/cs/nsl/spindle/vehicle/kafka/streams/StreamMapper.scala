@@ -1,10 +1,13 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
+import edu.rpi.cs.nsl.spindle.datatypes.operations.MapOperation
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import org.apache.kafka.streams.StreamsConfig
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.kstream.KStreamBuilder
 import org.slf4j.LoggerFactory
 import org.apache.kafka.streams.KeyValue
+
 import scala.reflect.runtime.universe._
 
 /**
@@ -15,7 +18,7 @@ import scala.reflect.runtime.universe._
  */
 class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: String,
                                  outTopic: String,
-                                 mapFunc: (K, V) => (K1, V1),
+                                 mapFunc: ((K, V)) => (K1, V1),
                                  filterFunc: (K,V) => Boolean,
                                  protected val config: StreamsConfig,
                                  startEpochOpt: Option[Long] = None)
@@ -32,7 +35,7 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
         filterFunc(k,v)
     }
     .map { (k, v) =>
-      val (k1, v1) = mapFunc(k, v)
+      val (k1, v1) = mapFunc((k, v))
       //logger.debug(s"Mapping $k, $v -> $k1, $v1")
       logger.trace(s"Mapping $k, $v -> $k1, $v1")
       new KeyValue(k1, v1)
@@ -40,5 +43,14 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
     val serializedStream: ByteStream = serialize(mappedStream)
     writeOut(serializedStream, outTopic)
     builder
+  }
+}
+
+object StreamMapper {
+  def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](configBuilder: StreamsConfigBuilder, mapOperation: MapOperation[(K, V), (K1,V1)]): StreamMapper[K,V,K1,V1] = {
+    val inTopic = TopicLookupService.getVehicleStatus
+    val outTopic = TopicLookupService.getMapperOutput(mapOperation.uid)
+    def nopFilter(k:K, v:V) = true //TODO: add filter() to spark streaming
+    new StreamMapper[K,V,K1,V1](inTopic, outTopic, mapOperation.f, filterFunc=nopFilter, config=configBuilder.withId(mapOperation.uid).build)
   }
 }
