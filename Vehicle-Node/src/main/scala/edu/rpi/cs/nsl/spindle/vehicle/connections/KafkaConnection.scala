@@ -2,8 +2,9 @@ package edu.rpi.cs.nsl.spindle.vehicle.connections
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{ConsumerKafka, KafkaAdmin, KafkaConfig, SingleTopicProducerKakfa}
+import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, blocking}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -11,6 +12,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * Created by wrkronmiller on 4/5/17.
   */
 class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Connection[KafkaAdmin] {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val config = KafkaConfig().withServers(brokers.map(_.getConnectionString).mkString(","))
 
   def close: KafkaConnection = {
@@ -18,11 +20,11 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
   }
 
   private def testSendRecv(topic: String): Future[Unit] = {
-    val consumer = new ConsumerKafka[String, String](config.withConsumerDefaults)
+    val consumer = new ConsumerKafka[String, String](config.withConsumerDefaults.withConsumerGroup("testSendRecv"))
     consumer.subscribe(topic)
 
     val testKV = java.util.UUID.randomUUID().toString
-    def waitMessage: Unit = {
+    def waitMessage(): Unit = {
       val matches = consumer.getMessages.filter(msg => msg._1 == testKV && msg._2 == testKV)
       if(matches.size != 1) {
         waitMessage
@@ -30,11 +32,18 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
     }
 
     val producer = new SingleTopicProducerKakfa[String, String](topic, config.withProducerDefaults)
-    producer.send(testKV, testKV).map(_ => waitMessage)
+    producer
+      .send(testKV, testKV)
+      .flatMap(_ => Future { blocking { waitMessage() }})
+      .map(_ => producer.close)
+      .map(_ => consumer.close)
   }
 
   private def mkTestTopic(admin: KafkaAdmin): Future[Unit] = {
-    admin.mkTopic(Configuration.Kafka.testTopicName).flatMap(_ => testSendRecv(Configuration.Kafka.testTopicName))
+    admin
+      .mkTopic(Configuration.Kafka.testTopicName)
+      .flatMap(_ => testSendRecv(Configuration.Kafka.testTopicName))
+      .map(_ => logger.info("Successfully initialized test topic"))
   }
 
   def openAsync: Future[KafkaConnection] = {

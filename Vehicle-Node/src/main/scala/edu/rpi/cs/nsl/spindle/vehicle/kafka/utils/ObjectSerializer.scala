@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 import org.apache.kafka.common.serialization.Deserializer
 import org.apache.kafka.common.serialization.Serde
 
-object ObjectSerializer {
+object ObjectSerializer { //TODO: move serializer to shared
   /**
    * Convert java object to byte array
    */

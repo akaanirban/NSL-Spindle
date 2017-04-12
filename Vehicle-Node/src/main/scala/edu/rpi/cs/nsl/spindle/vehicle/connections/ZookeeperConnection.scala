@@ -1,12 +1,12 @@
 package edu.rpi.cs.nsl.spindle.vehicle.connections
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{Future, blocking}
 import scala.concurrent.duration.Duration
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration.Zookeeper.{connectTimeoutMs, sessionTimeoutMs}
 import kafka.utils.ZkUtils
 import org.I0Itec.zkclient.ZkClient
-import org.apache.zookeeper.Watcher.Event
-import org.apache.zookeeper.{WatchedEvent, Watcher}
-import org.slf4j.LoggerFactory
+import scala.concurrent.duration._
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by wrkronmiller on 4/5/17.
@@ -30,26 +30,20 @@ class ZookeeperConnection(zkString: String, client: Option[ZkClient] = None) ext
 
   override def openSync(timeout: Duration): ZookeeperConnection = {
     val newClient = mkClient
-    newClient.waitUntilConnected(timeout._1, timeout._2)
+    val waitInterval: Duration = timeout match {
+      case Duration.Inf => (connectTimeoutMs milliseconds)
+      case _ => timeout
+    }
+    newClient.waitUntilConnected(waitInterval._1, waitInterval._2)
     new ZookeeperConnection(zkString, Some(newClient))
   }
 
   override def openAsync: Future[ZookeeperConnection] = {
-    val newClient = mkClient
-    val connectionPromise = Promise[ZookeeperConnection]()
-    newClient.connect(connectTimeoutMs, new Watcher{
-      private val logger = LoggerFactory.getLogger(this.getClass)
-      override def process(event: WatchedEvent) = {
-        event.getState match {
-          case Event.KeeperState.SyncConnected => {
-            logger.info(s"ZK Watcher for $zkString connected")
-            connectionPromise.success(new ZookeeperConnection(zkString, Some(newClient)))
-          }
-          case state => logger.debug(s"Zk Watcher for $zkString received event: ${state}")
-        }
+    Future {
+      blocking {
+        openSync()
       }
-    })
-    connectionPromise.future
+    }
   }
 
   override def getAdmin: ZkClient = {

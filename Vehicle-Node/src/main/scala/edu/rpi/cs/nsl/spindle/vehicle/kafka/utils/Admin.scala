@@ -7,14 +7,13 @@ import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Future
 import scala.concurrent.blocking
 import scala.concurrent.duration._
-
 import org.I0Itec.zkclient.ZkClient
 import org.I0Itec.zkclient.ZkConnection
 import org.slf4j.LoggerFactory
-
 import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
 import kafka.cluster.Broker
+import org.apache.kafka.common.errors.TopicExistsException
 
 
 class KafkaAdmin(zkString: String) {
@@ -65,8 +64,7 @@ class KafkaAdmin(zkString: String) {
    * Create a Kafka topic
    */
   def mkTopic(topic: String, partitions: Int = 1, replicationFactor: Int = 1, topicConfig: Properties = new Properties()): Future[Unit] = {
-    AdminUtils.createTopic(zkUtils, topic, partitions, replicationFactor, topicConfig)
-    assert(topicExists(topic), s"Failed to create topic $topic")
+
 
     def getMetadata = AdminUtils
       .fetchTopicMetadataFromZk(topic, zkUtils)
@@ -87,6 +85,12 @@ class KafkaAdmin(zkString: String) {
     implicit val ec = global
     Future {
       blocking {
+        try {
+          AdminUtils.createTopic(zkUtils, topic, partitions, replicationFactor, topicConfig)
+        } catch {
+          case _: TopicExistsException => logger.debug(s"Tried to create existing topic $topic")
+        }
+        assert(topicExists(topic), s"Failed to create topic $topic")
         checkPartitionLeaders
       }
     }
@@ -107,7 +111,8 @@ class KafkaAdmin(zkString: String) {
   }
 
   def close {
-    zkClient.close
-    zkUtils.close
+    println("Kafka admin closing zk connection")
+    zkUtils.close()
+    println("ZK connection closed")
   }
 }
