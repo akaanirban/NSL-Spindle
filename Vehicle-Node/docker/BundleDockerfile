@@ -5,7 +5,7 @@ ENV workdir /opt
 ENV kafkadir $workdir/kafka
 ENV vehicledir $workdir/vehicle
 
-ENV kafkatar kafka_2.11-0.10.1.1.tgz
+ENV kafkadirlocal kafka_2.11-0.10.1.1
 
 RUN apt-get install -y supervisor && mkdir -p /var/log/supervisor
 
@@ -15,9 +15,7 @@ EXPOSE 9001
 
 RUN mkdir -p $kafkadir
 
-COPY ./$kafkatar $kafkadir/kafka.tgz
-
-RUN cd $kafkadir && tar -xvf kafka.tgz
+COPY ./$kafkadirlocal $kafkadir/
 
 COPY entrypoint.sh $workdir/
 

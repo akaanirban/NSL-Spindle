@@ -136,13 +136,23 @@ object Main {
     Thread.sleep(SHUTDOWN_WAIT_MS)
     logger.info("Shutting down")
   }
+  private def getDebugMode: Boolean = {
+    val debugStatus = System.getenv("DEBUG_VEHICLE")
+    if(debugStatus == null) {
+      false
+    } else {
+      debugStatus == "true"
+    }
+  }
   def main(argv: Array[String]): Unit ={
-    val (zkLocal, kafkaLocal) = StartupManager.waitLocal
-    val (zkCloud, kafkaCloud) = StartupManager.waitCloud
-    println(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
+    if(getDebugMode == false) {
+      val (zkLocal, kafkaLocal) = StartupManager.waitLocal
+      val (zkCloud, kafkaCloud) = StartupManager.waitCloud
+      println(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
 
-    val eventHandler = new EventHandler(kafkaLocal, kafkaCloud)
-    eventHandler.start.map(_ => shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud))
+      val eventHandler = new EventHandler(kafkaLocal, kafkaCloud)
+      eventHandler.start.map(_ => shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud))
+    }
   }
 }
 

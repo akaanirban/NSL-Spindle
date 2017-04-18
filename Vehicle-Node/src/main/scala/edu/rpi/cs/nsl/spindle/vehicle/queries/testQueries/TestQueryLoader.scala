@@ -11,8 +11,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.queries.Query
 object TestQueryLoader {
   val testQueries: Map[String, Query[_, _]] = {
     Seq(Query("globalSpeedAvg",
-      MapOperation[(_, Vehicle), (_, (MPH, Long))](f=TestMappers.getSpeedAndCount),
-      ReduceByKeyOperation[(MPH, Long)](TestReducers.sumSpeedAndCount, OperationIds.sum)))
+      MapOperation[(_, Vehicle), (_, (MPH, Long))](f=TestMappers.getSpeedAndCount, uid="getSpeedAndCount"),
+      ReduceByKeyOperation[(MPH, Long)](TestReducers.sumSpeedAndCount, OperationIds.sum, uid="sumSpeedAndCount")))
       .map(entry => (entry.id -> entry))
       .toMap
   }

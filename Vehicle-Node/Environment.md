@@ -57,4 +57,4 @@ Notes from Skype w/Mike Wittie, Patterson meeting April 5, 2017
 
 ## Still Need to Figure out
 
-- Setting up IP addresses
+- Setting up IP addresses: <http://ieeexplore.ieee.org/document/7458115/?part=1>

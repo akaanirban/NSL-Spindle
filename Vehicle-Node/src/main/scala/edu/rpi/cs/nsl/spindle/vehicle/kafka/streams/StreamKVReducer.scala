@@ -8,6 +8,9 @@ import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{SingleTopicProducerKak
 import org.apache.kafka.streams.kstream.internals.TimeWindow
 import edu.rpi.cs.nsl.spindle.datatypes.operations.ReduceByKeyOperation
 
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 import scala.reflect.runtime.universe._
 
 /**
@@ -18,9 +21,12 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
                                               reduceFunc: (V, V) => V,
                                               intermediateConfig: StreamsConfig,
                                               startEpochOpt: Option[Long] = None)
-    extends TypedStreamExecutor[K, V](startEpochOpt, readableId = s"$inTopic->$outTopic") {
+    extends TypedStreamExecutor[K, V](startEpochOpt, readableId = s"$inTopic->$outTopic")
+      with LocalSelfInitializingExecutor {
   private val logger = LoggerFactory.getLogger(this.getClass)
   logger.debug(s"Creating StreamKVREducer from $inTopic -> $outTopic")
+  // Initialize input and output topics
+  private val initFuture = initTopics(Set(inTopic, outTopic))
   protected val config = {
     logger.debug("Setting default serde")
     val configMap = intermediateConfig.originals
@@ -62,6 +68,8 @@ class StreamKVReducer[K: TypeTag, V: TypeTag](inTopic: String,
     /*val batcherSupplier = new StreamBatcherSupplier[K,V](outTopic, clientFactory)
     reducedWindowedStream.process(batcherSupplier)*/
 
+    // Wait for topics to become ready
+    Await.ready(initFuture, Duration.Inf)
     builder
   }
 

@@ -1,21 +1,26 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.streams
 
 
-import org.apache.kafka.common.serialization.Serdes
+import org.apache.kafka.common.serialization.{ByteArraySerializer, Serdes, Serializer}
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.StreamsConfig
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
-import _root_.edu.rpi.cs.nsl.spindle.vehicle.{TypedValue, ReflectionUtils}
+import _root_.edu.rpi.cs.nsl.spindle.vehicle.{ReflectionUtils, TypedValue}
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.KafkaSerde
 import _root_.edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 
 import scala.reflect.runtime.universe.TypeTag
 import java.lang.Thread.UncaughtExceptionHandler
+import java.util.concurrent.TimeUnit
 
+import edu.rpi.cs.nsl.spindle.vehicle.connections.KafkaConnection
+import kafka.producer.Producer
 import org.apache.kafka.clients.consumer.CommitFailedException
+import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.kafka.streams.processor.internals.DefaultKafkaClientSupplier
 
 import scala.concurrent._
 
@@ -110,16 +115,6 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None, readableId: St
         logger.warn(s"Commit failed $cfe")
         restartStream
       }
-      /*case ise: java.lang.IllegalStateException => {
-        //TODO: remove
-        logger.error(s"Encountered illegal state in stream $readableId $id: ${ise.getMessage}")
-        import scala.collection.JavaConverters._
-        val runtime = Runtime.getRuntime
-        val threads = Thread.getAllStackTraces.keySet().asScala
-        threads.foreach(runtime.removeShutdownHook(_))
-        threads.foreach(_.interrupt())
-        System.exit(1)
-      }*/
       case _: java.lang.InterruptedException => {
         logger.warn(s"Stream interrupted: $id")
       }
@@ -135,17 +130,19 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None, readableId: St
   private lazy val id: String = config.getString(StreamsConfig.APPLICATION_ID_CONFIG)
 
   def run {
-    logger.debug(s"Building stream $id")
-    stream = new KafkaStreams(builder, config)
-    logger.info(s"Starting stream $id")
-    stream.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+    //logger.debug(s"Building stream $id")
+    System.err.println(s"Building stream $id $builder $config")
+    //KafkaProducer.java Line 336
+    //stream = new KafkaStreams(builder, config, new KafkaClientSupplier) //TODO: debug this
+    System.err.println(s"Starting stream $id")
+    /*stream.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
       def uncaughtException(t: Thread, e: Throwable) {
         handleException(id, t, e)
       }
     })
 
-    stream.start()
-    logger.info(s"Stream $id has started")
+    stream.start()*/ //TODO: restore this
+    println(s"Stream $id has started")
   }
 
   def stopStream: Future[Any] = {
@@ -165,8 +162,69 @@ abstract class StreamExecutor(startEpochOpt: Option[Long] = None, readableId: St
   }
 }
 
+/**
+  * Client supplier for kafka streams
+  */
+class KafkaClientSupplier extends DefaultKafkaClientSupplier {
+  import scala.collection.JavaConversions._
+  println("Using debug kafka client suppliser")
+  private class DebugProducer[K,V](configs: java.util.Map[String, AnyRef], keySerializer: Serializer[K], valueSerializer: Serializer[V])
+    extends KafkaProducer[K,V](configs: java.util.Map[String, AnyRef], keySerializer: Serializer[K], valueSerializer: Serializer[V]) {
+    override def close(): Unit = {
+      println(s"Closing producer ${configs.toList}")
+      super.close()
+      println(s"Closed producer ${configs.toList}")
+    }
+
+    override def close(timeout: Long, timeUnit: TimeUnit): Unit = {
+      println(s"Closing producer ${configs.toList} with timeout $timeout")
+      super.close(timeout, timeUnit)
+      println(s"Closed producer ${configs.toList}")
+    }
+    //TODO
+  }
+  override def getProducer(config: java.util.Map[String, AnyRef]): KafkaProducer[Array[Byte], Array[Byte]] = {
+    println(s"Creating producer with config ${config.toList}")
+    new DebugProducer[Array[Byte], Array[Byte]](config, new ByteArraySerializer(), new ByteArraySerializer())
+  }
+}
+
 abstract class TypedStreamExecutor[K: TypeTag, V: TypeTag](startEpochOpt: Option[Long] = None, readableId: String = "")
   extends StreamExecutor(startEpochOpt, readableId) {
   protected val keySerde = new KafkaSerde[TypedValue[K]]
   protected val valueSerde = new KafkaSerde[TypedValue[V]]
+}
+
+/**
+  * Local Kafka Streams Executor that initializes own topics
+  */
+trait LocalSelfInitializingExecutor {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val kafkaConnection = KafkaConnection.getLocal
+  protected def initTopics(topics: Set[String])(implicit ec: ExecutionContext): Future[Unit] ={
+    val admin = kafkaConnection.getAdmin
+    val canaryProducer = kafkaConnection.getProducer[Any, Any]
+
+    val initFutures: Seq[Future[_]] = topics.toSeq.map{topic =>
+      println(s"Creating topic $topic")
+      admin.mkTopic(topic)
+        .map { _ =>
+          println(s"Created topic $topic")
+          topic
+        }
+        .flatMap(canaryProducer.sendKafka(_, None, None, true))
+    }
+    println(s"Initializing topics $topics")
+    Future
+      .sequence(initFutures)
+      .map(_ => println(s"Initialized topics $topics"))
+      .map(_ => {
+        println("Closing canary producer")
+        canaryProducer.close
+        println("Canary producer closed")
+        println("Closing session admin")
+        admin.close
+        println("Closed session admin")
+      })
+  }
 }

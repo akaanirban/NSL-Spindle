@@ -58,7 +58,7 @@ case class StreamsConfigBuilder(properties: Properties = new Properties()) {
   }
   def withZk(zkString: String): StreamsConfigBuilder = this.withProperty(ZOOKEEPER_CONNECT_CONFIG, zkString)
   def withCommitInterval(intervalMs: Long = Configuration.Streams.commitMs): StreamsConfigBuilder = this.withProperty(COMMIT_INTERVAL_MS_CONFIG, intervalMs.toString)
-  def withAutoOffset(resetLocation: String = "latest"): StreamsConfigBuilder = this.withProperty("auto.offset.reset", resetLocation)
+  def withAutoOffset(resetLocation: String = "earliest"): StreamsConfigBuilder = this.withProperty("auto.offset.reset", resetLocation)//TODO: auto offset reset latest
   def withMaxRecords(maxRecords: Int = Configuration.Streams.maxBufferRecords) = this.withProperty(StreamsConfig.BUFFERED_RECORDS_PER_PARTITION_CONFIG, maxRecords.toString)
   def withPollMs(pollMs: Long = Configuration.Streams.pollMs) = this.withProperty("poll.ms", pollMs.toString)
   def withSessionTimeoutMs(timeoutMs: Long = Configuration.Streams.sessionTimeout) = this.withProperty("session.timeout.ms", timeoutMs.toString)

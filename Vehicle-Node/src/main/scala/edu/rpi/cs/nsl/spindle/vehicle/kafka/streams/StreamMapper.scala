@@ -8,6 +8,9 @@ import org.apache.kafka.streams.kstream.KStreamBuilder
 import org.slf4j.LoggerFactory
 import org.apache.kafka.streams.KeyValue
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 import scala.reflect.runtime.universe._
 
 /**
@@ -22,9 +25,10 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
                                  filterFunc: (K,V) => Boolean,
                                  protected val config: StreamsConfig,
                                  startEpochOpt: Option[Long] = None)
-    extends StreamExecutor(startEpochOpt) {
+    extends StreamExecutor(startEpochOpt) with LocalSelfInitializingExecutor {
   private val logger = LoggerFactory.getLogger(s"StreamMapper $inTopic -> $outTopic")
   logger.debug(s"Created StreamMapper $inTopic -> $outTopic")
+  private val initFuture = initTopics(Set(inTopic, outTopic))
   protected val builder = {
     logger.debug(s"Configuring mapper builder for $inTopic to $outTopic")
     val builder = new KStreamBuilder
@@ -42,12 +46,16 @@ class StreamMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](inTopic: St
     }
     val serializedStream: ByteStream = serialize(mappedStream)
     writeOut(serializedStream, outTopic)
+    println(s"Mapper waiting for topic initialization $initFuture $inTopic -> $outTopic")
+    Await.ready(initFuture, Duration.Inf)
+    println(s"Mapper topic init completed $initFuture $inTopic -> $outTopic")
     builder
   }
 }
 
 object StreamMapper {
-  def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](configBuilder: StreamsConfigBuilder, mapOperation: MapOperation[(K, V), (K1,V1)]): StreamMapper[K,V,K1,V1] = {
+  def mkMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](configBuilder: StreamsConfigBuilder,
+                                                                 mapOperation: MapOperation[(K, V), (K1,V1)]): StreamMapper[K,V,K1,V1] = {
     val inTopic = TopicLookupService.getVehicleStatus
     val outTopic = TopicLookupService.getMapperOutput(mapOperation.uid)
     def nopFilter(k:K, v:V) = true //TODO: add filter() to spark streaming
