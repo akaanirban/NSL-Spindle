@@ -6,7 +6,7 @@ import scala.reflect.runtime.universe._
  * Map or Reduce Operation
  *
  */
-abstract class Operation[InType: TypeTag, OutType: TypeTag](val operationId: OperationIds.Value) extends Serializable {
+abstract class Operation[InType: TypeTag, OutType: TypeTag](val uid: String, val operationId: OperationIds.Value) extends Serializable {
   override def equals(other: Any): Boolean = {
     if (other.getClass != this.getClass) {
       false
