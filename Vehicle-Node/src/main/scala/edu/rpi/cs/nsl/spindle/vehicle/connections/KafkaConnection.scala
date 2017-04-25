@@ -3,7 +3,6 @@ package edu.rpi.cs.nsl.spindle.vehicle.connections
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamsConfigBuilder
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils._
-import org.apache.kafka.clients.producer.KafkaProducer
 import org.slf4j.LoggerFactory
 
 import scala.reflect.runtime.universe.TypeTag
@@ -20,6 +19,7 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
   private val config = KafkaConfig().withServers(brokers.map(_.getConnectionString).mkString(","))
 
   val MAX_INIT_MESSAGE_ATTEMPTS = 10
+  val CONSUMER_RETRY_WAIT_MS = 500
 
   def close: KafkaConnection = {
     this
@@ -49,13 +49,18 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
     new ProducerKafka[K,V](getProducerConfig)
   }
 
+  /**
+    * Send test messages on topic to ensure topic is fully initialized
+    * @param topic
+    * @return
+    */
   private def testSendRecv(topic: String): Future[Unit] = {
-    println(s"Performing test send/recv on $topic")
+    logger.info(s"Performing test send/recv on $topic")
     val consumer = new ConsumerKafka[String, String](config.withConsumerDefaults.withConsumerGroup("testSendRecv").withAutoOffsetReset("latest"))
     consumer.subscribe(topic)
 
 
-    println(s"Consumer subscribed to topic $topic")
+    logger.debug(s"Consumer subscribed to topic $topic")
 
     val testKV = java.util.UUID.randomUUID().toString
     def waitMessage(failCount: Int = 0): Try[Unit] = {
@@ -66,24 +71,23 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
       } else if(matches.size >= 1) {
         Success(Unit)
       } else {
-        Thread.sleep(500)
-        println(s"No match: $messages")
+        Thread.sleep(CONSUMER_RETRY_WAIT_MS)
         waitMessage(failCount + 1)
       }
     }
 
-    println(s"Sending message to $topic")
+    logger.debug(s"Sending message to $topic")
     val producer = new SingleTopicProducerKakfa[String, String](topic, getProducerConfig)
     def sendMessage: Future[Unit] = {
       producer
         .send(testKV, testKV)
-        .map(_ => println(s"Sent message $testKV, $testKV to $topic"))
+        .map(_ => logger.debug(s"Sent message $testKV, $testKV to $topic"))
         .flatMap(_ => Future { blocking { waitMessage() }})
         .flatMap{result => result match {
             // Retry on failure
           case Failure(e) => sendMessage
           case _ => {
-            println(s"Got message on topci $topic")
+            logger.debug(s"Got message on topic $topic")
             Future.successful(Unit)
           }
         }}
@@ -104,11 +108,11 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
     val admin = new KafkaAdmin(zkString)
     admin.waitBrokers(brokers.size)
       .flatMap{_ =>
-        println("Creating test topic")
+        logger.debug("Creating test topic")
         mkTestTopic(admin)
       }
       .map{_ =>
-        println("Created test topic")
+        logger.debug("Created test topic")
         admin.close
       }
       .map(_ => this)
@@ -119,7 +123,7 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
   }
 
   def getAdmin: KafkaAdmin = {
-    println(s"Creating admin $zkString")
+    logger.debug(s"Creating admin $zkString")
     new KafkaAdmin(zkString)
   }
 }
