@@ -10,6 +10,7 @@ import scala.reflect.runtime.universe.TypeTag
 import scala.concurrent.{Await, Future, blocking}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by wrkronmiller on 4/5/17.
@@ -17,6 +18,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Connection[KafkaAdmin] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val config = KafkaConfig().withServers(brokers.map(_.getConnectionString).mkString(","))
+
+  val MAX_INIT_MESSAGE_ATTEMPTS = 10
 
   def close: KafkaConnection = {
     this
@@ -47,21 +50,45 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
   }
 
   private def testSendRecv(topic: String): Future[Unit] = {
-    val consumer = new ConsumerKafka[String, String](config.withConsumerDefaults.withConsumerGroup("testSendRecv"))
+    println(s"Performing test send/recv on $topic")
+    val consumer = new ConsumerKafka[String, String](config.withConsumerDefaults.withConsumerGroup("testSendRecv").withAutoOffsetReset("latest"))
     consumer.subscribe(topic)
 
+
+    println(s"Consumer subscribed to topic $topic")
+
     val testKV = java.util.UUID.randomUUID().toString
-    def waitMessage(): Unit = {
-      val matches = consumer.getMessages.filter(msg => msg._1 == testKV && msg._2 == testKV)
-      if(matches.size != 1) {
-        waitMessage
+    def waitMessage(failCount: Int = 0): Try[Unit] = {
+      val messages = consumer.getMessages
+      val matches = messages.filter(msg => msg._1 == testKV && msg._2 == testKV)
+      if(failCount >= MAX_INIT_MESSAGE_ATTEMPTS) {
+        Failure[Unit](new RuntimeException(s"Failed to initialize topic $topic"))
+      } else if(matches.size >= 1) {
+        Success(Unit)
+      } else {
+        Thread.sleep(500)
+        println(s"No match: $messages")
+        waitMessage(failCount + 1)
       }
     }
 
+    println(s"Sending message to $topic")
     val producer = new SingleTopicProducerKakfa[String, String](topic, getProducerConfig)
-    producer
-      .send(testKV, testKV)
-      .flatMap(_ => Future { blocking { waitMessage() }})
+    def sendMessage: Future[Unit] = {
+      producer
+        .send(testKV, testKV)
+        .map(_ => println(s"Sent message $testKV, $testKV to $topic"))
+        .flatMap(_ => Future { blocking { waitMessage() }})
+        .flatMap{result => result match {
+            // Retry on failure
+          case Failure(e) => sendMessage
+          case _ => {
+            println(s"Got message on topci $topic")
+            Future.successful(Unit)
+          }
+        }}
+    }
+    sendMessage
       .map(_ => producer.close)
       .map(_ => consumer.close)
   }

@@ -61,8 +61,12 @@ case class KafkaConfig(properties: Properties = new Properties()) {
     this.copyWithChange(_.put("max.block.ms", ms.toString))
   }
 
-  def withAutoOffset(autoCommit: Boolean = true): KafkaConfig = {
+  def withAutoCommit(autoCommit: Boolean = true): KafkaConfig = {
     this.copyWithChange(_.put("enable.auto.commit", autoCommit: String))
+  }
+
+  def withAutoOffsetReset(reset: String = "latest"): KafkaConfig = {
+    this.copyWithChange(_.put("auto.offset.reset", reset))
   }
 
   def withProducerDefaults: KafkaConfig = {
@@ -73,7 +77,7 @@ case class KafkaConfig(properties: Properties = new Properties()) {
   }
 
   def withConsumerDefaults: KafkaConfig = {
-    this.withAutoOffset()
+    this.withAutoCommit()
       .withByteDeser
   }
 
