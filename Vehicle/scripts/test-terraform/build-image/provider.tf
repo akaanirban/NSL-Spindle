@@ -1,0 +1,1 @@
+../kafka-terraform/provider.tf

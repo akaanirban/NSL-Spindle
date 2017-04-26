@@ -1,6 +1,3 @@
-[submodule "NSL-Spindle-Vehicle"]
-	path = Vehicle
-	url = git@github.com:wkronmiller/NSL-Spindle-Vehicle.git
 [submodule "NSL-Spindle-Spark"]
 	path = Spark
 	url = git@github.com:wkronmiller/NSL-Spindle-Spark.git

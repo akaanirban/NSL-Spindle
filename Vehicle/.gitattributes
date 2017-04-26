@@ -1,0 +1,5 @@
+clusters/ filter=lfs diff=lfs merge=lfs -text
+clusters/clusterInfo_100_nodes.csv filter=lfs diff=lfs merge=lfs -text
+clusters/clusterInfo_HD.csv filter=lfs diff=lfs merge=lfs -text
+clusters/clusterInfo_denseRegion.csv filter=lfs diff=lfs merge=lfs -text
+clusters/clusterInfo_sparseRegion.csv filter=lfs diff=lfs merge=lfs -text
