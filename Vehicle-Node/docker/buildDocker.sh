@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NODE_BASE_IMAGE_NAME=wkronmiller/spindle-node-base
+NODE_BASE_IMAGE_NAME=nslrpi/spindle-node-base
 NODE_BASE_VERSION="0.0.1"
 
 function buildBaseImage() {
@@ -15,10 +15,11 @@ function buildBaseImage() {
 # For now keep base version number same as packaged version number
 BUNDLED_IMAGE_NAME="$NODE_BASE_IMAGE_NAME-packaged:$NODE_BASE_VERSION"
 
-OUTPUT_TAG=wkronmiller/spindle-node:latest
+OUTPUT_TAG=nslrpi/spindle-node:latest
 function buildBundledImage() {
     docker build -t $BUNDLED_IMAGE_NAME -f BundleDockerfile .
     docker tag $BUNDLED_IMAGE_NAME $OUTPUT_TAG && echo "Built $OUTPUT_TAG"
+    docker push $OUTPUT_TAG
 }
 
 
