@@ -16,6 +16,11 @@ object VehicleTypes {
   type Lat = Double
   type Lon = Double
   type MPH = Double
+  type TempCentigrade = Double
+  type Humidity = Double
+  type TireDistance = Double
+  type GroundDistance = Double
+  type Acceleration = (Double, Double, Double)
 }
 
 /**
@@ -27,4 +32,15 @@ object VehicleTypes {
  */
 case class Vehicle(id: VehicleId, lat: Lat,
                    lon: Lon, mph: MPH,
-                   color: VehicleColors.Value)
+                   color: VehicleColors.Value,
+                   temperature: TempCentigrade,
+                   humidity: Humidity,
+                   tireDistance: TireDistance,
+                   groundDistance: GroundDistance,
+                   acceleration: Acceleration) {
+  def this(m: Map[String, String]) = {
+    this(m("id").toLong, m("lat").toDouble, m("lon").toDouble, m("mph").toDouble, VehicleColors.withName(m("color")),
+      m("temperature").toDouble, m("humidity").toDouble, m("tireDistance").toDouble, m("groundDistance").toDouble,
+      m("acceleration").split(",").map(_.toDouble) match { case Array(x,y,z) => (x,y,z)})
+  }
+}

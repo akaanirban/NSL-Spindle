@@ -1,0 +1,26 @@
+FROM wkronmiller/spindle-node-base
+
+ENV workdir /opt
+
+ENV kafkadir $workdir/kafka
+ENV vehicledir $workdir/vehicle
+
+ENV kafkadirlocal kafka_2.11-0.10.1.1
+
+RUN apt-get install -y supervisor && mkdir -p /var/log/supervisor
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 9001
+
+RUN mkdir -p $kafkadir
+
+COPY ./$kafkadirlocal $kafkadir/
+
+COPY entrypoint.sh $workdir/
+
+RUN chmod +x $workdir/entrypoint.sh
+
+WORKDIR $workdir
+
+CMD ["./entrypoint.sh"]

@@ -1,0 +1,8 @@
+{
+  "name": "restarter",
+  "version": "1.0.0",
+  "description": "Log and restart process",
+  "main": "index.js",
+  "author": "William Rory Kronmiller",
+  "license": "UNLICENSED"
+}
