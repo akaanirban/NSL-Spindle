@@ -2,8 +2,9 @@ package edu.rpi.cs.nsl.spindle.vehicle.queries
 
 import edu.rpi.cs.nsl.spindle.datatypes.Vehicle
 import edu.rpi.cs.nsl.spindle.datatypes.operations.{MapOperation, ReduceByKeyOperation}
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.{StreamKVReducer, StreamMapper, StreamsConfigBuilder}
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{KVReducer, Mapper}
 
+import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.universe.TypeTag
 
 /**
@@ -16,12 +17,11 @@ case class Query[MapKey: TypeTag, MapValue: TypeTag](id: String,
                                           reduceOperation: ReduceByKeyOperation[MapValue]) extends Serializable {
   /**
     * Create Kafka Streams executors from query
-    * @param configBuilder
     * @return
     */
-  def mkExecutors(configBuilder: StreamsConfigBuilder): (StreamMapper[Any, Vehicle, MapKey, MapValue], StreamKVReducer[MapKey, MapValue]) = {
-    val mapExecutor = StreamMapper.mkMapper(configBuilder, mapOperation)
-    val reduceExecutor = StreamKVReducer.mkReducer[MapKey, MapValue](mapOperation.uid, configBuilder, reduceOperation)
+  def mkExecutors(implicit ec: ExecutionContext): (Mapper[Any, Vehicle, MapKey, MapValue], KVReducer[MapKey, MapValue]) = {
+    val mapExecutor = Mapper.mkSensorMapper[MapKey, MapValue](mapOperation.uid, mapOperation.f, (mapKey, mapVal) => mapOperation.filter((mapKey, mapVal)))
+    val reduceExecutor = KVReducer.mkVehicleReducer[MapKey, MapValue](reduceOperation.uid, mapOperation.uid, reduceOperation.f)
     (mapExecutor, reduceExecutor)
   }
 }

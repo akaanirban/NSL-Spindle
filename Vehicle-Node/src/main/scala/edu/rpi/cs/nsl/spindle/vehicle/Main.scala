@@ -6,10 +6,8 @@ import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections.{Connection, KafkaConnection, Server, ZookeeperConnection}
 import edu.rpi.cs.nsl.spindle.vehicle.events.SensorProducer
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.{StreamExecutor, StreamKVReducer, StreamMapper}
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{KVReducer, Mapper}
 import edu.rpi.cs.nsl.spindle.vehicle.queries.{Query, QueryLoader}
-import org.apache.kafka.streams.StreamsConfig
-import org.apache.kafka.streams.processor.TopologyBuilder
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, Future, Promise}
@@ -41,24 +39,25 @@ object StartupManager {
 }
 
 class QueryManager(kafkaLocal: KafkaConnection) {
-  type StreamExecutors = (StreamMapper[_, _, _, _], StreamKVReducer[_,_])
+  private val pool = Executors.newCachedThreadPool()
+  type StreamExecutors = (Mapper[_, _, _, _], KVReducer[_,_])
   @volatile private var prevQueries: Map[Query[_,_], StreamExecutors] = Map()
   def updateQueries(newQueries: Iterable[Query[_,_]]): Future[Unit] = {
     println(s"Updating with queries $newQueries")
     val prevQuerySet = prevQueries.keySet
     val newQuerySet = newQueries.toSet
     val queriesToStop = prevQuerySet diff newQuerySet
-    val stopFutures: Seq[Future[Any]] = queriesToStop
+    val stopFutures: Seq[Future[_]] = queriesToStop
       .flatMap{query =>
         val streamExecutors = prevQueries(query)
         println(s"Stopping queries $streamExecutors")
-        Seq(streamExecutors._1.stopStream, streamExecutors._2.stopStream)
+        Seq(streamExecutors._1.stop, streamExecutors._2.stop)
       }
       .toSeq
     val queriesToStart = newQuerySet diff prevQuerySet
     val newExecutors: Map[Query[_,_], StreamExecutors] = queriesToStart
       .map{query =>
-        (query -> query.mkExecutors(kafkaLocal.getStreamsConfigBuilder))
+        (query -> query.mkExecutors)
       }
       .toMap
     // Update queries map
@@ -70,8 +69,8 @@ class QueryManager(kafkaLocal: KafkaConnection) {
       newExecutors.values.foreach{case (m,r) =>
         //TODO: send canary messages
           println(s"Running $m $r")
-          m.run
-          r.run
+          m.runAsync(pool)
+          r.runAsync(pool)
           println(s"Started $m $r")
       }
     }

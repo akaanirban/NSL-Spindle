@@ -39,46 +39,53 @@ class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends Con
   }
 }
 
+/**
+  * Wrapper for Kafka Consumer
+  * @param config
+  * @tparam K
+  * @tparam V
+  */
 class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private[utils] val kafkaConsumer = new KafkaConsumer[ByteArray, ByteArray](config.properties)
 
   val POLL_WAIT_MS = 1000
 
-  private var topic: String = _
+  private var topics: scala.collection.mutable.Set[String] = scala.collection.mutable.Set()
 
-  private def subscribeWithMonitor(topic: String, monitor: ConsumerBalanceMonitor[K, V]) {
-    logger.debug(s"Subscribing to $topic")
-    this.topic = topic
-    kafkaConsumer.subscribe(List(topic), monitor)
+  private def subscribeWithMonitor(topics: Set[String], monitor: ConsumerBalanceMonitor[K, V]) {
+    logger.debug(s"Subscribing to $topics")
+    this.topics ++= topics
+    kafkaConsumer.subscribe(topics, monitor)
   }
 
   def subscribe(topic: String) {
-    subscribeWithMonitor(topic, new ConsumerBalanceMonitor[K, V](this))
+    this.subscribe(Seq(topic))
+  }
+
+  def subscribe(topics: Iterable[String]): Unit = {
+    subscribeWithMonitor(topics.toSet, new ConsumerBalanceMonitor[K,V](this))
   }
 
   /**
    * Subscribe and start from beginning if reassigned
    */
   def subscribeAtLeastOnce(topic: String) {
-    subscribeWithMonitor(topic, new AtLeastOnceBalanceMonitor[K, V](this))
+    subscribeWithMonitor(Set(topic), new AtLeastOnceBalanceMonitor[K, V](this))
   }
-
-  //TODO: manually look up partitions for kafka topic, then manually assign to consumer
 
   /**
    * Read and de-serialize messages in buffer
    */
   def getMessages: Iterable[(K, V)] = {
-    logger.trace(s"Getting messages for $topic")
+    logger.trace(s"Getting messages for $topics")
     val records = kafkaConsumer.poll(POLL_WAIT_MS)
-    val rawData: List[(ByteArray, ByteArray)] = records.partitions
+
+    val rawData: List[(ByteArray, ByteArray)] = records
+      .partitions().toList
       .map(records.records)
-      .map(_.toList)
-      .reduceOption((a, b) => a ++ b) match {
-        case Some(list) => list.map(record => (record.key, record.value))
-        case None       => List()
-      }
+      .flatMap(_.toList)
+      .map(record => (record.key(), record.value()))
 
     rawData
       // Remove canaries

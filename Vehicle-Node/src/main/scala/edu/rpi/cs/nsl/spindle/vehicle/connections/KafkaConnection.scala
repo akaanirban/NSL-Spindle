@@ -1,7 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.connections
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.streams.StreamsConfigBuilder
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils._
 import org.slf4j.LoggerFactory
 
@@ -30,14 +29,6 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
     * @return new KafkaConfig with producer defaults
     */
   def getProducerConfig: KafkaConfig = config.withProducerDefaults
-
-  /**
-    * Get config builder for KafkaStreams executors
-    * @return new configbuilder with default settings and zk string set
-    */
-  def getStreamsConfigBuilder: StreamsConfigBuilder = StreamsConfigBuilder()
-    .withDefaults.withServers(brokers)
-    .withZk(zkString)
 
   /**
     * Create A Kafka Producer
