@@ -6,6 +6,7 @@ import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections.{Connection, KafkaConnection, Server, ZookeeperConnection}
 import edu.rpi.cs.nsl.spindle.vehicle.events.SensorProducer
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.KafkaQueryUtils._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{KVReducer, Mapper}
 import edu.rpi.cs.nsl.spindle.vehicle.queries.{Query, QueryLoader}
 import org.slf4j.LoggerFactory
