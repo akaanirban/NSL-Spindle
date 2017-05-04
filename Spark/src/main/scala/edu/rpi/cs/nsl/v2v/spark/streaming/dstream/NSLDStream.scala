@@ -10,7 +10,6 @@ import edu.rpi.cs.nsl.v2v.spark.streaming.NSLUtils
 import edu.rpi.cs.nsl.v2v.spark.streaming.Serialization.{ KafkaKey, MiddlewareResults }
 import edu.rpi.cs.nsl.spindle.datatypes.operations.OperationIds
 import edu.rpi.cs.nsl.spindle.datatypes.operations.MapOperation
-import edu.rpi.cs.nsl.spindle.datatypes.operations.ReduceOperation
 import edu.rpi.cs.nsl.spindle.datatypes.operations.ReduceByKeyOperation
 import edu.rpi.cs.nsl.spindle.datatypes.operations.Operation
 
@@ -49,9 +48,9 @@ class NSLDStreamWrapper[T: TypeTag: ClassTag](private[dstream] val generator: NS
     val operation = {
       val lastOp = opLog.last
       val lastOpClass = lastOp.getClass.toString
-      val reduceClass = ReduceOperation.getClass.toString.replace("$", "")
+      val reduceClass = ReduceByKeyOperation.getClass.toString.replace("$", "")
       assert(lastOpClass.equals(reduceClass), s"Last operation needs to be a reduce $lastOp")
-      lastOp.asInstanceOf[ReduceOperation[T, T]]
+      lastOp.asInstanceOf[ReduceByKeyOperation[T]]
     }
     getMappedStream.reduce(operation.f)
   }
@@ -76,11 +75,13 @@ class NSLDStreamWrapper[T: TypeTag: ClassTag](private[dstream] val generator: NS
    * Overridden Reduce Function
    * [[https://github.com/apache/spark/blob/master/streaming/src/main/scala/org
    * /apache/spark/streaming/dstream/DStream.scala#L596 Original Function]]
+    *
+    * @todo - add support for full reduce operations in Vehicle-Node program
    */
-  def reduce(reduceFunc: (T, T) => T, operationId: OperationIds.Value): DStream[T] = {
+  /*def reduce(reduceFunc: (T, T) => T, operationId: OperationIds.Value): DStream[T] = {
     val operation = ReduceOperation[T, T](reduceFunc, operationId)
     new NSLDStreamWrapper(generator, opLog ++ Seq(operation)).toDStream
-  }
+  }*/
 }
 
 object NSLDStreamWrapper {
@@ -97,7 +98,7 @@ object NSLDStreamWrapper {
  */
 class PairFunctions[K: TypeTag: ClassTag, V: TypeTag: ClassTag](streamWrapper: NSLDStreamWrapper[(K, V)]) extends Serializable {
   def reduceByKey(reduceFunc: (V, V) => V, operationId: OperationIds.Value): DStream[(K, V)] = {
-    val operation = ReduceByKeyOperation[V, V](reduceFunc, operationId)
+    val operation = ReduceByKeyOperation[V](reduceFunc, operationId)
     new NSLDStreamWrapper[(K, V)](streamWrapper.generator, streamWrapper.opLog ++ Seq(operation)).toKVDStream
   }
 
@@ -107,7 +108,7 @@ class PairFunctions[K: TypeTag: ClassTag, V: TypeTag: ClassTag](streamWrapper: N
       val lastOpClass = lastOp.getClass.toString
       val reduceClass = ReduceByKeyOperation.getClass.toString.replace("$", "")
       assert(lastOpClass.equals(reduceClass), s"Last operation needs to be a reduce $lastOpClass != $reduceClass")
-      lastOp.asInstanceOf[ReduceByKeyOperation[V, V]]
+      lastOp.asInstanceOf[ReduceByKeyOperation[V]]
     }
     streamWrapper
       .getMappedStream
