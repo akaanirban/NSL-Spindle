@@ -1,5 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle
 
+import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
@@ -144,7 +145,33 @@ object Main {
       debugStatus == "true"
     }
   }
+
+  private val zkThread = new Runnable {
+    override def run(): Unit = {
+      val propsPath = "src/main/resources/zookeeper.props"
+      assert((new File(propsPath)).exists, s"$propsPath does not exist")
+      org.apache.zookeeper.server.quorum.QuorumPeerMain.main(Array(propsPath))
+    }
+  }
+
+  private def startZkLocal: Unit = {
+    Executors.newSingleThreadExecutor().submit(zkThread) //TODO: convert java future to scala future
+  }
+
+  private val kafkaThread = new Runnable {
+    override def run(): Unit = {
+      val propsPath = "src/main/resources/kafka.props"
+      _root_.kafka.Kafka.main(Array(propsPath))
+    }
+  }
+
+  private def startKafkaLocal: Unit ={
+    Executors.newSingleThreadExecutor().submit(kafkaThread) //TODO: convert java future to scala future
+  }
+
   def main(argv: Array[String]): Unit ={
+    startZkLocal
+    startKafkaLocal
     if(getDebugMode == false) {
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal
       val (zkCloud, kafkaCloud) = StartupManager.waitCloud

@@ -1,4 +1,7 @@
-FROM wkronmiller/scala-sbt
+FROM armhf/ubuntu:xenial
+#FROM armv7/armhf-ubuntu:15.10
+#FROM hypriot/rpi-java
+#FROM wkronmiller/scala-sbt
 
 ENV workdir /opt
 

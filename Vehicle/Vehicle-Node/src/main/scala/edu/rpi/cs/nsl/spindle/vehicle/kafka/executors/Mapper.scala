@@ -79,3 +79,17 @@ object Mapper {
     mkLocalMapper[Any, Vehicle, K,V](mapperId, Set(TopicLookupService.getVehicleStatus), Set(TopicLookupService.getMapperOutput(mapperId)), mapFunc, filterFunc)
   }
 }
+
+
+/**
+  * Relays messages from one set of servers/topics to another
+  * @param uid
+  * @param sourceTopics
+  * @param sinkTopics
+  * @tparam K
+  * @tparam V
+  */
+class Relay[K: TypeTag, V: TypeTag](uid: String,
+                                    sourceTopics: Set[GlobalTopic],
+                                    sinkTopics: Set[GlobalTopic]) {
+}
