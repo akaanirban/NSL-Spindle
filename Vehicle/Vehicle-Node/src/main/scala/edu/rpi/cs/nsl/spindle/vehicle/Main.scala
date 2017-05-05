@@ -179,6 +179,7 @@ object Main {
 
       val eventHandler = new EventHandler(kafkaLocal, kafkaCloud)
       eventHandler.start.map(_ => shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud))
+      //TODO: clean shutdown
     }
   }
 }
