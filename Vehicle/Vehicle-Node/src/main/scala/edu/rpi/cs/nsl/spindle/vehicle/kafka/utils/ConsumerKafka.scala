@@ -81,6 +81,8 @@ class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
     logger.trace(s"Getting messages for $topics")
     val records = kafkaConsumer.poll(POLL_WAIT_MS)
 
+    println(s"Consumer on $topics got messages ${records.toList}")
+
     val rawData: List[(ByteArray, ByteArray)] = records
       .partitions().toList
       .map(records.records)

@@ -1,6 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.connections
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.KafkaConnectionInfo
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils._
 import org.slf4j.LoggerFactory
 
@@ -19,6 +20,10 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
 
   val MAX_INIT_MESSAGE_ATTEMPTS = 10
   val CONSUMER_RETRY_WAIT_MS = 500
+
+  def this(kafkaConnectionInfo: KafkaConnectionInfo) = {
+    this(brokers=kafkaConnectionInfo.brokerString.split(",").map(Server.fromString), zkString = kafkaConnectionInfo.zkString)
+  }
 
   def close: KafkaConnection = {
     this

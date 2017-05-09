@@ -61,6 +61,9 @@ object Configuration {
     lazy val nodeId: Long = conf.getLong("spindle.vehicle.id")
     val numIterations: Long = conf.getLong("spindle.vehicle.num-iterations")
     val iterationLengthMs: Long = conf.getLong("spindle.vehicle.iteration-length-ms")
+    // Statically configured clusterhead (host:port)
+    lazy val clusterheadBroker = conf.getString("spindle.vehicle.clusterhead.kafka.broker")
+    lazy val clusterheadZkString = conf.getString("spindle.vehicle.clusterhead.zookeeper.connection-string")
     object Sensors {
       val sensorType: SensorType = SensorType.withName(conf.getString("spindle.vehicle.sensors.type"))
       private val fixedPrefix = "spindle.vehicle.sensors.fixed.values"

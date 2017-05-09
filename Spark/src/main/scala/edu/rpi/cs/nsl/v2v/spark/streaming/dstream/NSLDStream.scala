@@ -97,7 +97,7 @@ object NSLDStreamWrapper {
  * /org/apache/spark/streaming/dstream/PairDStreamFunctions.scala Spark PairDStream Functions]]
  */
 class PairFunctions[K: TypeTag: ClassTag, V: TypeTag: ClassTag](streamWrapper: NSLDStreamWrapper[(K, V)]) extends Serializable {
-  def reduceByKey(reduceFunc: (V, V) => V, operationId: OperationIds.Value): DStream[(K, V)] = {
+  def reduceByKey(reduceFunc: (V, V) => V, operationId: OperationIds.Value = OperationIds.sum): DStream[(K, V)] = {
     val operation = ReduceByKeyOperation[V](reduceFunc, operationId)
     new NSLDStreamWrapper[(K, V)](streamWrapper.generator, streamWrapper.opLog ++ Seq(operation)).toKVDStream
   }

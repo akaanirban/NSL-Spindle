@@ -15,7 +15,7 @@ trait TopicLookupService {
   /**
    * Get topic for cluster head "received messages"
    */
-  def getClusterInput(node: NodeId): String = mkTopic("-ch-input")
+  def getClusterInput: String = mkTopic("ch-input")
   // Topic for outputting to cloud
   def getClusterOutput(node: NodeId): String = middlewareInput
 

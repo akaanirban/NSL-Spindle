@@ -18,7 +18,7 @@ case class GlobalTopic(topic: String, connectionInfo: KafkaConnectionInfo) {
   * Factory for GlobalTopic objects
   */
 object GlobalTopic {
-  import edu.rpi.cs.nsl.spindle.vehicle.Configuration.{Cloud, Local}
+  import edu.rpi.cs.nsl.spindle.vehicle.Configuration.{Cloud, Local, Vehicle}
   private implicit class ServerList(serverList: List[Server]) {
     def getConnectionString: String = {
       serverList.map(_.getConnectionString).mkString(",")
@@ -33,5 +33,8 @@ object GlobalTopic {
     import Local.kafkaBroker
     import Local.zkString
     GlobalTopic(topic, KafkaConnectionInfo(zkString, brokerString = kafkaBroker.getConnectionString))
+  }
+  def mkGlobalTopic(topic: String, kafkaConnectionInfo: KafkaConnectionInfo): GlobalTopic = {
+    GlobalTopic(topic, kafkaConnectionInfo)
   }
 }

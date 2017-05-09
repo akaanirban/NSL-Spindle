@@ -2,18 +2,18 @@ package edu.rpi.cs.nsl.spindle.vehicle
 
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
+import java.util.concurrent.{Executors, TimeUnit}
 
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
-import edu.rpi.cs.nsl.spindle.vehicle.connections.{Connection, KafkaConnection, Server, ZookeeperConnection}
+import edu.rpi.cs.nsl.spindle.vehicle.connections._
 import edu.rpi.cs.nsl.spindle.vehicle.events.SensorProducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.KafkaQueryUtils._
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{KVReducer, Mapper}
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{ByteRelay, KVReducer, Mapper}
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.vehicle.queries.{Query, QueryLoader}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Await, Future, Promise}
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 
 /**
@@ -40,11 +40,10 @@ object StartupManager {
   }
 }
 
-class QueryManager(kafkaLocal: KafkaConnection) {
-  private val pool = Executors.newCachedThreadPool()
+class QueryManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
   type StreamExecutors = (Mapper[_, _, _, _], KVReducer[_,_])
   @volatile private var prevQueries: Map[Query[_,_], StreamExecutors] = Map()
-  def updateQueries(newQueries: Iterable[Query[_,_]]): Future[Unit] = {
+  def updateQueries(newQueries: Iterable[Query[_,_]]): Future[Boolean] = {
     println(s"Updating with queries $newQueries")
     val prevQuerySet = prevQueries.keySet
     val newQuerySet = newQueries.toSet
@@ -65,36 +64,113 @@ class QueryManager(kafkaLocal: KafkaConnection) {
     // Update queries map
     this.prevQueries = newExecutors
       .foldLeft(prevQueries.filterKeys(queriesToStop.contains(_) == false)){case (queries, queryMap) =>
-          queries + queryMap
+        queries + queryMap
       }
     Future.sequence(stopFutures).map{_ =>
       newExecutors.values.foreach{case (m,r) =>
         //TODO: send canary messages
-          println(s"Running $m $r")
-          m.runAsync(pool)
-          r.runAsync(pool)
-          println(s"Started $m $r")
+        println(s"Running $m $r")
+        m.runAsync(ec)
+        r.runAsync(ec)
+        println(s"Started $m $r")
       }
     }
       .map(_ => println(s"Updated queries to $prevQueries by adding $newExecutors"))
+      // Did anything change?
+      .map(_ => (queriesToStart union queriesToStop).size > 0)
+  }
+}
+
+class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
+
+  // Get clusterhead info from file
+  private val clusterheadConnectionManager: ClusterheadConnectionManager = new StaticClusterheadConnectionManager()
+  @volatile private var relayOption: Option[ByteRelay] = None
+  // Stop relay if it exists
+  private def stopRelay: Future[Unit] ={
+    val stopFuture: Future[Unit] = relayOption match {
+      case None => Future.successful{
+        Unit
+      }
+      case Some(relay) => relay.stop.map { _ =>
+        Unit
+      }
+    }
+    stopFuture
+  }
+  private def mkRelay(inTopics: Set[String]): Future[ByteRelay] = {
+    println(s"Creating new relay $inTopics")
+    clusterheadConnectionManager.getClusterhead
+      .map{kafkaConnectionInfo =>
+        println(s"Got clusterhead info $kafkaConnectionInfo")
+        ByteRelay.mkRelay(inTopics, kafkaConnectionInfo)
+      }
+      .map{relay =>
+        println(s"Starting relay $relay")
+        relay.runAsync(ec)
+        relay
+      }
+  }
+  def updateRelay(newQueries: Iterable[Query[_,_]]): Future[Unit] = {
+    println(s"Updating relay with queries $newQueries")
+    // Get new list of topics
+    val inTopics = newQueries.map(query => TopicLookupService.getMapperOutput(query.mapOperation.uid)).toSet
+    // Asynchronously start new relay
+    val mkRelayFuture: Future[ByteRelay] = mkRelay(inTopics)
+    val stopRelayFuture: Future[ByteRelay] = mkRelayFuture.flatMap{newRelay =>
+      println(s"Created new relay $newRelay")
+      stopRelay.map(_=> newRelay)
+    }
+    stopRelayFuture.map{newRelay =>
+      relayOption = Some(newRelay)
+      Unit
+    }
   }
 }
 
 class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   import Configuration.Vehicle.{numIterations, iterationLengthMs}
+  private val eventPool = Executors.newCachedThreadPool()
+  private implicit val ec = ExecutionContext.fromExecutor(eventPool)
   private val queryLoader: QueryLoader = QueryLoader.getLoader
   private val executionCount = new AtomicLong(0)
   private val queryManager = new QueryManager(kafkaLocal)
+  private val clusterheadRelayManager = new ClusterheadRelayManager(kafkaLocal)
   private val sensorProducer = SensorProducer.load(kafkaLocal)
+
+  private type Queries = Iterable[Query[_,_]]
+
+  /**
+    * Update active mappers/reducers if necessary
+    * @param queries
+    * @return true if mappers/reducers have changed
+    */
+  private def changeQueries(queries: Queries): Future[Option[Queries]] = {
+    queryManager.updateQueries(queries).map{changed =>
+      changed match {
+        case false => None
+        case true => Some(queries)
+      }
+    }
+  }
+
+  /**
+    * Update clusterhead relay if active mappers/reducers have changed
+    * @param queriesOption
+    * @return
+    */
+  private def updateRelay(queriesOption: Option[Queries]): Future[Unit] = queriesOption match {
+    case None => Future.successful(Unit)
+    case Some(newQueries) => clusterheadRelayManager.updateRelay(newQueries)
+  }
+
   private def executeInterval(timestamp: Timestamp): Future[Unit] ={
     val queryFuture = queryLoader.executeInterval(timestamp)
-    //TODO: clusterhead relay
     //TODO: middleware uplink
-    queryFuture
-      .flatMap(queryManager.updateQueries)
-      .map(_ => println("Updated queries"))
-      .flatMap(_ => sensorProducer.executeInterval(timestamp))
-      .map(_ => println("Sent sensor data"))
+    val queryChangeFuture: Future[Option[Queries]] = queryFuture.flatMap(changeQueries)
+    val relayChangeFuture: Future[Unit] = queryChangeFuture.flatMap(updateRelay)
+    val sensorProduceFuture: Future[Unit] = relayChangeFuture.flatMap(_ => sensorProducer.executeInterval(timestamp))
+    sensorProduceFuture
   }
   def start: Future[Unit] = {
     val executor = Executors.newScheduledThreadPool(1)
@@ -114,6 +190,10 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val initialDelay = 0//TODO: calculate based on current time modulo pre-set value s.t. all nodes start at roughly same time
     val execFuture = executor.scheduleAtFixedRate(runnable, initialDelay, iterationLengthMs, TimeUnit.MILLISECONDS)
     completionPromise.future.map(_ => execFuture.cancel(true)).map(_ => executor.shutdownNow()).map(_ => Unit)
+  }
+
+  def stop: Unit = {
+    eventPool.shutdown()
   }
 }
 
@@ -178,7 +258,11 @@ object Main {
       println(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
 
       val eventHandler = new EventHandler(kafkaLocal, kafkaCloud)
-      eventHandler.start.map(_ => shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud))
+      // Wait for event loop to terminate
+      Await.result(eventHandler.start, Duration.Inf)
+      // Shutdown
+      eventHandler.stop
+      shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud)
       //TODO: clean shutdown
     }
   }

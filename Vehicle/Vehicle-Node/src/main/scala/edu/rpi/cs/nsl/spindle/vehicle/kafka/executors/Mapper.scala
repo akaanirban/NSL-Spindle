@@ -81,15 +81,3 @@ object Mapper {
 }
 
 
-/**
-  * Relays messages from one set of servers/topics to another
-  * @param uid
-  * @param sourceTopics
-  * @param sinkTopics
-  * @tparam K
-  * @tparam V
-  */
-class Relay[K: TypeTag, V: TypeTag](uid: String,
-                                    sourceTopics: Set[GlobalTopic],
-                                    sinkTopics: Set[GlobalTopic]) {
-}

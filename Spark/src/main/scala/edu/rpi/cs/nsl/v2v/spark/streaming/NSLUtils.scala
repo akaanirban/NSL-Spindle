@@ -40,7 +40,7 @@ object NSLUtils {
   private def mkGenerator(ssc: StreamingContext, config: StreamConfig): DStreamGenerator = {
     import Configuration._
     // Create Kafka Topic
-    val topic = java.util.UUID.randomUUID.toString
+    import config.topic
     val zkHelper = new ZKHelper(config.zkQuorum, topic)
     val convergeWaitMS = 300 // Time to wait for Kafka to sync with Zookeeper
     zkHelper.registerTopic
@@ -62,7 +62,8 @@ object NSLUtils {
    * VStream Configuration Object
    */
   case class StreamConfig(zkQuorum: String = Zookeeper.connectString,
-                          brokers: String = Configuration.Kafka.brokers)
+                          brokers: String = Configuration.Kafka.brokers,
+                          topic: String = java.util.UUID.randomUUID().toString)
 
   /**
    * Creates an NSL DStream Wrapper of default type

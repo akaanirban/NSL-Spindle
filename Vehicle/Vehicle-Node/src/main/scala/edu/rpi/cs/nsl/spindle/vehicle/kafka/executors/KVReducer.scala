@@ -58,7 +58,8 @@ object KVReducer {
     * @return
     */
   def mkVehicleReducer[K: TypeTag, V: TypeTag](reducerId: String, mapperId: String, reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
-    val sourceTopics = Set(TopicLookupService.getMapperOutput(mapperId)).map(GlobalTopic.mkLocalTopic)
+    // Reducer reads from clusterhead input
+    val sourceTopics = Set(TopicLookupService.getClusterInput).map(GlobalTopic.mkLocalTopic)
     val sinkTopics = Set(TopicLookupService.getReducerOutput(reducerId)).map(GlobalTopic.mkLocalTopic)
     new KVReducer[K,V](uid=reducerId, sourceTopics, sinkTopics, reduceFunc)
   }
