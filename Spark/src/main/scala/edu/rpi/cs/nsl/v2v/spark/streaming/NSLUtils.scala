@@ -1,29 +1,25 @@
 package edu.rpi.cs.nsl.v2v.spark.streaming
 
-import java.util.Properties
-
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-
-import org.I0Itec.zkclient.ZkClient
+import org.I0Itec.zkclient.{ZkClient, ZkConnection}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.kafka.KafkaUtils
 import org.slf4j.LoggerFactory
-
-import Serialization.KafkaKey
-import Serialization.KeyDecoder
-import Serialization.MiddlewareResults
-import Serialization.ValueDecoder
 import edu.rpi.cs.nsl.v2v.configuration.Configuration
 import edu.rpi.cs.nsl.spindle.datatypes.Vehicle
 import edu.rpi.cs.nsl.v2v.spark.streaming.dstream.NSLDStreamWrapper
 import kafka.admin.AdminUtils
-import kafka.utils.ZKStringSerializer
-import kafka.serializer.DefaultDecoder
+import kafka.utils.{ZkUtils}
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import edu.rpi.cs.nsl.spindle.ZKHelper
 import edu.rpi.cs.nsl.spindle.datatypes.operations.Operation
 import edu.rpi.cs.nsl.spindle.Configuration.Zookeeper
+import org.apache.kafka.common.errors.TopicExistsException
+import org.apache.spark.streaming.kafka010.KafkaUtils
+import org.apache.kafka.common.serialization.ByteArrayDeserializer
+import org.apache.kafka.clients.consumer.ConsumerRecord
 
 /**
  * Modeled after KafkaUtils
@@ -44,13 +40,17 @@ object NSLUtils {
     val zkHelper = new ZKHelper(config.zkQuorum, topic)
     val convergeWaitMS = 300 // Time to wait for Kafka to sync with Zookeeper
     zkHelper.registerTopic
-    val zkClient = new ZkClient(config.zkQuorum, Zookeeper.sessionTimeoutMS, Zookeeper.sessionTimeoutMS, ZKStringSerializer)
-    AdminUtils.createTopic(zkClient, topic, Kafka.numPartitions, Kafka.replicationFactor, new Properties) //TODO: handle existing topic (i.e. crash recovery)
+    val zkClient = ZkUtils.createZkClient(config.zkQuorum, Zookeeper.sessionTimeoutMS, Zookeeper.sessionTimeoutMS)
+    val zkUtils = new ZkUtils(zkClient, new ZkConnection(config.zkQuorum), isSecure = false)
+    try {
+      AdminUtils.createTopic(zkUtils, topic, Kafka.numPartitions, Kafka.replicationFactor)
+    } catch {
+      case _: TopicExistsException => logger.warn(s"Topic $topic exists")
+    }
     Thread.sleep(convergeWaitMS) //SLEEP to allow Kafka to sync with Zookeeper //TODO: try getting metadata until available
-    val topicProps = AdminUtils.fetchTopicConfig(zkClient, topic)
-    val topicMetadata = AdminUtils.fetchTopicMetadataFromZk(topic, zkClient)
+    val topicMetadata = AdminUtils.fetchTopicMetadataFromZk(topic, zkUtils)
     zkClient.close
-    logger.info(s"Created topic $topic: $topicProps\n\t${topicMetadata.errorCode}")
+    logger.info(s"Created topic $topic:\n\t${topicMetadata.error().message()}")
     sys.ShutdownHookThread {
       logger.info(s"Shutting down zookeeper helper")
       zkHelper.close
@@ -84,16 +84,20 @@ object NSLUtils {
   /**
    * Generates a Kafka DStream
    */
-  class DStreamGenerator(ssc: StreamingContext, val topicName: String, config: StreamConfig, zkHelper: ZKHelper) {
-    private val kafkaParams = Map[String, String]("metadata.broker.list" -> config.brokers)
+  class DStreamGenerator(ssc: StreamingContext, val topicName: String, config: StreamConfig, zkHelper: ZKHelper) extends Serializable {
+    private val kafkaParams = Map[String, Object]("bootstrap.servers" -> config.brokers,
+                                                  "key.deserializer" -> classOf[ByteArrayDeserializer],
+                                                  "value.deserializer" -> classOf[ByteArrayDeserializer],
+                                                  // Set group ID to app ID
+                                                  "group.id" -> ssc.sparkContext.applicationId)
+
     /**
      * Create Kafka DStream
      */
-    def mkStream(opLog: Seq[Operation[_, _]]): DStream[(KafkaKey, MiddlewareResults)] = {
+    def mkStream(opLog: Seq[Operation[_, _]]): DStream[ConsumerRecord[Array[Byte], Array[Byte]]] = {
       zkHelper.registerQuery(opLog)
       logger.info(s"Connecting to DStream $topicName: $kafkaParams")
-      KafkaUtils.createDirectStream[Array[Byte], Array[Byte], DefaultDecoder, DefaultDecoder](ssc, kafkaParams, Set(topicName))
-        .map { case (key, value) => (new KeyDecoder().fromBytes(key), new ValueDecoder().fromBytes(value)) } //TODO: replace DefaultDecoder with custom
+      KafkaUtils.createDirectStream[Array[Byte], Array[Byte]](ssc, PreferConsistent, Subscribe[Array[Byte], Array[Byte]](Set(topicName), kafkaParams))
     }
     /**
      * Get Kafka topic name

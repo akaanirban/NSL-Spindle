@@ -5,14 +5,14 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{KVReducer, Mapper}
 import edu.rpi.cs.nsl.spindle.vehicle.queries.Query
 
 import scala.reflect.runtime.universe.TypeTag
-
 import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
 
 /**
   * Created by wrkronmiller on 5/3/17.
   */
 object KafkaQueryUtils {
-  implicit class KafkaQuery[MapKey: TypeTag, MapValue: TypeTag](query: Query[MapKey, MapValue]) {
+  implicit class KafkaQuery[MapKey: TypeTag: ClassTag, MapValue: TypeTag: ClassTag](query: Query[MapKey, MapValue]) {
     import query._
     /**
       * Create Kafka Streams executors from query

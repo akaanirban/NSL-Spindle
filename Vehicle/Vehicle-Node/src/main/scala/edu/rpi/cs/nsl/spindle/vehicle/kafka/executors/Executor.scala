@@ -1,6 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.executors
 
-import java.util.concurrent.ExecutorService
+import java.util.concurrent.{ExecutorService, RejectedExecutionException}
 import java.util.concurrent.atomic.AtomicBoolean
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
@@ -11,6 +11,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{ConsumerKafka, KafkaConfig, P
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.MILLISECONDS
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 
 /**
@@ -23,7 +24,7 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam ProducerKey
   * @tparam ProducerVal
   */
-abstract class Executor[ConsumerKey: TypeTag, ConsumerVal: TypeTag, ProducerKey: TypeTag, ProducerVal: TypeTag](uid: String,
+abstract class Executor[ConsumerKey: TypeTag, ConsumerVal: TypeTag, ProducerKey: TypeTag: ClassTag, ProducerVal: TypeTag: ClassTag](uid: String,
                                                                                                        sourceTopics: Set[GlobalTopic],
                                                                                                        sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext) {
   private val running = new AtomicBoolean(true)
@@ -52,7 +53,7 @@ abstract class Executor[ConsumerKey: TypeTag, ConsumerVal: TypeTag, ProducerKey:
   }
   private def mkProducer(connectionInfo: KafkaConnectionInfo, topics: Set[String]) = {
     val config = KafkaConfig().withProducerDefaults.withServers(connectionInfo.brokerString)
-    val producer: ProducerKafka[ProducerKey, ProducerVal] = new ProducerKafka(config)
+    val producer: ProducerKafka[ProducerKey, ProducerVal] = new ProducerKafka[ProducerKey, ProducerVal](config)
     (producer, topics)
   }
   private val consumers: Iterable[ConsumerKafka[ConsumerKey, ConsumerVal]] = sourceTopics
@@ -88,22 +89,24 @@ abstract class Executor[ConsumerKey: TypeTag, ConsumerVal: TypeTag, ProducerKey:
 
 
   private def runIter(sleepInterval: Duration): Unit = {
-    val inMessages = getMessages
-    val outMessages = doTransforms(inMessages)
-    val sendAllFuture = Future.sequence(outMessages.flatMap{case (k,v) => sendMessage(k,v)})
     try {
-      Thread.sleep(sleepInterval.toMillis)
-      if(sendAllFuture.isCompleted == false) {
-        println(s"Warning: not all messages processed in time: $outMessages - $sendAllFuture")
-      }
-      if(running.get() == false) {
+      if(running.get() == false || Thread.interrupted() == true) {
         println(s"Stopping $uid")
         stoppedPromise.success(true)
       } else {
+        val inMessages = getMessages
+        val outMessages = doTransforms(inMessages)
+        val sendAllFuture = Future.sequence(outMessages.flatMap{case (k,v) => sendMessage(k,v)})
+        Thread.sleep(sleepInterval.toMillis)
+        if(sendAllFuture.isCompleted == false) {
+          println(s"Warning: not all messages processed in time: $outMessages - $sendAllFuture")
+        }
         runIter(sleepInterval)
       }
     } catch {
-      case _: InterruptedException => Unit
+      case _: InterruptedException => running.set(false)
+      case _: org.apache.kafka.common.errors.InterruptException => running.set(false)
+      case _: RejectedExecutionException => running.set(false)
     }
   }
 

@@ -4,6 +4,7 @@ import edu.rpi.cs.nsl.spindle.datatypes.Vehicle
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 
 import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 
 /**
@@ -18,7 +19,7 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam K1
   * @tparam V1
   */
-class Mapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](uid: String,
+class Mapper[K: TypeTag: ClassTag, V: TypeTag: ClassTag, K1: TypeTag: ClassTag, V1: TypeTag: ClassTag](uid: String,
                                                                sourceTopics: Set[GlobalTopic],
                                                                sinkTopics: Set[GlobalTopic],
                                                                      mapFunc: ((K, V)) => (K1, V1),
@@ -54,7 +55,7 @@ object Mapper {
     * @tparam V1
     * @return
     */
-  def mkLocalMapper[K: TypeTag, V: TypeTag, K1: TypeTag, V1: TypeTag](mapperId: String,
+  def mkLocalMapper[K: TypeTag: ClassTag, V: TypeTag: ClassTag, K1: TypeTag: ClassTag, V1: TypeTag: ClassTag](mapperId: String,
                                                                       sourceTopicNames: Set[String],
                                                                       sinkTopicNames: Set[String],
                                                                       mapFunc: ((K, V)) => (K1, V1),
@@ -73,7 +74,7 @@ object Mapper {
     * @tparam V
     * @return
     */
-  def mkSensorMapper[K:TypeTag, V: TypeTag](mapperId: String,
+  def mkSensorMapper[K:TypeTag: ClassTag, V: TypeTag: ClassTag](mapperId: String,
                                             mapFunc: ((Any, Vehicle)) => (K, V),
                                             filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext):  Mapper[Any,Vehicle,K,V] = {
     mkLocalMapper[Any, Vehicle, K,V](mapperId, Set(TopicLookupService.getVehicleStatus), Set(TopicLookupService.getMapperOutput(mapperId)), mapFunc, filterFunc)

@@ -1,19 +1,19 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
-import java.io.ByteArrayOutputStream
-import java.io.ObjectOutputStream
-import java.io.ByteArrayInputStream
-import java.io.ObjectInputStream
-import org.apache.kafka.common.serialization.Serializer
-import org.slf4j.LoggerFactory
-import org.apache.kafka.common.serialization.Deserializer
-import org.apache.kafka.common.serialization.Serde
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 
-object ObjectSerializer { //TODO: move serializer to shared
+import org.apache.kafka.common.serialization.{Deserializer, Serde, Serializer}
+import org.slf4j.LoggerFactory
+
+import scala.language.implicitConversions
+import scala.reflect.{classTag, ClassTag}
+import scala.reflect.runtime.universe.TypeTag
+
+object ObjectSerializer {
   /**
    * Convert java object to byte array
    */
-  def serialize[T](obj: T): Array[Byte] = {
+  def serialize[T: TypeTag: ClassTag](obj: T): Array[Byte] = {
     val bytesOut = new ByteArrayOutputStream
     val outStream = new ObjectOutputStream(bytesOut)
     outStream.writeObject(obj)
@@ -27,11 +27,12 @@ object ObjectSerializer { //TODO: move serializer to shared
    *
    * @note Should be moved to shared codebase as it is identical to Serialization.load in Spindle Spark
    */
-  def deserialize[T](data: Array[Byte]): T = {
+  def deserialize[T: TypeTag: ClassTag](data: Array[Byte]): T = {
     val in = new ObjectInputStream(new ByteArrayInputStream(data))
-    val t = in.readObject.asInstanceOf[T]
+    val tObject = in.readUnshared()
+    val tCast = tObject.asInstanceOf[T]
     in.close
-    t
+    tCast
   }
 }
 
@@ -40,7 +41,7 @@ trait SerDeNop {
   def configure(map: java.util.Map[String, _], bool: Boolean) {}
 }
 
-class KafkaSerializer[T] extends Serializer[T] with SerDeNop {
+class KafkaSerializer[T: TypeTag: ClassTag] extends Serializer[T] with SerDeNop {
   private val logger = LoggerFactory.getLogger(this.getClass)
   def serialize(topic: String, t: T): Array[Byte] = {
     ObjectSerializer.serialize(t)
@@ -48,7 +49,7 @@ class KafkaSerializer[T] extends Serializer[T] with SerDeNop {
 }
 
 //scalastyle:off null
-class KafkaDeserializer[T >: Null] extends Deserializer[T] with SerDeNop {
+class KafkaDeserializer[T >: Null: TypeTag: ClassTag] extends Deserializer[T] with SerDeNop {
   def deserialize(topic: String, data: Array[Byte]): T = {
     if (data == null) {
       null
@@ -58,7 +59,7 @@ class KafkaDeserializer[T >: Null] extends Deserializer[T] with SerDeNop {
   }
 }
 
-class KafkaSerde[T >: Null] extends Serde[T] with SerDeNop {
+class KafkaSerde[T >: Null: TypeTag: ClassTag] extends Serde[T] with SerDeNop {
   def deserializer: KafkaDeserializer[T] = new KafkaDeserializer[T]()
   def serializer: KafkaSerializer[T] = new KafkaSerializer[T]()
 }

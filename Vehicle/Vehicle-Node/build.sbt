@@ -5,7 +5,7 @@ scalaVersion := "2.11.8"
 name := "SpindleVehicle"
 
 libraryDependencies += "com.typesafe" % "config" % "1.3.0"
-libraryDependencies += "org.apache.kafka" %% "kafka" % "0.10.2.0"
+//libraryDependencies += "org.apache.kafka" %% "kafka" % "0.10.2.0" //Provided by shared lib
 libraryDependencies += "org.apache.kafka" % "kafka-clients" % "0.10.2.0"
 
 // https://mvnrepository.com/artifact/org.scala-lang/scala-reflect

@@ -6,6 +6,8 @@ name := "shared-lib"
 
 resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven"
 
+// Kafka
+libraryDependencies += "org.apache.kafka" %% "kafka" % "0.10.2.0"
 // Logging
 libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.21"
 // Unit Testing Library

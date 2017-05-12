@@ -5,6 +5,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration, MILLISECONDS}
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 
 /**
@@ -17,7 +18,7 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam K
   * @tparam V
   */
-class KVReducer[K:TypeTag, V:TypeTag](uid: String,
+class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
                                       sourceTopics: Set[GlobalTopic],
                                       sinkTopics: Set[GlobalTopic],
                                       reduceFunc: (V,V) => V)(implicit ec: ExecutionContext)
@@ -57,7 +58,7 @@ object KVReducer {
     * @tparam V
     * @return
     */
-  def mkVehicleReducer[K: TypeTag, V: TypeTag](reducerId: String, mapperId: String, reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
+  def mkVehicleReducer[K: TypeTag: ClassTag, V: TypeTag: ClassTag](reducerId: String, mapperId: String, reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
     // Reducer reads from clusterhead input
     val sourceTopics = Set(TopicLookupService.getClusterInput).map(GlobalTopic.mkLocalTopic)
     val sinkTopics = Set(TopicLookupService.getReducerOutput(reducerId)).map(GlobalTopic.mkLocalTopic)

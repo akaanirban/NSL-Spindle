@@ -2,7 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle
 
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent._
 
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections._
@@ -130,8 +130,29 @@ class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: Executio
 
 class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   import Configuration.Vehicle.{numIterations, iterationLengthMs}
-  private val eventPool = Executors.newCachedThreadPool()
-  private implicit val ec = ExecutionContext.fromExecutor(eventPool)
+  private val pool: ExecutorService = {
+    val numCpus = Runtime.getRuntime.availableProcessors()
+    val corePoolSize = numCpus * 10 //TODO: make configuration property
+    val maxPoolSize = corePoolSize * 2 //TODO: make configuration property
+    val keepAliveMs = 0 //TODO: make configuration property
+    val threadFactory = new ThreadFactory {
+      private val threadNum = new AtomicLong()
+      override def newThread(r: Runnable): Thread = {
+        val thread = new Thread(r)
+        thread.setName(s"EventThread-${threadNum.getAndIncrement()}")
+        thread.setDaemon(false)
+        thread
+      }
+    }
+    val pool = new ThreadPoolExecutor(corePoolSize, maxPoolSize, keepAliveMs, TimeUnit.MILLISECONDS, new LinkedBlockingQueue[Runnable](), threadFactory)
+    pool.setRejectedExecutionHandler(new RejectedExecutionHandler {
+      override def rejectedExecution(r: Runnable, executor: ThreadPoolExecutor): Unit = {
+        println(s"Rejecting $r")
+      }
+    })
+    pool
+  }
+  private implicit val ec = ExecutionContext.fromExecutor(pool)
   private val queryLoader: QueryLoader = QueryLoader.getLoader
   private val executionCount = new AtomicLong(0)
   private val queryManager = new QueryManager(kafkaLocal)
@@ -176,7 +197,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val executor = Executors.newScheduledThreadPool(1)
     val completionPromise = Promise[Unit]()
     val runnable = new Runnable {
-      private val logger = LoggerFactory.getLogger("EventHandlerThread")
+      private val logger = LoggerFactory.getLogger(this.getClass)
       override def run() = {
         logger.debug("Executing")
         Await.result(executeInterval(System.currentTimeMillis()), Duration.Inf)
@@ -193,7 +214,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   }
 
   def stop: Unit = {
-    eventPool.shutdown()
+    pool.shutdownNow()
   }
 }
 
@@ -252,7 +273,7 @@ object Main {
   def main(argv: Array[String]): Unit ={
     startZkLocal
     startKafkaLocal
-    if(getDebugMode == false) {
+    if(getDebugMode == false) {//TODO: remove this check
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal
       val (zkCloud, kafkaCloud) = StartupManager.waitCloud
       println(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")

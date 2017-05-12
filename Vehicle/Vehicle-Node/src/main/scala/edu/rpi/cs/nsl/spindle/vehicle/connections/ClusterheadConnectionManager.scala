@@ -25,3 +25,5 @@ class StaticClusterheadConnectionManager extends ClusterheadConnectionManager{
     }
   }
 }
+
+//TODO: for simulation get clusterhead from central source such as zookeeper - implement a new subclass of ClusterheadConnectionManager and instantiate it in Main.scala

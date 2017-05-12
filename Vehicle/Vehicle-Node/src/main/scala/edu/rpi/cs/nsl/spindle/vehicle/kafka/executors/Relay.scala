@@ -1,7 +1,9 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.executors
 
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
+
 import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 
 /**
@@ -12,7 +14,7 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam K
   * @tparam V
   */
-class Relay[K: TypeTag, V: TypeTag](uid: String,
+class Relay[K: TypeTag: ClassTag, V: TypeTag: ClassTag](uid: String,
                                     sourceTopics: Set[GlobalTopic],
                                     sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext) extends Executor[K,V,K,V](uid, sourceTopics, sinkTopics){
   /**

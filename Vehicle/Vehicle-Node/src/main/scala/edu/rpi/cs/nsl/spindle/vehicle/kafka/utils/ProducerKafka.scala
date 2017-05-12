@@ -8,11 +8,9 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.blocking
 import scala.concurrent.duration._
-
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.slf4j.LoggerFactory
-
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Producer
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.SendResult
 import kafka.common.UnknownTopicOrPartitionException
@@ -20,10 +18,12 @@ import kafka.common.UnknownTopicOrPartitionException
 import scala.reflect.runtime.universe._
 import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 
+import scala.reflect.ClassTag
+
 /**
  * Kafka producer
  */
-class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Producer[K, V] {
+class ProducerKafka[K: TypeTag: ClassTag, V: TypeTag: ClassTag](config: KafkaConfig) extends Producer[K, V] {
   private val logger = LoggerFactory.getLogger("ProducerKafka")
   private val kafkaProducer = new KafkaProducer[ByteArray, ByteArray](config.properties)
   private implicit val executionContext = ExecutionContext.global
@@ -68,7 +68,7 @@ class ProducerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Produce
 /**
  * Sends only to a single topic
  */
-class SingleTopicProducerKakfa[K: TypeTag, V: TypeTag](topic: String, config: KafkaConfig) extends ProducerKafka[K, V](config) {
+class SingleTopicProducerKakfa[K: TypeTag: ClassTag, V: TypeTag: ClassTag](topic: String, config: KafkaConfig) extends ProducerKafka[K, V](config) {
   private val logger = LoggerFactory.getLogger(s"Single Topic Producer $topic")
   def send(key: K, value: V): Future[SendResult] = super.send(topic, key, value)
   override def close: Unit = {

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.Consumer
 import scala.concurrent.duration._
 import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
+import scala.reflect.runtime.universe.TypeTag
 
 class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerRebalanceListener {
   type PartitionCollection = java.util.Collection[TopicPartition]
@@ -45,7 +46,7 @@ class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends Con
   * @tparam K
   * @tparam V
   */
-class ConsumerKafka[K, V](config: KafkaConfig) extends Consumer[K, V] {
+class ConsumerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Consumer[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private[utils] val kafkaConsumer = new KafkaConsumer[ByteArray, ByteArray](config.properties)
 

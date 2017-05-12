@@ -9,6 +9,7 @@ import scala.reflect.runtime.universe.TypeTag
 import scala.concurrent.{Await, Future, blocking}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -41,7 +42,7 @@ class KafkaConnection(brokers: Iterable[Server], zkString: String) extends Conne
     * @tparam V Value Type
     * @return a new ProducerKafka instance
     */
-  def getProducer[K: TypeTag, V: TypeTag]: ProducerKafka[K,V] = {
+  def getProducer[K: TypeTag: ClassTag, V: TypeTag: ClassTag]: ProducerKafka[K,V] = {
     new ProducerKafka[K,V](getProducerConfig)
   }
 

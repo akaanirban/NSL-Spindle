@@ -9,10 +9,16 @@ resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven
 // Logging
 libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.21"
 // Spark
-libraryDependencies += "org.apache.spark" %% "spark-core" % "2.0.1" % "provided"
-libraryDependencies += "org.apache.spark" %% "spark-streaming" % "2.0.1" % "provided"
-libraryDependencies += "org.apache.spark" %% "spark-streaming-kafka-0-8" % "2.0.1" % "provided"
-libraryDependencies += "org.apache.kafka" %% "kafka" % "0.8.2.2"
+//libraryDependencies += "org.apache.spark" %% "spark-core" % "2.0.1" % "provided"
+//libraryDependencies += "org.apache.spark" %% "spark-streaming" % "2.0.1" % "provided"
+//libraryDependencies += "org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.0.1" % "provided"
+
+libraryDependencies += "org.apache.spark" %% "spark-core" % "2.0.1"
+libraryDependencies += "org.apache.spark" %% "spark-streaming" % "2.0.1"
+libraryDependencies += "org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.0.1"
+
+// Kafka uitls
+libraryDependencies += "org.apache.kafka" %% "kafka" % "0.10.2.0"
 // Unit Testing Library
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 // Zookeeper

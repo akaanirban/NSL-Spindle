@@ -1,17 +1,17 @@
 package edu.rpi.cs.nsl.v2v.spark.streaming.dstream
 
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe.TypeTag
-
+import scala.reflect.runtime.universe.{typeTag, TypeTag}
 import org.apache.spark.streaming.dstream.DStream
-
 import edu.rpi.cs.nsl.v2v.spark.streaming.NSLUtils
-
-import edu.rpi.cs.nsl.v2v.spark.streaming.Serialization.{ KafkaKey, MiddlewareResults }
+import edu.rpi.cs.nsl.v2v.spark.streaming.Serialization.{KafkaKey, MiddlewareResults}
 import edu.rpi.cs.nsl.spindle.datatypes.operations.OperationIds
 import edu.rpi.cs.nsl.spindle.datatypes.operations.MapOperation
 import edu.rpi.cs.nsl.spindle.datatypes.operations.ReduceByKeyOperation
 import edu.rpi.cs.nsl.spindle.datatypes.operations.Operation
+import edu.rpi.cs.nsl.spindle.vehicle.{ReflectionUtils, TypedValue}
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
+import org.apache.kafka.clients.consumer.ConsumerRecord
 
 /**
  * NSL V2V Spark DStream Wrapper Base Class
@@ -32,28 +32,20 @@ import edu.rpi.cs.nsl.spindle.datatypes.operations.Operation
 class NSLDStreamWrapper[T: TypeTag: ClassTag](private[dstream] val generator: NSLUtils.DStreamGenerator,
                                               private[dstream] val opLog: Seq[Operation[_, _]] = Seq())
     extends Serializable {
-  protected[dstream] def getMappedStream = {
-    generator
-      .mkStream(opLog)
-      .map {
-        case (key: KafkaKey, value: MiddlewareResults) =>
-          value.value.asInstanceOf[T]
-      }
-  }
   /**
    * Get actual DStream
    *
    */
-  protected[dstream] def toDStream: DStream[T] = {
+  /*protected[dstream] def toDStream: DStream[T] = {
     val operation = {
       val lastOp = opLog.last
       val lastOpClass = lastOp.getClass.toString
       val reduceClass = ReduceByKeyOperation.getClass.toString.replace("$", "")
       assert(lastOpClass.equals(reduceClass), s"Last operation needs to be a reduce $lastOp")
-      lastOp.asInstanceOf[ReduceByKeyOperation[T]]
+      lastOp.asInstanceOf[ReduceOperation[T]]
     }
     getMappedStream.reduce(operation.f)
-  }
+  }*/
 
   /**
    * Special annotated map function
@@ -82,11 +74,45 @@ class NSLDStreamWrapper[T: TypeTag: ClassTag](private[dstream] val generator: NS
     val operation = ReduceOperation[T, T](reduceFunc, operationId)
     new NSLDStreamWrapper(generator, opLog ++ Seq(operation)).toDStream
   }*/
+
+  private[dstream] def getStream[K: TypeTag, V: TypeTag]: DStream[(Array[Byte],Array[Byte])] = {
+    generator.mkStream(opLog)
+      .filter(_ != null)
+      .map(record => (record.key(), record.value()))
+  }
 }
 
 object NSLDStreamWrapper {
   implicit def toPairFunctions[K: TypeTag: ClassTag, V: TypeTag: ClassTag](stream: NSLDStreamWrapper[(K, V)]): PairFunctions[K, V] = {
     new PairFunctions[K, V](stream)
+  }
+}
+
+/**
+  * Deserializiation and reduction utilities with clean closure
+  */
+object DeserializationUtils {
+  def isCanary(bytes: Array[Byte]): Boolean = {
+    ObjectSerializer.deserialize[TypedValue[_]](bytes).isCanary
+  }
+  def isType[T: TypeTag](bytes: Array[Byte]): Boolean = {
+    val taggedElem: TypedValue[T] = ObjectSerializer.deserialize[TypedValue[T]](bytes)
+    val bytesType = taggedElem.getType
+    println(s"TODO: compare types: ${typeTag[T].tpe} ?= $bytesType aka ${taggedElem.getClassString} -> ${bytesType =:= typeTag[T].tpe}")
+    //TODO: actually validate type
+    true
+  }
+  def reduceByKeyOnStream[K: TypeTag: ClassTag, V: TypeTag: ClassTag](reduceFunc: (V, V) => V, rawStream: DStream[(Array[Byte], Array[Byte])]) = {
+    val filteredStream = rawStream.filter{case (k, _) => isCanary(k) == false}
+      // Make sure data types are correct
+      .filter{case (k,v) =>
+        println(s"Checking type on ($k,$v)")
+        isType[K](k) && isType[V](v)
+      }
+    val deserializedStream = filteredStream.map{case(k,v) =>
+      (ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
+    }
+    deserializedStream.reduceByKey(reduceFunc)
   }
 }
 
@@ -110,8 +136,6 @@ class PairFunctions[K: TypeTag: ClassTag, V: TypeTag: ClassTag](streamWrapper: N
       assert(lastOpClass.equals(reduceClass), s"Last operation needs to be a reduce $lastOpClass != $reduceClass")
       lastOp.asInstanceOf[ReduceByKeyOperation[V]]
     }
-    streamWrapper
-      .getMappedStream
-      .reduceByKey(operation.f)
+    DeserializationUtils.reduceByKeyOnStream(operation.f, streamWrapper.getStream[K,V])
   }
 }
