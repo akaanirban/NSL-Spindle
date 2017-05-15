@@ -24,7 +24,7 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam ProducerKey
   * @tparam ProducerVal
   */
-abstract class Executor[ConsumerKey: TypeTag, ConsumerVal: TypeTag, ProducerKey: TypeTag: ClassTag, ProducerVal: TypeTag: ClassTag](uid: String,
+abstract class Executor[ConsumerKey: TypeTag: ClassTag, ConsumerVal: TypeTag: ClassTag, ProducerKey: TypeTag: ClassTag, ProducerVal: TypeTag: ClassTag](uid: String,
                                                                                                        sourceTopics: Set[GlobalTopic],
                                                                                                        sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext) {
   private val running = new AtomicBoolean(true)

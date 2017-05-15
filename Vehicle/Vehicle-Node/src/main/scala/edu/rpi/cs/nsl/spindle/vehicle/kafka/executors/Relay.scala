@@ -16,7 +16,8 @@ import scala.reflect.runtime.universe.TypeTag
   */
 class Relay[K: TypeTag: ClassTag, V: TypeTag: ClassTag](uid: String,
                                     sourceTopics: Set[GlobalTopic],
-                                    sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext) extends Executor[K,V,K,V](uid, sourceTopics, sinkTopics){
+                                    sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext)
+  extends Executor[K,V,K,V](uid, sourceTopics, sinkTopics){
   /**
     * Perform identity transformation (change nothing)
     *
@@ -37,9 +38,12 @@ class Relay[K: TypeTag: ClassTag, V: TypeTag: ClassTag](uid: String,
   */
 class ByteRelay(uid: String,
                 sourceTopics: Set[GlobalTopic],
-                sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext) extends Relay[Array[Byte], Array[Byte]](uid, sourceTopics, sinkTopics)
+                sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext)
+  extends Relay[Array[Byte], Array[Byte]](uid, sourceTopics, sinkTopics)
 
-
+/**
+  * Factory for ByteRelays
+  */
 object ByteRelay {
   def mkRelay(inTopics: Set[String], destination: KafkaConnectionInfo)(implicit ec: ExecutionContext) = {
     val sourceTopics = inTopics.map(GlobalTopic.mkLocalTopic)
