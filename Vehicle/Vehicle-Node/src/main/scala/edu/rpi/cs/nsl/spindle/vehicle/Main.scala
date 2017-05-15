@@ -40,6 +40,11 @@ object StartupManager {
   }
 }
 
+/**
+  * Responsible for launching/killing Kafka executors based on the current set of map/reduce queries
+  * @param kafkaLocal
+  * @param ec
+  */
 class QueryManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
   type StreamExecutors = (Mapper[_, _, _, _], KVReducer[_,_])
   @volatile private var prevQueries: Map[Query[_,_], StreamExecutors] = Map()
@@ -82,7 +87,6 @@ class QueryManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
 }
 
 class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
-
   // Get clusterhead info from file
   private val clusterheadConnectionManager: ClusterheadConnectionManager = new StaticClusterheadConnectionManager()
   @volatile private var relayOption: Option[ByteRelay] = None
@@ -185,6 +189,11 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     case Some(newQueries) => clusterheadRelayManager.updateRelay(newQueries)
   }
 
+  /**
+    * The main event loop (recursive)
+    * @param timestamp
+    * @return
+    */
   private def executeInterval(timestamp: Timestamp): Future[Unit] ={
     val queryFuture = queryLoader.executeInterval(timestamp)
     //TODO: middleware uplink

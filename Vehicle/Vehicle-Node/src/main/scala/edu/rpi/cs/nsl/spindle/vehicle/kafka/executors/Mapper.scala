@@ -19,12 +19,16 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam K1
   * @tparam V1
   */
-class Mapper[K: TypeTag: ClassTag, V: TypeTag: ClassTag, K1: TypeTag: ClassTag, V1: TypeTag: ClassTag](uid: String,
-                                                               sourceTopics: Set[GlobalTopic],
-                                                               sinkTopics: Set[GlobalTopic],
-                                                                     mapFunc: ((K, V)) => (K1, V1),
-                                                                     filterFunc: (K,V) => Boolean)(implicit ec: ExecutionContext)
-extends Executor[K,V,K1,V1](uid, sourceTopics, sinkTopics){
+abstract class Mapper[K: TypeTag: ClassTag,
+V: TypeTag: ClassTag,
+K1: TypeTag: ClassTag,
+V1: TypeTag: ClassTag](uid: String,
+                       queryUid: Option[String],
+                       sourceTopics: Set[GlobalTopic],
+                       sinkTopics: Set[GlobalTopic],
+                       mapFunc: ((K, V)) => (K1, V1),
+                       filterFunc: (K,V) => Boolean)(implicit ec: ExecutionContext)
+  extends Executor[K,V,K1,V1](uid, sourceTopics, sinkTopics, queryUid){
   /**
     * Do filter then map over message streams
     *
@@ -36,33 +40,54 @@ extends Executor[K,V,K1,V1](uid, sourceTopics, sinkTopics){
       .filter{case (k,v) => filterFunc(k,v)}
       .map(mapFunc)
   }
+
+  override def getConsumerQueryUid: Option[String] = ???
+}
+
+/**
+  * Perform map operations over sensor data
+  * @param uid
+  * @param queryUid
+  * @param sourceTopics
+  * @param sinkTopics
+  * @param mapFunc
+  * @param filterFunc
+  * @param ec
+  * @tparam K1
+  * @tparam V1
+  */
+class SensorMapper[K1: TypeTag: ClassTag,
+V1: TypeTag: ClassTag](uid: String,
+                       queryUid: Option[String],
+                       sourceTopics: Set[GlobalTopic],
+                       sinkTopics: Set[GlobalTopic],
+                       mapFunc: ((Any, Vehicle)) => (K1, V1),
+                       filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext)
+  extends Mapper[Any,Vehicle,K1,V1](uid: String,
+    queryUid: Option[String],
+    sourceTopics: Set[GlobalTopic],
+    sinkTopics: Set[GlobalTopic],
+    mapFunc: ((Any, Vehicle)) => (K1, V1),
+    filterFunc: (Any,Vehicle) => Boolean){
+
+  // Sensor data has no query UID tag
+  override def getConsumerQueryUid: Option[String] = None
 }
 
 /**
   * Factory for Kafka Mapper
   */
 object Mapper {
-  /**
-    * Make a mapper that runs on local kafka cluster
-    * @param mapperId
-    * @param sourceTopicNames
-    * @param sinkTopicNames
-    * @param mapFunc
-    * @param filterFunc
-    * @tparam K
-    * @tparam V
-    * @tparam K1
-    * @tparam V1
-    * @return
-    */
-  def mkLocalMapper[K: TypeTag: ClassTag, V: TypeTag: ClassTag, K1: TypeTag: ClassTag, V1: TypeTag: ClassTag](mapperId: String,
-                                                                      sourceTopicNames: Set[String],
-                                                                      sinkTopicNames: Set[String],
-                                                                      mapFunc: ((K, V)) => (K1, V1),
-                                                                      filterFunc: (K,V) => Boolean)(implicit ec: ExecutionContext): Mapper[K,V,K1,V1] = {
+  private def mkSensorMapper_[K1: TypeTag: ClassTag,
+  V1: TypeTag: ClassTag](mapperId: String,
+                         queryUid: Option[String],
+                         sourceTopicNames: Set[String],
+                         sinkTopicNames: Set[String],
+                         mapFunc: ((Any, Vehicle)) => (K1, V1),
+                         filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext): Mapper[Any,Vehicle,K1,V1] = {
     val sourceTopics = sourceTopicNames.map(GlobalTopic.mkLocalTopic)
     val sinkTopics = sinkTopicNames.map(GlobalTopic.mkLocalTopic)
-    new Mapper[K,V,K1,V1](mapperId, sourceTopics, sinkTopics, mapFunc, filterFunc)
+    new SensorMapper[K1,V1](mapperId, queryUid, sourceTopics, sinkTopics, mapFunc, filterFunc)
   }
 
   /**
@@ -70,14 +95,16 @@ object Mapper {
     * @param mapperId
     * @param mapFunc
     * @param filterFunc
-    * @tparam K
-    * @tparam V
+    * @tparam K1
+    * @tparam V1
     * @return
     */
-  def mkSensorMapper[K:TypeTag: ClassTag, V: TypeTag: ClassTag](mapperId: String,
-                                            mapFunc: ((Any, Vehicle)) => (K, V),
-                                            filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext):  Mapper[Any,Vehicle,K,V] = {
-    mkLocalMapper[Any, Vehicle, K,V](mapperId, Set(TopicLookupService.getVehicleStatus), Set(TopicLookupService.getMapperOutput(mapperId)), mapFunc, filterFunc)
+  def mkSensorMapper[K1:TypeTag: ClassTag,
+  V1: TypeTag: ClassTag](mapperId: String,
+                        queryUid: String,
+                        mapFunc: ((Any, Vehicle)) => (K1, V1),
+                        filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext):  Mapper[Any,Vehicle,K1,V1] = {
+    mkSensorMapper_[K1,V1](mapperId, Some(queryUid), Set(TopicLookupService.getVehicleStatus), Set(TopicLookupService.getMapperOutput(mapperId)), mapFunc, filterFunc)
   }
 }
 

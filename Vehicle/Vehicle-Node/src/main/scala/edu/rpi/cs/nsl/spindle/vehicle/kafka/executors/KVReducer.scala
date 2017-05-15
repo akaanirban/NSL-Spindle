@@ -10,7 +10,7 @@ import scala.reflect.runtime.universe.TypeTag
 
 /**
   * Perform ReduceByKey on Kafka messages
- *
+  *
   * @param uid
   * @param sourceTopics
   * @param sinkTopics
@@ -19,10 +19,11 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam V
   */
 class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
-                                      sourceTopics: Set[GlobalTopic],
-                                      sinkTopics: Set[GlobalTopic],
-                                      reduceFunc: (V,V) => V)(implicit ec: ExecutionContext)
-  extends Executor[K,V,K,V](uid, sourceTopics, sinkTopics) {
+                                                          queryUid: String,
+                                                          sourceTopics: Set[GlobalTopic],
+                                                          sinkTopics: Set[GlobalTopic],
+                                                          reduceFunc: (V,V) => V)(implicit ec: ExecutionContext)
+  extends Executor[K,V,K,V](uid, sourceTopics, sinkTopics, Some(queryUid)) {
   /**
     * Perform executor-specific transformations
     *
@@ -58,10 +59,14 @@ object KVReducer {
     * @tparam V
     * @return
     */
-  def mkVehicleReducer[K: TypeTag: ClassTag, V: TypeTag: ClassTag](reducerId: String, mapperId: String, reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
+  def mkVehicleReducer[K: TypeTag: ClassTag,
+  V: TypeTag: ClassTag](reducerId: String,
+                        queryUid: String,
+                        mapperId: String,
+                        reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
     // Reducer reads from clusterhead input
     val sourceTopics = Set(TopicLookupService.getClusterInput).map(GlobalTopic.mkLocalTopic)
     val sinkTopics = Set(TopicLookupService.getReducerOutput(reducerId)).map(GlobalTopic.mkLocalTopic)
-    new KVReducer[K,V](uid=reducerId, sourceTopics, sinkTopics, reduceFunc)
+    new KVReducer[K,V](uid=reducerId, queryUid=queryUid, sourceTopics, sinkTopics, reduceFunc)
   }
 }

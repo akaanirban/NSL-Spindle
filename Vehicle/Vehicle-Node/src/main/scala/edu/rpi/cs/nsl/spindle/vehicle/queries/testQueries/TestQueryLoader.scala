@@ -10,15 +10,17 @@ import edu.rpi.cs.nsl.spindle.vehicle.queries.Query
   */
 object TestQueryLoader {
   val testQueries: Map[String, Query[_, _]] = {
-    Seq(Query("globalSpeedAvg",
+    val globalSpeedAvg: Query[_, _] = Query("globalSpeedAvg",
       MapOperation[(_, Vehicle), (_, (MPH, Long))](f=TestMappers.getSpeedAndCount, uid="getSpeedAndCount"),
-      ReduceByKeyOperation[(MPH, Long)](TestReducers.sumSpeedAndCount, OperationIds.sum, uid="sumSpeedAndCount")))
+      ReduceByKeyOperation[(MPH, Long)](TestReducers.sumSpeedAndCount, OperationIds.sum, uid="sumSpeedAndCount"))
+    // Create map from query ID to query object
+    Seq(globalSpeedAvg)
       .map(entry => (entry.id -> entry))
       .toMap
   }
 
+  // Get a query by its string name using testQueries map (used in QueryLoader.scala)
   def stringsToQueries(strings: List[String]): List[Query[_,_]] = strings.map(testQueries(_))
-
 }
 
 object TestReducers {
