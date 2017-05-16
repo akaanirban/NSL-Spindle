@@ -2,6 +2,12 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
 import java.io.{File, PrintWriter}
 
+/**
+  * Used to log performance data to CSV file
+  * @param relayId
+  * @param inTopics
+  * @param outTopic
+  */
 class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopic: String) extends MessageLogger(inTopics: Set[String], outTopic: String) {
   private def currentTime = System.currentTimeMillis()
   private def getNewPath(pathPrefix: String, pathSuffix: String, appendNum: Long = 0): String = {

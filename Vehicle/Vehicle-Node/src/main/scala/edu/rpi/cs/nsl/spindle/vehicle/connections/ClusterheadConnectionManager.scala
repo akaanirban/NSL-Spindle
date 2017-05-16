@@ -2,6 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.connections
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.KafkaConnectionInfo
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -17,10 +18,11 @@ trait ClusterheadConnectionManager {
   */
 class StaticClusterheadConnectionManager extends ClusterheadConnectionManager{
   import Configuration.Vehicle.{clusterheadZkString, clusterheadBroker}
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val connectionInfo = KafkaConnectionInfo(clusterheadZkString, clusterheadBroker)
   override def getClusterhead(implicit ec: ExecutionContext): Future[KafkaConnectionInfo] = {
     Future.successful(connectionInfo).map{connectionInfo =>
-      println(s"Sending $connectionInfo")
+      logger.debug(s"Sending $connectionInfo")
       connectionInfo
     }
   }

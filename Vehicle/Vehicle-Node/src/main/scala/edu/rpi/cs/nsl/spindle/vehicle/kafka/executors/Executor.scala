@@ -1,12 +1,13 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.executors
 
-import java.util.concurrent.{ExecutorService, RejectedExecutionException}
+import java.util.concurrent.{RejectedExecutionException}
 import java.util.concurrent.atomic.AtomicBoolean
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.connections.KafkaConnection
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.SendResult
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{ConsumerKafka, KafkaConfig, ProducerKafka}
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
@@ -16,7 +17,7 @@ import scala.reflect.runtime.universe.TypeTag
 
 /**
   * Top level class for kafka stream transformation executors (e.g. Mappers, Reducers)
-  * @param uid
+  * @param uid - unique identifier (has to be different for every executor)
   * @param sourceTopics
   * @param sinkTopics
   * @tparam ConsumerKey
@@ -24,9 +25,13 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam ProducerKey
   * @tparam ProducerVal
   */
-abstract class Executor[ConsumerKey: TypeTag: ClassTag, ConsumerVal: TypeTag: ClassTag, ProducerKey: TypeTag: ClassTag, ProducerVal: TypeTag: ClassTag](uid: String,
-                                                                                                       sourceTopics: Set[GlobalTopic],
-                                                                                                       sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext) {
+abstract class Executor[ConsumerKey: TypeTag: ClassTag,
+ConsumerVal: TypeTag: ClassTag,
+ProducerKey: TypeTag: ClassTag,
+ProducerVal: TypeTag: ClassTag](uid: String,
+                                sourceTopics: Set[GlobalTopic],
+                                sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val running = new AtomicBoolean(true)
   private var stoppedPromise: Promise[Boolean] = _
   private implicit class GlobalTopicSet(globalTopicSet: Set[GlobalTopic]) {
@@ -42,39 +47,42 @@ abstract class Executor[ConsumerKey: TypeTag: ClassTag, ConsumerVal: TypeTag: Cl
     Future.sequence(topics.toSeq.map(admin.mkTopic(_))).map(_ => Unit)
   }
 
+  protected def getConsumerQueryUid: Option[String] = None
+  protected def getProducerQueryUid: Option[String] = None
+
   private def mkConsumer(connectionInfo: KafkaConnectionInfo, topics: Set[String]) = {
-    println(s"Stream executor $uid initializing topics $topics")
+    logger.debug(s"Stream executor $uid initializing topics $topics")
     Await.ready(initTopics(connectionInfo, topics), Duration.Inf) //TODO: use futures
-    println(s"Stream executor $uid initialized topics $topics")
+    logger.debug(s"Stream executor $uid initialized topics $topics")
     val config = KafkaConfig().withConsumerDefaults.withConsumerGroup(uid).withServers(connectionInfo.brokerString)
-    val consumer: ConsumerKafka[ConsumerKey, ConsumerVal] = new ConsumerKafka[ConsumerKey, ConsumerVal](config)
+    val consumer: ConsumerKafka[ConsumerKey, ConsumerVal] = new ConsumerKafka[ConsumerKey, ConsumerVal](config, queryUid = getConsumerQueryUid)
     consumer.subscribe(topics)
     consumer
   }
   private def mkProducer(connectionInfo: KafkaConnectionInfo, topics: Set[String]) = {
     val config = KafkaConfig().withProducerDefaults.withServers(connectionInfo.brokerString)
-    val producer: ProducerKafka[ProducerKey, ProducerVal] = new ProducerKafka[ProducerKey, ProducerVal](config)
+    val producer: ProducerKafka[ProducerKey, ProducerVal] = new ProducerKafka[ProducerKey, ProducerVal](config, queryUid = getProducerQueryUid)
     (producer, topics)
   }
-  private val consumers: Iterable[ConsumerKafka[ConsumerKey, ConsumerVal]] = sourceTopics
+  protected val consumers: Iterable[ConsumerKafka[ConsumerKey, ConsumerVal]] = sourceTopics
     .getBrokerMap
     .map{case(connectionInfo, topics) => mkConsumer(connectionInfo, topics)}
 
-  println(s"Stream executor $uid created consumers $consumers")
+  logger.debug(s"Stream executor $uid created consumers $consumers")
 
-  private val producers: Iterable[(ProducerKafka[ProducerKey, ProducerVal], Set[String])] = sinkTopics
+  protected val producers: Iterable[(ProducerKafka[ProducerKey, ProducerVal], Set[String])] = sinkTopics
     .getBrokerMap
     .map{case(connectionInfo, topics) => mkProducer(connectionInfo, topics)}
 
-  println(s"Stream executor $uid created producers $producers")
+  logger.debug(s"Stream executor $uid created producers $producers")
 
   protected def getMessages: Iterable[(ConsumerKey, ConsumerVal)] = {
-    println(s"Stream executor $uid getting messages from $sourceTopics")
+    logger.trace(s"Stream executor $uid getting messages from $sourceTopics")
     consumers.toSeq.flatMap(_.getMessages)
   }
 
   protected def sendMessage(k: ProducerKey, v: ProducerVal): Seq[Future[SendResult]] = {
-    println(s"Stream executor $uid sending ($k,$v) to $sinkTopics")
+    logger.trace(s"Stream executor $uid sending ($k,$v) to $sinkTopics")
     producers.toSeq.flatMap{case (producer, topics) =>
       topics.map(producer.sendKafka(_, k,v))
     }
@@ -87,19 +95,27 @@ abstract class Executor[ConsumerKey: TypeTag: ClassTag, ConsumerVal: TypeTag: Cl
     */
   protected def doTransforms(messages: Iterable[(ConsumerKey, ConsumerVal)]): Iterable[(ProducerKey, ProducerVal)]
 
+  /**
+    * Get messages, apply transformation, publish results
+    * @return Future for message publication
+    */
+  protected def getThenTransform: Future[Iterable[SendResult]] = {
+    val inMessages = getMessages
+    val outMessages = doTransforms(inMessages)
+    logger.debug(s"$uid transformed $inMessages to $outMessages")
+    Future.sequence(outMessages.flatMap{case (k,v) => sendMessage(k,v)})
+  }
 
   private def runIter(sleepInterval: Duration): Unit = {
     try {
       if(running.get() == false || Thread.interrupted() == true) {
-        println(s"Stopping $uid")
+        logger.debug(s"Stopping $uid")
         stoppedPromise.success(true)
       } else {
-        val inMessages = getMessages
-        val outMessages = doTransforms(inMessages)
-        val sendAllFuture = Future.sequence(outMessages.flatMap{case (k,v) => sendMessage(k,v)})
+        val sendAllFuture = getThenTransform
         Thread.sleep(sleepInterval.toMillis)
         if(sendAllFuture.isCompleted == false) {
-          println(s"Warning: not all messages processed in time: $outMessages - $sendAllFuture")
+          logger.warn(s"Warning: not all messages processed in time: $sendAllFuture")
         }
         runIter(sleepInterval)
       }
@@ -116,7 +132,7 @@ abstract class Executor[ConsumerKey: TypeTag: ClassTag, ConsumerVal: TypeTag: Cl
   }
 
   def runAsync(pool: ExecutionContext, sleepInterval: Duration = Duration(Configuration.Streams.commitMs, MILLISECONDS)): Unit = {
-    println(s"Starting $uid")
+    logger.debug(s"Starting $uid")
     val that = this
     pool.execute(() => {
       that.run(sleepInterval)
@@ -124,7 +140,7 @@ abstract class Executor[ConsumerKey: TypeTag: ClassTag, ConsumerVal: TypeTag: Cl
   }
 
   def stop: Future[Boolean] = {
-    println(s"Stopping $uid")
+    logger.debug(s"Stopping $uid")
     running.set(false)
     stoppedPromise.future
   }

@@ -24,15 +24,15 @@ class KafkaAdmin(zkString: String) {
   // Code returned when there is no error
   private val KAFKA_PARTITION_NO_ERROR_CODE = 0
 
-  println(s"Creating zkClient $zkString")
+  logger.debug(s"Creating zkClient $zkString")
   private val zkClient = ZkUtils.createZkClient(zkString, sessionTimeoutMs, connectTimeoutMs)
-  println(s"Finished creating zkClient $zkString")
+  logger.debug(s"Finished creating zkClient $zkString")
   private val zkUtils = new ZkUtils(zkClient, new ZkConnection(zkString), isSecure = false)
   while(zkUtils.zkConnection.getZookeeperState == null) {
-    println(s"Zookeeper not ready $zkString")
+    logger.debug(s"Zookeeper not ready $zkString")
     zkUtils.zkConnection.connect(new Watcher{
       override def process(event: WatchedEvent): Unit = {
-        println(s"ZK Connect event $event")
+        logger.debug(s"ZK Connect event $event")
       }
     })
     Thread.sleep(1000)
@@ -89,7 +89,7 @@ class KafkaAdmin(zkString: String) {
     def checkPartitionLeaders {
       val partitionErrors = Await.result(Future{blocking{getPartitionErrors}}, TOPIC_CHECK_TIMEOUT)
       if (partitionErrors.isEmpty == false) {
-        println(s"Partition errors: $partitionErrors")
+        logger.warn(s"Partition errors: $partitionErrors")
         Thread.sleep(THREAD_SLEEP_MS)
         checkPartitionLeaders
       }
@@ -97,17 +97,17 @@ class KafkaAdmin(zkString: String) {
     Future {
       blocking {
         try {
-          println(s"Making topic $topic")
+          logger.debug(s"Making topic $topic")
           AdminUtils.createTopic(zkUtils, topic, partitions, replicationFactor, topicConfig)
-          println(s"Created topic $topic")
+          logger.info(s"Created topic $topic")
         } catch {
           case _: TopicExistsException => logger.debug(s"Tried to create existing topic $topic")
         }
-        println(s"Checking topic $topic")
+        logger.debug(s"Checking topic $topic")
         assert(topicExists(topic), s"Failed to create topic $topic")
-        println(s"Checking partition leaders for $topic")
+        logger.debug(s"Checking partition leaders for $topic")
         checkPartitionLeaders
-        println(s"Topic creation successful $topic")
+        logger.debug(s"Topic creation successful $topic")
       }
     }
   }
@@ -127,8 +127,8 @@ class KafkaAdmin(zkString: String) {
   }
 
   def close {
-    println("Kafka admin closing zk connection")
+    logger.info("Kafka admin closing zk connection")
     zkUtils.close()
-    println("ZK connection closed")
+    logger.debug("ZK connection closed")
   }
 }

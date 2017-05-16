@@ -2,6 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka.executors
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration, MILLISECONDS}
@@ -10,7 +11,7 @@ import scala.reflect.runtime.universe.TypeTag
 
 /**
   * Perform ReduceByKey on Kafka messages
- *
+  *
   * @param uid
   * @param sourceTopics
   * @param sinkTopics
@@ -19,10 +20,17 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam V
   */
 class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
-                                      sourceTopics: Set[GlobalTopic],
-                                      sinkTopics: Set[GlobalTopic],
-                                      reduceFunc: (V,V) => V)(implicit ec: ExecutionContext)
+                                                          queryUid: String,
+                                                          sourceTopics: Set[GlobalTopic],
+                                                          sinkTopics: Set[GlobalTopic],
+                                                          reduceFunc: (V,V) => V)(implicit ec: ExecutionContext)
   extends Executor[K,V,K,V](uid, sourceTopics, sinkTopics) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
+  // Producer inputs and outputs should be tagged
+  override def getConsumerQueryUid: Option[String] = Some(queryUid)
+  override def getProducerQueryUid: Option[String] = Some(queryUid)
+
   /**
     * Perform executor-specific transformations
     *
@@ -40,7 +48,7 @@ class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
   }
 
   override def run(sleepInterval: Duration = Duration(Configuration.Streams.reduceWindowSizeMs, MILLISECONDS)): Unit = {
-    println(s"Reducer will run every $sleepInterval")
+    logger.debug(s"Reducer $uid will run every $sleepInterval transforming from $sourceTopics to $sinkTopics")
     super.run(sleepInterval)
   }
 }
@@ -58,10 +66,14 @@ object KVReducer {
     * @tparam V
     * @return
     */
-  def mkVehicleReducer[K: TypeTag: ClassTag, V: TypeTag: ClassTag](reducerId: String, mapperId: String, reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
+  def mkVehicleReducer[K: TypeTag: ClassTag,
+  V: TypeTag: ClassTag](reducerId: String,
+                        queryUid: String,
+                        mapperId: String,
+                        reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
     // Reducer reads from clusterhead input
     val sourceTopics = Set(TopicLookupService.getClusterInput).map(GlobalTopic.mkLocalTopic)
     val sinkTopics = Set(TopicLookupService.getReducerOutput(reducerId)).map(GlobalTopic.mkLocalTopic)
-    new KVReducer[K,V](uid=reducerId, sourceTopics, sinkTopics, reduceFunc)
+    new KVReducer[K,V](uid=reducerId, queryUid=queryUid, sourceTopics, sinkTopics, reduceFunc)
   }
 }

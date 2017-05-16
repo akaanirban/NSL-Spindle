@@ -32,11 +32,9 @@ class ConsumerBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends Consum
   }
 }
 
-class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends ConsumerBalanceMonitor[K, V](consumer) {
-  override def onPartitionsAssigned(partitions: PartitionCollection) {
-    super.onPartitionsAssigned(partitions)
-    Thread.sleep((10 seconds).toMillis) //WONTFIX: debug
-    consumer.seekToBeginning
+object ConsumerKafka {
+  def isCanary(typedMessage: Array[Byte]): Boolean = {
+    ObjectSerializer.deserialize[TypedValue[Any]](typedMessage).isCanary
   }
 }
 
@@ -46,7 +44,7 @@ class AtLeastOnceBalanceMonitor[K, V](consumer: ConsumerKafka[K, V]) extends Con
   * @tparam K
   * @tparam V
   */
-class ConsumerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Consumer[K, V] {
+class ConsumerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig, queryUid: Option[String] = None) extends Consumer[K, V] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private[utils] val kafkaConsumer = new KafkaConsumer[ByteArray, ByteArray](config.properties)
 
@@ -60,52 +58,60 @@ class ConsumerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig) extends Consume
     kafkaConsumer.subscribe(topics, monitor)
   }
 
+  /**
+    * Listen for messages on specified topic
+    * @param topic
+    */
   def subscribe(topic: String) {
     this.subscribe(Seq(topic))
   }
 
+  /**
+    * Listen for messages on all listed topics
+    * @param topics
+    */
   def subscribe(topics: Iterable[String]): Unit = {
     subscribeWithMonitor(topics.toSet, new ConsumerBalanceMonitor[K,V](this))
   }
 
-  /**
-   * Subscribe and start from beginning if reassigned
-   */
-  def subscribeAtLeastOnce(topic: String) {
-    subscribeWithMonitor(Set(topic), new AtLeastOnceBalanceMonitor[K, V](this))
-  }
-
-  /**
-   * Read and de-serialize messages in buffer
-   */
-  def getMessages: Iterable[(K, V)] = {
+  def getRawMessages: List[(ByteArray, ByteArray)] = {
     logger.trace(s"Getting messages for $topics")
     val records = kafkaConsumer.poll(POLL_WAIT_MS)
-
-    println(s"Consumer on $topics got messages ${records.toList}")
-
-    val rawData: List[(ByteArray, ByteArray)] = records
+    logger.debug(s"Consumer on $topics got messages ${records.toList}") //TODO: use logger
+    records
       .partitions().toList
       .map(records.records)
       .flatMap(_.toList)
       .map(record => (record.key(), record.value()))
+  }
 
-    rawData
+  /**
+    * Read and de-serialize messages in buffer
+    */
+  def getMessages: Iterable[(K, V)] = {
+    getRawMessages
       // Remove canaries
       .filterNot{case(k,_) =>
-        ObjectSerializer.deserialize[TypedValue[Any]](k).isCanary
+        ConsumerKafka.isCanary(k)
+      }
+      // Remove messages for other queries
+      .filter{case (kBytes,vBytes) =>
+        queryUid match {
+          case None => true
+          case Some(queryId) => {
+            val k = ObjectSerializer.deserialize[TypedValue[Any]](kBytes)
+            val v = ObjectSerializer.deserialize[TypedValue[Any]](vBytes)
+            assert(k.queryUid == v.queryUid, s"Key/value query uid mismatch ${k.queryUid} != ${v.queryUid}")
+            val idsMatch: Boolean = k.queryUid.map(kqid => kqid == queryId).getOrElse(false)
+            logger.debug(s"Checking if message ($k,$v) have query id match to $queryId (result: $idsMatch, config: $config)")
+            idsMatch
+          }
+        }
       }
       .map {
         case (k, v) =>
           (ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
       }
-  }
-
-  /**
-   * Start reading messages from beginning of queue
-   */
-  def seekToBeginning {
-    kafkaConsumer.seekToBeginning(kafkaConsumer.assignment)
   }
 
   def close {

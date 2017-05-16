@@ -19,8 +19,8 @@ object KafkaQueryUtils {
       * @return
       */
     def mkExecutors(implicit ec: ExecutionContext): (Mapper[Any, Vehicle, MapKey, MapValue], KVReducer[MapKey, MapValue]) = {
-      val mapExecutor = Mapper.mkSensorMapper[MapKey, MapValue](mapOperation.uid, mapOperation.f, (mapKey, mapVal) => mapOperation.filter((mapKey, mapVal)))
-      val reduceExecutor = KVReducer.mkVehicleReducer[MapKey, MapValue](reduceOperation.uid, mapOperation.uid, reduceOperation.f)
+      val mapExecutor = Mapper.mkSensorMapper[MapKey, MapValue](mapperId = mapOperation.uid, queryUid = query.id, mapOperation.f, (mapKey, mapVal) => mapOperation.filter((mapKey, mapVal)))
+      val reduceExecutor = KVReducer.mkVehicleReducer[MapKey, MapValue](reducerId = reduceOperation.uid, queryUid = id, mapperId = mapOperation.uid, reduceOperation.f)
       (mapExecutor, reduceExecutor)
     }
   }
