@@ -17,9 +17,9 @@ object Main {
   def main(args: Array[String]): Unit = {
     val TOPIC = "spindle-vehicle-reducer-sumSpeedAndCount"
     val sc = new SparkConf().setAppName("SparkSpindleTest").setMaster("local[*]")
-    val ssc = new StreamingContext(sc, Seconds(1))
+    val ssc = new StreamingContext(sc, Seconds(60))
     val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("localhost:2182", "localhost:9093", TOPIC), new MockQueryUidGenerator)
-      .map(v => (null, (v.mph, 1)))
+      .map(v => (null, (v.mph, 1.toLong)))
       .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
       .print()
     ssc.start()
