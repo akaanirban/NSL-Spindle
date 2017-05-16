@@ -16,7 +16,6 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 
 // Logging
 libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.21"
-libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3" % Runtime
 
 // Unit Testing Library
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0"
