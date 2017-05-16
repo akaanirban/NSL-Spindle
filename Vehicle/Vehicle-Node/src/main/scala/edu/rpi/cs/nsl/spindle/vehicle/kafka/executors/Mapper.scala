@@ -23,12 +23,11 @@ abstract class Mapper[K: TypeTag: ClassTag,
 V: TypeTag: ClassTag,
 K1: TypeTag: ClassTag,
 V1: TypeTag: ClassTag](uid: String,
-                       queryUid: Option[String],
                        sourceTopics: Set[GlobalTopic],
                        sinkTopics: Set[GlobalTopic],
                        mapFunc: ((K, V)) => (K1, V1),
                        filterFunc: (K,V) => Boolean)(implicit ec: ExecutionContext)
-  extends Executor[K,V,K1,V1](uid, sourceTopics, sinkTopics, queryUid){
+  extends Executor[K,V,K1,V1](uid, sourceTopics, sinkTopics){
   /**
     * Do filter then map over message streams
     *
@@ -40,8 +39,6 @@ V1: TypeTag: ClassTag](uid: String,
       .filter{case (k,v) => filterFunc(k,v)}
       .map(mapFunc)
   }
-
-  override def getConsumerQueryUid: Option[String] = ???
 }
 
 /**
@@ -58,13 +55,12 @@ V1: TypeTag: ClassTag](uid: String,
   */
 class SensorMapper[K1: TypeTag: ClassTag,
 V1: TypeTag: ClassTag](uid: String,
-                       queryUid: Option[String],
+                       queryUid: String,
                        sourceTopics: Set[GlobalTopic],
                        sinkTopics: Set[GlobalTopic],
                        mapFunc: ((Any, Vehicle)) => (K1, V1),
                        filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext)
   extends Mapper[Any,Vehicle,K1,V1](uid: String,
-    queryUid: Option[String],
     sourceTopics: Set[GlobalTopic],
     sinkTopics: Set[GlobalTopic],
     mapFunc: ((Any, Vehicle)) => (K1, V1),
@@ -72,24 +68,14 @@ V1: TypeTag: ClassTag](uid: String,
 
   // Sensor data has no query UID tag
   override def getConsumerQueryUid: Option[String] = None
+  // Tag output data
+  override def getProducerQueryUid: Option[String] = Some(queryUid)
 }
 
 /**
   * Factory for Kafka Mapper
   */
 object Mapper {
-  private def mkSensorMapper_[K1: TypeTag: ClassTag,
-  V1: TypeTag: ClassTag](mapperId: String,
-                         queryUid: Option[String],
-                         sourceTopicNames: Set[String],
-                         sinkTopicNames: Set[String],
-                         mapFunc: ((Any, Vehicle)) => (K1, V1),
-                         filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext): Mapper[Any,Vehicle,K1,V1] = {
-    val sourceTopics = sourceTopicNames.map(GlobalTopic.mkLocalTopic)
-    val sinkTopics = sinkTopicNames.map(GlobalTopic.mkLocalTopic)
-    new SensorMapper[K1,V1](mapperId, queryUid, sourceTopics, sinkTopics, mapFunc, filterFunc)
-  }
-
   /**
     * Create a mapper for processing vehicle sensor data
     * @param mapperId
@@ -104,7 +90,9 @@ object Mapper {
                         queryUid: String,
                         mapFunc: ((Any, Vehicle)) => (K1, V1),
                         filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext):  Mapper[Any,Vehicle,K1,V1] = {
-    mkSensorMapper_[K1,V1](mapperId, Some(queryUid), Set(TopicLookupService.getVehicleStatus), Set(TopicLookupService.getMapperOutput(mapperId)), mapFunc, filterFunc)
+    val sourceTopics = Set(GlobalTopic.mkLocalTopic(TopicLookupService.getVehicleStatus))
+    val sinkTopics = Set(GlobalTopic.mkLocalTopic(TopicLookupService.getMapperOutput(mapperId)))
+    new SensorMapper[K1,V1](mapperId, queryUid, sourceTopics, sinkTopics, mapFunc, filterFunc)
   }
 }
 

@@ -10,10 +10,10 @@ import edu.rpi.cs.nsl.v2v.configuration.Configuration
 import edu.rpi.cs.nsl.spindle.datatypes.Vehicle
 import edu.rpi.cs.nsl.v2v.spark.streaming.dstream.NSLDStreamWrapper
 import kafka.admin.AdminUtils
-import kafka.utils.{ZkUtils}
+import kafka.utils.ZkUtils
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
-import edu.rpi.cs.nsl.spindle.ZKHelper
+import edu.rpi.cs.nsl.spindle.{QueryUidGenerator, ZKHelper}
 import edu.rpi.cs.nsl.spindle.datatypes.operations.Operation
 import edu.rpi.cs.nsl.spindle.Configuration.Zookeeper
 import org.apache.kafka.common.errors.TopicExistsException
@@ -33,11 +33,11 @@ object NSLUtils {
   /**
    * Make DStream generator using configuration properties
    */
-  private def mkGenerator(ssc: StreamingContext, config: StreamConfig): DStreamGenerator = {
+  private def mkGenerator(ssc: StreamingContext, config: StreamConfig, queryUidGenerator: QueryUidGenerator): DStreamGenerator = {
     import Configuration._
     // Create Kafka Topic
     import config.topic
-    val zkHelper = new ZKHelper(config.zkQuorum, topic)
+    val zkHelper = new ZKHelper(config.zkQuorum, topic, queryUidGenerator)
     val convergeWaitMS = 300 // Time to wait for Kafka to sync with Zookeeper
     zkHelper.registerTopic
     val zkClient = ZkUtils.createZkClient(config.zkQuorum, Zookeeper.sessionTimeoutMS, Zookeeper.sessionTimeoutMS)
@@ -68,8 +68,8 @@ object NSLUtils {
   /**
    * Creates an NSL DStream Wrapper of default type
    */
-  def createVStream(ssc: StreamingContext, config: StreamConfig = StreamConfig()): NSLDStreamWrapper[Vehicle] = {
-    new NSLDStreamWrapper[Vehicle](mkGenerator(ssc, config))
+  def createVStream(ssc: StreamingContext, config: StreamConfig = StreamConfig(), queryUidGenerator: QueryUidGenerator): NSLDStreamWrapper[Vehicle] = {
+    new NSLDStreamWrapper[Vehicle](mkGenerator(ssc, config, queryUidGenerator))
   }
 
   /**
@@ -77,25 +77,27 @@ object NSLUtils {
    *
    * @note Should return an extension of Vehicle class
    */
-  def createStream[T: TypeTag: ClassTag](ssc: StreamingContext, config: StreamConfig = StreamConfig()): NSLDStreamWrapper[T] = {
-    new NSLDStreamWrapper[T](mkGenerator(ssc, config))
+  def createStream[T: TypeTag: ClassTag](ssc: StreamingContext, config: StreamConfig = StreamConfig(), queryUidGenerator: QueryUidGenerator): NSLDStreamWrapper[T] = {
+    new NSLDStreamWrapper[T](mkGenerator(ssc, config, queryUidGenerator))
   }
 
   /**
    * Generates a Kafka DStream
    */
-  class DStreamGenerator(ssc: StreamingContext, val topicName: String, config: StreamConfig, zkHelper: ZKHelper) extends Serializable {
+  class DStreamGenerator(ssc: StreamingContext,
+                         val topicName: String,
+                         config: StreamConfig,
+                         zkHelper: ZKHelper) extends Serializable {
     private val kafkaParams = Map[String, Object]("bootstrap.servers" -> config.brokers,
                                                   "key.deserializer" -> classOf[ByteArrayDeserializer],
                                                   "value.deserializer" -> classOf[ByteArrayDeserializer],
                                                   // Set group ID to app ID
                                                   "group.id" -> ssc.sparkContext.applicationId)
-
     /**
      * Create Kafka DStream
      */
     def mkStream(opLog: Seq[Operation[_, _]]): DStream[ConsumerRecord[Array[Byte], Array[Byte]]] = {
-      zkHelper.registerQuery(opLog)
+      val queryUid: String = zkHelper.registerQuery(opLog)
       logger.info(s"Connecting to DStream $topicName: $kafkaParams")
       KafkaUtils.createDirectStream[Array[Byte], Array[Byte]](ssc, PreferConsistent, Subscribe[Array[Byte], Array[Byte]](Set(topicName), kafkaParams))
     }

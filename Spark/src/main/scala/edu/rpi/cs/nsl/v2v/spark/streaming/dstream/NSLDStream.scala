@@ -95,19 +95,16 @@ object DeserializationUtils {
   def isCanary(bytes: Array[Byte]): Boolean = {
     ObjectSerializer.deserialize[TypedValue[_]](bytes).isCanary
   }
-  def isType[T: TypeTag](bytes: Array[Byte]): Boolean = {
-    val taggedElem: TypedValue[T] = ObjectSerializer.deserialize[TypedValue[T]](bytes)
-    val bytesType = taggedElem.getType
-    println(s"TODO: compare types: ${typeTag[T].tpe} ?= $bytesType aka ${taggedElem.getClassString} -> ${bytesType =:= typeTag[T].tpe}")
-    //TODO: actually validate type
-    true
+  def isMatchingQuery: Boolean = {
+    //TODO
+    ???
   }
   def reduceByKeyOnStream[K: TypeTag: ClassTag, V: TypeTag: ClassTag](reduceFunc: (V, V) => V, rawStream: DStream[(Array[Byte], Array[Byte])]) = {
     val filteredStream = rawStream.filter{case (k, _) => isCanary(k) == false}
       // Make sure data types are correct
       .filter{case (k,v) =>
-        println(s"Checking type on ($k,$v)")
-        isType[K](k) && isType[V](v)
+        //TODO: check for matching query
+        true
       }
     val deserializedStream = filteredStream.map{case(k,v) =>
       (ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)

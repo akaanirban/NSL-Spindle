@@ -13,6 +13,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.vehicle.queries.{Query, QueryLoader}
 import org.slf4j.LoggerFactory
 
+import scala.annotation.tailrec
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 
@@ -47,16 +48,17 @@ object StartupManager {
   */
 class QueryManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
   type StreamExecutors = (Mapper[_, _, _, _], KVReducer[_,_])
+  private val logger = LoggerFactory.getLogger(this.getClass)
   @volatile private var prevQueries: Map[Query[_,_], StreamExecutors] = Map()
   def updateQueries(newQueries: Iterable[Query[_,_]]): Future[Boolean] = {
-    println(s"Updating with queries $newQueries")
+    logger.info(s"Updating with queries $newQueries")
     val prevQuerySet = prevQueries.keySet
     val newQuerySet = newQueries.toSet
     val queriesToStop = prevQuerySet diff newQuerySet
     val stopFutures: Seq[Future[_]] = queriesToStop
       .flatMap{query =>
         val streamExecutors = prevQueries(query)
-        println(s"Stopping queries $streamExecutors")
+        logger.debug(s"Stopping queries $streamExecutors")
         Seq(streamExecutors._1.stop, streamExecutors._2.stop)
       }
       .toSeq
@@ -74,19 +76,20 @@ class QueryManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
     Future.sequence(stopFutures).map{_ =>
       newExecutors.values.foreach{case (m,r) =>
         //TODO: send canary messages
-        println(s"Running $m $r")
+        logger.debug(s"Running $m $r")
         m.runAsync(ec)
         r.runAsync(ec)
-        println(s"Started $m $r")
+        logger.debug(s"Started $m $r")
       }
     }
-      .map(_ => println(s"Updated queries to $prevQueries by adding $newExecutors"))
+      .map(_ => logger.debug(s"Updated queries to $prevQueries by adding $newExecutors"))
       // Did anything change?
       .map(_ => (queriesToStart union queriesToStop).size > 0)
   }
 }
 
 class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: ExecutionContext) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   // Get clusterhead info from file
   private val clusterheadConnectionManager: ClusterheadConnectionManager = new StaticClusterheadConnectionManager()
   @volatile private var relayOption: Option[ByteRelay] = None
@@ -103,26 +106,26 @@ class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: Executio
     stopFuture
   }
   private def mkRelay(inTopics: Set[String]): Future[ByteRelay] = {
-    println(s"Creating new relay $inTopics")
+    logger.info(s"Creating new relay $inTopics")
     clusterheadConnectionManager.getClusterhead
       .map{kafkaConnectionInfo =>
-        println(s"Got clusterhead info $kafkaConnectionInfo")
+        logger.info(s"Got clusterhead info $kafkaConnectionInfo")
         ByteRelay.mkRelay(inTopics, kafkaConnectionInfo)
       }
       .map{relay =>
-        println(s"Starting relay $relay")
+        logger.debug(s"Starting relay $relay")
         relay.runAsync(ec)
         relay
       }
   }
   def updateRelay(newQueries: Iterable[Query[_,_]]): Future[Unit] = {
-    println(s"Updating relay with queries $newQueries")
+    logger.debug(s"Updating relay with queries $newQueries")
     // Get new list of topics
     val inTopics = newQueries.map(query => TopicLookupService.getMapperOutput(query.mapOperation.uid)).toSet
     // Asynchronously start new relay
     val mkRelayFuture: Future[ByteRelay] = mkRelay(inTopics)
     val stopRelayFuture: Future[ByteRelay] = mkRelayFuture.flatMap{newRelay =>
-      println(s"Created new relay $newRelay")
+      logger.debug(s"Created new relay $newRelay")
       stopRelay.map(_=> newRelay)
     }
     stopRelayFuture.map{newRelay =>
@@ -133,6 +136,7 @@ class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: Executio
 }
 
 class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   import Configuration.Vehicle.{numIterations, iterationLengthMs}
   private val pool: ExecutorService = {
     val numCpus = Runtime.getRuntime.availableProcessors()
@@ -151,7 +155,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val pool = new ThreadPoolExecutor(corePoolSize, maxPoolSize, keepAliveMs, TimeUnit.MILLISECONDS, new LinkedBlockingQueue[Runnable](), threadFactory)
     pool.setRejectedExecutionHandler(new RejectedExecutionHandler {
       override def rejectedExecution(r: Runnable, executor: ThreadPoolExecutor): Unit = {
-        println(s"Rejecting $r")
+        logger.warn(s"Rejecting $r")
       }
     })
     pool
@@ -190,7 +194,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   }
 
   /**
-    * The main event loop (recursive)
+    * The main event loop logic
     * @param timestamp
     * @return
     */
@@ -202,6 +206,11 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val sensorProduceFuture: Future[Unit] = relayChangeFuture.flatMap(_ => sensorProducer.executeInterval(timestamp))
     sensorProduceFuture
   }
+
+  /**
+    * Begin running main async event loop
+    * @return
+    */
   def start: Future[Unit] = {
     val executor = Executors.newScheduledThreadPool(1)
     val completionPromise = Promise[Unit]()
@@ -218,6 +227,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
       }
     }
     val initialDelay = 0//TODO: calculate based on current time modulo pre-set value s.t. all nodes start at roughly same time
+    // How the main event loop is repeated
     val execFuture = executor.scheduleAtFixedRate(runnable, initialDelay, iterationLengthMs, TimeUnit.MILLISECONDS)
     completionPromise.future.map(_ => execFuture.cancel(true)).map(_ => executor.shutdownNow()).map(_ => Unit)
   }
@@ -285,7 +295,7 @@ object Main {
     if(getDebugMode == false) {//TODO: remove this check
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal
       val (zkCloud, kafkaCloud) = StartupManager.waitCloud
-      println(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
+      logger.info(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
 
       val eventHandler = new EventHandler(kafkaLocal, kafkaCloud)
       // Wait for event loop to terminate

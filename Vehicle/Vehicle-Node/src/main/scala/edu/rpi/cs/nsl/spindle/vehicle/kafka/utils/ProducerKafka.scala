@@ -19,7 +19,7 @@ import scala.reflect.ClassTag
  * Kafka producer
  */
 class ProducerKafka[K: TypeTag: ClassTag, V: TypeTag: ClassTag](config: KafkaConfig, queryUid: Option[String] = None) extends Producer[K, V] {
-  private val logger = LoggerFactory.getLogger("ProducerKafka")
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val kafkaProducer = new KafkaProducer[ByteArray, ByteArray](config.properties)
   private implicit val executionContext = ExecutionContext.global
   val CLOSE_WAIT_SECONDS = 10
@@ -59,7 +59,7 @@ class ProducerKafka[K: TypeTag: ClassTag, V: TypeTag: ClassTag](config: KafkaCon
     * @return
     */
   def sendKafka(topic: String, key: K, value: V, isCanary: Boolean = false): Future[SendResult] = {
-    logger.debug(s"Sending ($key, $value) to $topic")
+    logger.debug(s"Producer (query $queryUid) sending ($key, $value) to $topic")
     val serKey: ByteArray = ObjectSerializer.serialize(TypedValue[K](key, isCanary = isCanary, queryUid = queryUid))
     val serVal: ByteArray = ObjectSerializer.serialize(TypedValue[V](value, isCanary = isCanary, queryUid = queryUid))
     sendBytes(topic, serKey, serVal)

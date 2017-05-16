@@ -4,10 +4,15 @@ import org.I0Itec.zkclient.ZkClient
 import org.slf4j.LoggerFactory
 import edu.rpi.cs.nsl.spindle.datatypes.operations.Operation
 
+
+trait QueryUidGenerator {
+  def getQueryUid: String
+}
+
 /**
  * Helper class for performing common Zookeeper-related operations
  */
-class ZKHelper(zkQuorum: String, topicName: String) {
+class ZKHelper(zkQuorum: String, topicName: String, queryUidGenerator: QueryUidGenerator) {
   import Configuration.Zookeeper.{ registrationRoot, sessionTimeoutMS }
 
   val zkClient = new ZkClient(zkQuorum)
@@ -46,13 +51,15 @@ class ZKHelper(zkQuorum: String, topicName: String) {
   protected def mkPath(rel: String): String = s"$registrationRoot/$rel"
 
   // Topic path
-  val path = mkPath(topicName)
+  private val path = mkPath(topicName)
   // Path to initial topic registration time
-  val datePath = s"$path/registerMs"
+  private val datePath = s"$path/registerMs"
   // Path to lock (ensures one job per unique query)
-  val lockPath = s"$path/lock"
+  private val lockPath = s"$path/lock"
   // Path to query oplog
-  val queryPath = s"$path/query"
+  private val queryPath = s"$path/query"
+  // Path to query UID
+  private val queryUidPath = s"$path/query-uid"
 
   /**
    * Register a Kafka topic in custom Zookeeper database
@@ -71,16 +78,31 @@ class ZKHelper(zkQuorum: String, topicName: String) {
     zkClient.createEphemeral(lockPath)
   }
 
+  private def mkQueryUid: String = {
+    val queryUid = zkClient.exists(queryUidPath) match {
+      case false => {
+        val queryUid = queryUidGenerator.getQueryUid
+        zkClient.createPersistent(queryUidPath, queryUid)
+        queryUid
+      }
+      case true => zkClient.readData[String](queryUidPath)
+    }
+
+    queryUid
+  }
+
   /**
    * Register a query for the current topic
    */
-  def registerQuery(opLog: Seq[Operation[_, _]]) {
+  def registerQuery(opLog: Seq[Operation[_, _]]): String = {
+    val queryUid = mkQueryUid
     if (zkClient.exists(queryPath)) {
-      logger.warn(s"Query already registered $topicName")
+      logger.warn(s"Query already registered $topicName") //TODO: verify that oplogs match
     } else {
       logger.debug(s"Registering oplog $opLog")
       zkClient.createPersistent(queryPath, opLog)
     }
+    queryUid
   }
 
   def close: Unit = zkClient.close

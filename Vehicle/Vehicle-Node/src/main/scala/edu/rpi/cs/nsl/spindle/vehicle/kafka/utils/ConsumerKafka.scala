@@ -77,7 +77,7 @@ class ConsumerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig, queryUid: Optio
   def getRawMessages: List[(ByteArray, ByteArray)] = {
     logger.trace(s"Getting messages for $topics")
     val records = kafkaConsumer.poll(POLL_WAIT_MS)
-    println(s"Consumer on $topics got messages ${records.toList}")
+    logger.debug(s"Consumer on $topics got messages ${records.toList}") //TODO: use logger
     records
       .partitions().toList
       .map(records.records)
@@ -102,7 +102,9 @@ class ConsumerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig, queryUid: Optio
             val k = ObjectSerializer.deserialize[TypedValue[Any]](kBytes)
             val v = ObjectSerializer.deserialize[TypedValue[Any]](vBytes)
             assert(k.queryUid == v.queryUid, s"Key/value query uid mismatch ${k.queryUid} != ${v.queryUid}")
-            queryId == k.queryUid
+            val idsMatch: Boolean = k.queryUid.map(kqid => kqid == queryId).getOrElse(false)
+            logger.debug(s"Checking if message ($k,$v) have query id match to $queryId (result: $idsMatch, config: $config)")
+            idsMatch
           }
         }
       }
