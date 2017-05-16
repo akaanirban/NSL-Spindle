@@ -2,18 +2,20 @@ package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 
+import edu.rpi.cs.nsl.spindle.vehicle.TypedValue
 import org.apache.kafka.common.serialization.{Deserializer, Serde, Serializer}
 import org.slf4j.LoggerFactory
 
 import scala.language.implicitConversions
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe.TypeTag
 
 object ObjectSerializer {
+  type ByteArray = Array[Byte]
   /**
    * Convert java object to byte array
    */
-  def serialize[T: TypeTag: ClassTag](obj: T): Array[Byte] = {
+  def serialize[T: TypeTag: ClassTag](obj: T): ByteArray = {
     val bytesOut = new ByteArrayOutputStream
     val outStream = new ObjectOutputStream(bytesOut)
     outStream.writeObject(obj)
@@ -27,12 +29,27 @@ object ObjectSerializer {
    *
    * @note Should be moved to shared codebase as it is identical to Serialization.load in Spindle Spark
    */
-  def deserialize[T: TypeTag: ClassTag](data: Array[Byte]): T = {
+  def deserialize[T: TypeTag: ClassTag](data: ByteArray): T = {
     val in = new ObjectInputStream(new ByteArrayInputStream(data))
     val tObject = in.readUnshared()
     val tCast = tObject.asInstanceOf[T]
     in.close
     tCast
+  }
+
+  /**
+    * Check if message's Query ID matches specified query ID
+    * @param queryId
+    * @param kSer
+    * @param vSer
+    * @return
+    */
+  def checkQueryIdMatch(queryId: String, kSer: ByteArray, vSer: ByteArray): Boolean = {
+    val k = ObjectSerializer.deserialize[TypedValue[Any]](kSer)
+    val v = ObjectSerializer.deserialize[TypedValue[Any]](vSer)
+    assert(k.queryUid == v.queryUid, s"Key/value query uid mismatch ${k.queryUid} != ${v.queryUid}")
+    val idsMatch: Boolean = k.queryUid.map(kqid => kqid == queryId).getOrElse(false)
+    idsMatch
   }
 }
 

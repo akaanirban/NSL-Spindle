@@ -75,10 +75,12 @@ class NSLDStreamWrapper[T: TypeTag: ClassTag](private[dstream] val generator: NS
     new NSLDStreamWrapper(generator, opLog ++ Seq(operation)).toDStream
   }*/
 
-  private[dstream] def getStream[K: TypeTag, V: TypeTag]: DStream[(Array[Byte],Array[Byte])] = {
-    generator.mkStream(opLog)
+  private[dstream] def getStream[K: TypeTag, V: TypeTag]: (DStream[(Array[Byte],Array[Byte])], String) = {
+    val (stream, queryId) = generator.mkStream(opLog)
+    val mappedStream = stream
       .filter(_ != null)
       .map(record => (record.key(), record.value()))
+    (mappedStream, queryId)
   }
 }
 
@@ -92,22 +94,22 @@ object NSLDStreamWrapper {
   * Deserializiation and reduction utilities with clean closure
   */
 object DeserializationUtils {
-  def isCanary(bytes: Array[Byte]): Boolean = {
+  type ByteArray = Array[Byte]
+  def isCanary(bytes: ByteArray): Boolean = {
     ObjectSerializer.deserialize[TypedValue[_]](bytes).isCanary
   }
-  def isMatchingQuery: Boolean = {
-    //TODO
-    ???
-  }
-  def reduceByKeyOnStream[K: TypeTag: ClassTag, V: TypeTag: ClassTag](reduceFunc: (V, V) => V, rawStream: DStream[(Array[Byte], Array[Byte])]) = {
+  def reduceByKeyOnStream[K: TypeTag: ClassTag, V: TypeTag: ClassTag](queryId: String,
+                                                                      reduceFunc: (V, V) => V,
+                                                                      rawStream: DStream[(Array[Byte], Array[Byte])]): DStream[(K,V)] = {
     val filteredStream = rawStream.filter{case (k, _) => isCanary(k) == false}
       // Make sure data types are correct
-      .filter{case (k,v) =>
-        //TODO: check for matching query
-        true
+      .filter{case (kSer,vSer) =>
+        ObjectSerializer.checkQueryIdMatch(queryId, kSer,vSer)
       }
-    val deserializedStream = filteredStream.map{case(k,v) =>
-      (ObjectSerializer.deserialize[TypedValue[K]](k).value, ObjectSerializer.deserialize[TypedValue[V]](v).value)
+    val deserializedStream = filteredStream.map{case(serKey,serVal) =>
+      val keyTyped = ObjectSerializer.deserialize[TypedValue[K]](serKey)
+      val valTyped = ObjectSerializer.deserialize[TypedValue[V]](serVal)
+      (keyTyped.value, valTyped.value)
     }
     deserializedStream.reduceByKey(reduceFunc)
   }
@@ -133,6 +135,7 @@ class PairFunctions[K: TypeTag: ClassTag, V: TypeTag: ClassTag](streamWrapper: N
       assert(lastOpClass.equals(reduceClass), s"Last operation needs to be a reduce $lastOpClass != $reduceClass")
       lastOp.asInstanceOf[ReduceByKeyOperation[V]]
     }
-    DeserializationUtils.reduceByKeyOnStream(operation.f, streamWrapper.getStream[K,V])
+    val (stream, queryId) = streamWrapper.getStream[K,V]
+    DeserializationUtils.reduceByKeyOnStream(queryId, operation.f, stream)
   }
 }

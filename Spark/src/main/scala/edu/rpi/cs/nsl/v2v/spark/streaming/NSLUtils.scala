@@ -26,7 +26,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
  *
  * @see [[https://github.com/apache/spark/blob/v2.0.1/external/kafka-0-8/src/main/scala/org/apache/spark/streaming/kafka/KafkaUtils.scala KafkaUtils Source]]
  *
- * @todo Investigate [[http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.streaming.util.WriteAheadLog WriteAheadLog]]
  */
 object NSLUtils {
   private val logger = LoggerFactory.getLogger(NSLUtils.getClass)
@@ -68,7 +67,9 @@ object NSLUtils {
   /**
    * Creates an NSL DStream Wrapper of default type
    */
-  def createVStream(ssc: StreamingContext, config: StreamConfig = StreamConfig(), queryUidGenerator: QueryUidGenerator): NSLDStreamWrapper[Vehicle] = {
+  def createVStream(ssc: StreamingContext,
+                    config: StreamConfig = StreamConfig(),
+                    queryUidGenerator: QueryUidGenerator): NSLDStreamWrapper[Vehicle] = {
     new NSLDStreamWrapper[Vehicle](mkGenerator(ssc, config, queryUidGenerator))
   }
 
@@ -77,7 +78,9 @@ object NSLUtils {
    *
    * @note Should return an extension of Vehicle class
    */
-  def createStream[T: TypeTag: ClassTag](ssc: StreamingContext, config: StreamConfig = StreamConfig(), queryUidGenerator: QueryUidGenerator): NSLDStreamWrapper[T] = {
+  def createStream[T: TypeTag: ClassTag](ssc: StreamingContext,
+                                         config: StreamConfig = StreamConfig(),
+                                         queryUidGenerator: QueryUidGenerator): NSLDStreamWrapper[T] = {
     new NSLDStreamWrapper[T](mkGenerator(ssc, config, queryUidGenerator))
   }
 
@@ -96,10 +99,11 @@ object NSLUtils {
     /**
      * Create Kafka DStream
      */
-    def mkStream(opLog: Seq[Operation[_, _]]): DStream[ConsumerRecord[Array[Byte], Array[Byte]]] = {
+    def mkStream(opLog: Seq[Operation[_, _]]): (DStream[ConsumerRecord[Array[Byte], Array[Byte]]], String) = {
       val queryUid: String = zkHelper.registerQuery(opLog)
       logger.info(s"Connecting to DStream $topicName: $kafkaParams")
-      KafkaUtils.createDirectStream[Array[Byte], Array[Byte]](ssc, PreferConsistent, Subscribe[Array[Byte], Array[Byte]](Set(topicName), kafkaParams))
+      (KafkaUtils.createDirectStream[Array[Byte], Array[Byte]](ssc, PreferConsistent, Subscribe[Array[Byte], Array[Byte]](Set(topicName), kafkaParams)),
+        queryUid)
     }
     /**
      * Get Kafka topic name

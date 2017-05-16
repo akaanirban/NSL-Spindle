@@ -95,17 +95,10 @@ class ConsumerKafka[K: TypeTag, V: TypeTag](config: KafkaConfig, queryUid: Optio
         ConsumerKafka.isCanary(k)
       }
       // Remove messages for other queries
-      .filter{case (kBytes,vBytes) =>
+      .filter{case (kSer,vSer) =>
         queryUid match {
           case None => true
-          case Some(queryId) => {
-            val k = ObjectSerializer.deserialize[TypedValue[Any]](kBytes)
-            val v = ObjectSerializer.deserialize[TypedValue[Any]](vBytes)
-            assert(k.queryUid == v.queryUid, s"Key/value query uid mismatch ${k.queryUid} != ${v.queryUid}")
-            val idsMatch: Boolean = k.queryUid.map(kqid => kqid == queryId).getOrElse(false)
-            logger.debug(s"Checking if message ($k,$v) have query id match to $queryId (result: $idsMatch, config: $config)")
-            idsMatch
-          }
+          case Some(queryId) => ObjectSerializer.checkQueryIdMatch(queryId, kSer, vSer)
         }
       }
       .map {
