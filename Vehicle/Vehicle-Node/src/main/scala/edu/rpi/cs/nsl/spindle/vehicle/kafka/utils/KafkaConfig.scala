@@ -78,6 +78,7 @@ case class KafkaConfig(properties: Properties = new Properties()) {
 
   def withConsumerDefaults: KafkaConfig = {
     this.withAutoCommit()
+      .withAutoOffsetReset()
       .withByteDeser
   }
 
