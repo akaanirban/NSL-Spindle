@@ -73,7 +73,7 @@ object KVReducer {
                         reduceFunc: (V,V) => V)(implicit ec: ExecutionContext): KVReducer[K,V] = {
     // Reducer reads from clusterhead input
     val sourceTopics = Set(TopicLookupService.getClusterInput).map(GlobalTopic.mkLocalTopic)
-    val sinkTopics = Set(TopicLookupService.getReducerOutput(reducerId)).map(GlobalTopic.mkLocalTopic)
+    val sinkTopics = Set(TopicLookupService.getReducerOutput).map(GlobalTopic.mkLocalTopic)
     new KVReducer[K,V](uid=reducerId, queryUid=queryUid, sourceTopics, sinkTopics, reduceFunc)
   }
 }

@@ -91,7 +91,7 @@ object Mapper {
                         mapFunc: ((Any, Vehicle)) => (K1, V1),
                         filterFunc: (Any,Vehicle) => Boolean)(implicit ec: ExecutionContext):  Mapper[Any,Vehicle,K1,V1] = {
     val sourceTopics = Set(GlobalTopic.mkLocalTopic(TopicLookupService.getVehicleStatus))
-    val sinkTopics = Set(GlobalTopic.mkLocalTopic(TopicLookupService.getMapperOutput(mapperId)))
+    val sinkTopics = Set(GlobalTopic.mkLocalTopic(TopicLookupService.getMapperOutput))
     new SensorMapper[K1,V1](mapperId, queryUid, sourceTopics, sinkTopics, mapFunc, filterFunc)
   }
 }

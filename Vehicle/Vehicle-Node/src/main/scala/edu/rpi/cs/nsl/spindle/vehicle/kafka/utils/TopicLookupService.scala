@@ -6,9 +6,11 @@ trait TopicLookupService {
   private def mkTopic(suffix: String): String = s"$globalPrefix-$suffix"
   /**
    * Get output topic for a given mapper on a given vehicle
+    *
+    * @note all mappers publish to a shared output topic
    */
-  def getMapperOutput(mapperId: String): String = mkTopic(s"mapper-$mapperId")
-  def getReducerOutput(reducerId: String): String = mkTopic(s"reducer-$reducerId")
+  def getMapperOutput: String = mkTopic(s"mapper-outputs")
+  def getReducerOutput: String = mkTopic(s"reducer-outputs")
   // Mapper input
   def getVehicleStatus: String = mkTopic("vehicle-status")
 

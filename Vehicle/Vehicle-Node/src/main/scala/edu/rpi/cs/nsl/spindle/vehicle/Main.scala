@@ -8,7 +8,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections._
 import edu.rpi.cs.nsl.spindle.vehicle.events.SensorProducer
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.KafkaQueryUtils._
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{ByteRelay, KVReducer, Mapper}
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{ByteRelay, KVReducer, KafkaConnectionInfo, Mapper}
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import edu.rpi.cs.nsl.spindle.vehicle.queries.{Query, QueryLoader}
 import org.slf4j.LoggerFactory
@@ -92,46 +92,60 @@ class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: Executio
   private val logger = LoggerFactory.getLogger(this.getClass)
   // Get clusterhead info from file
   private val clusterheadConnectionManager: ClusterheadConnectionManager = new StaticClusterheadConnectionManager()
-  @volatile private var relayOption: Option[ByteRelay] = None
+  @volatile private var relayOption: Option[(KafkaConnectionInfo, ByteRelay)] = None
+  // Reads from outputs of mappers
+  private val inTopic = TopicLookupService.getMapperOutput
   // Stop relay if it exists
   private def stopRelay: Future[Unit] ={
     val stopFuture: Future[Unit] = relayOption match {
       case None => Future.successful{
         Unit
       }
-      case Some(relay) => relay.stop.map { _ =>
+      case Some((_, relay)) => relay.stop.map { _ =>
         Unit
       }
     }
     stopFuture
   }
-  private def mkRelay(inTopics: Set[String]): Future[ByteRelay] = {
-    logger.info(s"Creating new relay $inTopics")
-    clusterheadConnectionManager.getClusterhead
-      .map{kafkaConnectionInfo =>
-        logger.info(s"Got clusterhead info $kafkaConnectionInfo")
-        ByteRelay.mkRelay(inTopics, kafkaConnectionInfo)
-      }
-      .map{relay =>
-        logger.debug(s"Starting relay $relay")
-        relay.runAsync(ec)
-        relay
-      }
+  private def clusterheadUnchanged(newClusterhead: KafkaConnectionInfo): Boolean = {
+    relayOption.map{case(oldClusterhead,_) =>
+        newClusterhead.equals(oldClusterhead)
+    }.getOrElse(false)
   }
-  def updateRelay(newQueries: Iterable[Query[_,_]]): Future[Unit] = {
-    logger.debug(s"Updating relay with queries $newQueries")
-    // Get new list of topics
-    val inTopics = newQueries.map(query => TopicLookupService.getMapperOutput(query.mapOperation.uid)).toSet
+  def updateRelay: Future[Unit] = {
+    logger.debug(s"Updating relay")
     // Asynchronously start new relay
-    val mkRelayFuture: Future[ByteRelay] = mkRelay(inTopics)
-    val stopRelayFuture: Future[ByteRelay] = mkRelayFuture.flatMap{newRelay =>
-      logger.debug(s"Created new relay $newRelay")
-      stopRelay.map(_=> newRelay)
+    val newRelayFuture = clusterheadConnectionManager.getClusterhead
+      .map{newClusterhead =>
+        clusterheadUnchanged(newClusterhead) match {
+          case false => Some(newClusterhead)
+          case true => None
+        }
+      }
+    .map{
+      case None => None
+      case Some(newClusterhead) => {
+        val newRelay = ByteRelay.mkRelay(Set(inTopic), newClusterhead)
+        // Stop old relay and start new one
+        Some((newClusterhead, newRelay))
+      }
     }
-    stopRelayFuture.map{newRelay =>
-      relayOption = Some(newRelay)
-      Unit
+    newRelayFuture.map{
+      case Some(relayTuple) => {
+        val stopFuture: Future[_] = relayOption
+          .map(_._2.stop.map(_ => Unit))
+          .getOrElse(Future.successful[Unit](Unit))
+
+        stopFuture.map { _ =>
+          relayTuple._2.runAsync(ec)
+          relayOption = Some(relayTuple)
+          logger.debug(s"Updated clusterhead relay to $relayTuple")
+          Unit
+        }
+      }
+      case None => Future.successful(Unit)
     }
+
   }
 }
 
@@ -153,10 +167,8 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
       }
     }
     val pool = new ThreadPoolExecutor(corePoolSize, maxPoolSize, keepAliveMs, TimeUnit.MILLISECONDS, new LinkedBlockingQueue[Runnable](), threadFactory)
-    pool.setRejectedExecutionHandler(new RejectedExecutionHandler {
-      override def rejectedExecution(r: Runnable, executor: ThreadPoolExecutor): Unit = {
-        logger.warn(s"Rejecting $r")
-      }
+    pool.setRejectedExecutionHandler((r: Runnable, executor: ThreadPoolExecutor) => {
+      logger.warn(s"Rejecting $r")
     })
     pool
   }
@@ -184,16 +196,6 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   }
 
   /**
-    * Update clusterhead relay if active mappers/reducers have changed
-    * @param queriesOption
-    * @return
-    */
-  private def updateRelay(queriesOption: Option[Queries]): Future[Unit] = queriesOption match {
-    case None => Future.successful(Unit)
-    case Some(newQueries) => clusterheadRelayManager.updateRelay(newQueries)
-  }
-
-  /**
     * The main event loop logic
     * @param timestamp
     * @return
@@ -202,7 +204,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val queryFuture = queryLoader.executeInterval(timestamp)
     //TODO: middleware uplink
     val queryChangeFuture: Future[Option[Queries]] = queryFuture.flatMap(changeQueries)
-    val relayChangeFuture: Future[Unit] = queryChangeFuture.flatMap(updateRelay)
+    val relayChangeFuture: Future[Unit] = queryChangeFuture.flatMap(_ => clusterheadRelayManager.updateRelay)
     val sensorProduceFuture: Future[Unit] = relayChangeFuture.flatMap(_ => sensorProducer.executeInterval(timestamp))
     sensorProduceFuture
   }
