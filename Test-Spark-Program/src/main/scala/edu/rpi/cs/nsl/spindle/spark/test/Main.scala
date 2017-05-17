@@ -15,10 +15,10 @@ class MockQueryUidGenerator extends QueryUidGenerator {
   */
 object Main {
   def main(args: Array[String]): Unit = {
-    val TOPIC = "spindle-vehicle-reducer-outputs"
+    val TOPIC = "spindle-vehicle-middleware-input"
     val sc = new SparkConf().setAppName("SparkSpindleTest").setMaster("local[*]")
     val ssc = new StreamingContext(sc, Minutes(1))
-    val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("localhost:2182", "localhost:9093", TOPIC), new MockQueryUidGenerator)
+    val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("hadrian.kronmiller.net:2181", "hadrian.kronmiller.net:9092", TOPIC), new MockQueryUidGenerator)
       .map(v => (null, (v.mph, 1.toLong)))
       .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
       .print()

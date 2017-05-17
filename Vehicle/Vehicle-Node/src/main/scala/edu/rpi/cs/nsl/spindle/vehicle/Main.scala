@@ -125,7 +125,7 @@ class ClusterheadRelayManager(kafkaLocal: KafkaConnection)(implicit ec: Executio
     .map{
       case None => None
       case Some(newClusterhead) => {
-        val newRelay = ByteRelay.mkRelay(Set(inTopic), newClusterhead)
+        val newRelay = ByteRelay.mkClusterheadRelay(Set(inTopic), newClusterhead)
         // Stop old relay and start new one
         Some((newClusterhead, newRelay))
       }
@@ -178,6 +178,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   private val queryManager = new QueryManager(kafkaLocal)
   private val clusterheadRelayManager = new ClusterheadRelayManager(kafkaLocal)
   private val sensorProducer = SensorProducer.load(kafkaLocal)
+  private val middlewareRelay = ByteRelay.mkMiddlewareRelay(ec)
 
   private type Queries = Iterable[Query[_,_]]
 
@@ -214,6 +215,9 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     * @return
     */
   def start: Future[Unit] = {
+    // Start middleware relay
+    middlewareRelay.runAsync(ec)
+    // Start scheduled threads
     val executor = Executors.newScheduledThreadPool(1)
     val completionPromise = Promise[Unit]()
     val runnable = new Runnable {
@@ -294,7 +298,6 @@ object Main {
   def main(argv: Array[String]): Unit ={
     startZkLocal
     startKafkaLocal
-    if(getDebugMode == false) {//TODO: remove this check
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal
       val (zkCloud, kafkaCloud) = StartupManager.waitCloud
       logger.info(s"Vehicle ${Configuration.Vehicle.nodeId} started: $zkLocal, $kafkaLocal, $zkCloud, $kafkaCloud")
@@ -306,7 +309,6 @@ object Main {
       eventHandler.stop
       shutdown(zkLocal, kafkaLocal, zkCloud, kafkaCloud)
       //TODO: clean shutdown
-    }
   }
 }
 
