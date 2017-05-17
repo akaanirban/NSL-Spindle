@@ -60,11 +60,17 @@ class ByteRelay(uid: String, sourceTopics: Set[GlobalTopic],
   */
 object ByteRelay {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  def mkRelay(inTopics: Set[String], destination: KafkaConnectionInfo)(implicit ec: ExecutionContext) = {
+  def mkClusterheadRelay(inTopics: Set[String], destination: KafkaConnectionInfo)(implicit ec: ExecutionContext) = {
     val sourceTopics = inTopics.map(GlobalTopic.mkLocalTopic)
     val sinkTopics = Set(GlobalTopic.mkGlobalTopic(TopicLookupService.getClusterInput, destination))
     logger.debug(s"Creating relay $sourceTopics -> $sinkTopics")
-    new ByteRelay(uid = s"relay-${inTopics.toList.mkString("-")}", sourceTopics, sinkTopics)
+    new ByteRelay(uid = s"middleware-relay-${inTopics.toList.mkString("-")}", sourceTopics, sinkTopics)
+  }
+  def mkMiddlewareRelay(implicit ec: ExecutionContext) = {
+    val sourceTopic = GlobalTopic.mkLocalTopic(TopicLookupService.getReducerOutput)
+    val sinkTopic = GlobalTopic.mkCloudTopic(TopicLookupService.middlewareInput)
+    logger.debug(s"Creating relay $sourceTopic -> $sinkTopic")
+    new ByteRelay(uid = s"cloud-relay-$sourceTopic", Set(sourceTopic), Set(sinkTopic))
   }
 }
 
