@@ -44,3 +44,37 @@ Of particular note is when a configuration parameter is delcared twice where the
 This syntax means you can configure the `foo.bar.baz` property by setting the environment variable `BIZZ_BUZZ` before starting the program.
 If no environment variable is set, the default value (specified in the first of the two declarations) is used.
 In this case, it is a good idea to use environment variable rather than changing the default value.
+
+## Addendum (Quickstart)
+
+In short, say, you have 3 rpi's : `pi1`, `pi2`, `pi3` and you want to make `pi1` the cluster-head and suppose you have `foo.bar.net` as the middleware running zookeeper and kafka. Essentially just follow the steps:
+
+1. Configure the middleware (this should always be the first step):
+	+ Download and setup Kafka
+	+ In `/config/server.properties`  `advertised.listeners` in  to `PLAINTEXT://middleware_public_ip:Kafka_server_port`
+	+ Start zookeeper and kafka
+
+2. Prepare the Jar file:
+	+	Run `sbt Assembly` in `~/Vehicle-Node/` directory to get the fat-jar in `~/Vehicle-Node/target/scala-2.11/` folder of the master/ dev environment.
+
+2. `ssh` into each pi
+	+ Git Clone the repo.
+	+ Make sure if exists / create the folder structure `~/NSL-Spindle/Vehicle/Vehicle-Node/target/scala-2.11` if does not exist.
+	+ Deploy / scp the jar from the dev environment into the above specified folder.
+	+ Set the environment variables for `CLUSTERHEAD_BROKER` for Kafka and `CLUSTERHEAD_ZK_STRING` for Zookeeper to point to the respective cluster-head/heads kafka and zookeeper configuration in the `\Vehicle-Node\src\main\resources\application.conf` file.
+	+ Set the `advertised.listeners` in `\Vehicle-Node\src\main\resources\kafka.props` to `PLAINTEXT://your_public_ip:Kafka_server_port`
+	+ If the `listeners` points to localhost, then set it to `PLAINTEXT://0.0.0.0:Kafka_server_port` to listen to all configured network interfaces.
+	+ Run the jar file from inside the directory `~/Vehicle-Node`
+
+3. Configure Test Spark Program
+	+ In the `Test-Spark-Program`  `Main.scala` file, set the `StreamConfig` to point to the middleware so configure it as:
+	```scala
+	val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("middleware_public_ip:zk_port", "middleware_public_ip:kafka_port", TOPIC), new MockQueryUidGenerator)
+		.map(foo)
+		.reduceByKey{bar}
+		.print()
+	```
+    + do `sbt run` to run from inside Test-Spark-Program
+
+### Points to note:
+The middleware must be running kafka and zookeeper before the pi's are fired up, else the system ***WILL*** crash and Spark ***WILL*** crash.
