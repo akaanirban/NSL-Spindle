@@ -154,8 +154,9 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   import Configuration.Vehicle.{numIterations, iterationLengthMs}
   private val pool: ExecutorService = {
     val numCpus = Runtime.getRuntime.availableProcessors()
-    val corePoolSize = numCpus * 10 //TODO: make configuration property
-    val maxPoolSize = corePoolSize * 2 //TODO: make configuration property
+    val corePoolSize = numCpus * 40 //TODO: make configuration property
+    val maxPoolSize = corePoolSize * 10 //TODO: make configuration property
+    logger.info(s"Created pool of max size $maxPoolSize")
     val keepAliveMs = 0 //TODO: make configuration property
     val threadFactory = new ThreadFactory {
       private val threadNum = new AtomicLong()

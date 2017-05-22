@@ -42,7 +42,9 @@ class ProducerKafka[K: TypeTag: ClassTag, V: TypeTag: ClassTag](config: KafkaCon
     Future {
       blocking {
         try {
-          SendResult(true, metadata = Some(jFuture.get))
+          val result = Some(jFuture.get)
+          logger.trace(s"JFuture on $topic resolved to $result")
+          SendResult(true, metadata = result )
         } catch {
           case e: Exception => SendResult(false, e.getMessage)
         }

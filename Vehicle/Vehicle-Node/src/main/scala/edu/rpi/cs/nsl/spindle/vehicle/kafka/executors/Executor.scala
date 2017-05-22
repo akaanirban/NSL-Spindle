@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.duration.MILLISECONDS
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
@@ -41,25 +42,31 @@ ProducerVal: TypeTag: ClassTag](uid: String,
     }
   }
 
+  private val INIT_TOPIC_TIMEOUT = 10 seconds
+
   private def initTopics(connectionInfo: KafkaConnectionInfo, topics: Set[String]): Future[Unit] = {
+    logger.debug(s"Stream executor $uid initializing topics $topics")
     val kafkaConnection = new KafkaConnection(connectionInfo)
     val admin = kafkaConnection.getAdmin
-    Future.sequence(topics.toSeq.map(admin.mkTopic(_))).map(_ => Unit)
+    Future.sequence(topics.toSeq.map(admin.mkTopic(_))).map{_ =>
+      logger.debug(s"Stream executor $uid initialized topics $topics $connectionInfo")
+      Unit
+    }
   }
 
   protected def getConsumerQueryUid: Option[String] = None
   protected def getProducerQueryUid: Option[String] = None
 
+
   private def mkConsumer(connectionInfo: KafkaConnectionInfo, topics: Set[String]) = {
-    logger.debug(s"Stream executor $uid initializing topics $topics")
-    Await.ready(initTopics(connectionInfo, topics), Duration.Inf) //TODO: use futures
-    logger.debug(s"Stream executor $uid initialized topics $topics")
+    Await.ready(initTopics(connectionInfo, topics), INIT_TOPIC_TIMEOUT) //TODO: use futures
     val config = KafkaConfig().withConsumerDefaults.withConsumerGroup(uid).withServers(connectionInfo.brokerString)
     val consumer: ConsumerKafka[ConsumerKey, ConsumerVal] = new ConsumerKafka[ConsumerKey, ConsumerVal](config, queryUid = getConsumerQueryUid)
     consumer.subscribe(topics)
     consumer
   }
   private def mkProducer(connectionInfo: KafkaConnectionInfo, topics: Set[String]) = {
+    Await.ready(initTopics(connectionInfo, topics), INIT_TOPIC_TIMEOUT) //TODO: use futures
     val config = KafkaConfig().withProducerDefaults.withServers(connectionInfo.brokerString)
     val producer: ProducerKafka[ProducerKey, ProducerVal] = new ProducerKafka[ProducerKey, ProducerVal](config, queryUid = getProducerQueryUid)
     (producer, topics)
