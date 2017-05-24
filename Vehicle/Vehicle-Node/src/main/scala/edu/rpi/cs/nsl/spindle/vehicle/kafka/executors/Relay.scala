@@ -1,7 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.executors
 
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.SendResult
-import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
+import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{MessageLogger, TopicLookupService}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,9 +40,15 @@ class ByteRelay(uid: String, sourceTopics: Set[GlobalTopic],
                sinkTopics: Set[GlobalTopic])(implicit ec: ExecutionContext)
   extends Relay[Any, Any](uid, sourceTopics, sinkTopics) {
   private val logger = LoggerFactory.getLogger(this.getClass)
+  private val messageLogger: MessageLogger = MessageLogger.mkCsvLogger(uid, sourceTopics.map(_.topic), sinkTopics.map(_.topic))
+
+  private def logBytes(numBytes: Long): Unit = {
+    messageLogger.logMessageSize(numBytes)
+  }
 
   //TODO: filter canary messages
   private def sendBytes(k: Array[Byte], v: Array[Byte]) = {
+    logBytes(k.length + v.length)
     producers.toSeq.flatMap{case (producer, topics) =>
       topics.map(producer.sendBytes(_, k,v))
     }

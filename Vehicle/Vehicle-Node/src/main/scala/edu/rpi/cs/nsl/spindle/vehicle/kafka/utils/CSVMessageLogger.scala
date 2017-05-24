@@ -1,25 +1,19 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.utils
 
 import java.io.{File, PrintWriter}
+import edu.rpi.cs.nsl.spindle.vehicle.Configuration.Vehicle.performanceLogPath
 
 /**
   * Used to log performance data to CSV file
   * @param relayId
   * @param inTopics
-  * @param outTopic
+  * @param outTopics
   */
-class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopic: String) extends MessageLogger(inTopics: Set[String], outTopic: String) {
+class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopics: Set[String]) extends MessageLogger(relayId, inTopics: Set[String], outTopics: Set[String]) {
   private def currentTime = System.currentTimeMillis()
-  private def getNewPath(pathPrefix: String, pathSuffix: String, appendNum: Long = 0): String = {
-    val testPath = s"$pathPrefix-$appendNum$pathSuffix"
-    if(new File(testPath).exists){
-      getNewPath(pathPrefix, pathSuffix, appendNum + 1)
-    } else {
-      testPath
-    }
-  }
-  private def mkWriter(pathPrefix: String, pathSuffix: String = ".csv"): PrintWriter = {
-    val file = new File(getNewPath(pathPrefix, pathSuffix))
+  private def mkWriter(uniqueName: String, pathPrefix: String = performanceLogPath, pathSuffix: String = ".csv"): PrintWriter = {
+    val path = s"$pathPrefix-$uniqueName-$currentTime$pathSuffix"
+    val file = new File(path)
     if(file.exists){
       throw new RuntimeException(s"Failed to get unique file ${file.getAbsolutePath}")
     } else {
@@ -29,10 +23,10 @@ class CSVMessageLogger(relayId: String, inTopics: Set[String], outTopic: String)
       writer
     }
   }
-  private val csvLogPartialSuffix = s"-to-$outTopic-from-$relayId"
+  private val csvLogPartialSuffix = s"-to-${outTopics.mkString("_")}-from-$relayId"
   //TODO: publish these metrics to shared kafka cluster
-  private val sumWriter = System.out//mkWriter(s"${Configuration.simResultsDir}/data-sent$csvLogPartialSuffix")
-  private val sizeWriter = System.out//mkWriter(s"${Configuration.simResultsDir}/message-size$csvLogPartialSuffix")
+  private val sumWriter = mkWriter(s"relay-$relayId-sum")
+  private val sizeWriter = mkWriter(s"relay-$relayId-size")
 
   private var sum: Long = 0
   override def logMessageSize(messageSize: Long) {
