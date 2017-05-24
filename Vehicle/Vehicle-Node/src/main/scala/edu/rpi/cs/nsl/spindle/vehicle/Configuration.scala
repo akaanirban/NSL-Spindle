@@ -64,6 +64,7 @@ object Configuration {
     // Statically configured clusterhead (host:port)
     lazy val clusterheadBroker = conf.getString("spindle.vehicle.clusterhead.kafka.broker")
     lazy val clusterheadZkString = conf.getString("spindle.vehicle.clusterhead.zookeeper.connection-string")
+    lazy val performanceLogPath = conf.getString("spindle.vehicle.performance-log-path")
     object Sensors {
       val sensorType: SensorType = SensorType.withName(conf.getString("spindle.vehicle.sensors.type"))
       private val fixedPrefix = "spindle.vehicle.sensors.fixed.values"
