@@ -50,7 +50,7 @@ In this case, it is a good idea to use environment variable rather than changing
 In short, say, you have 3 rpi's : `pi1`, `pi2`, `pi3` and you want to make `pi1` the cluster-head and suppose you have `foo.bar.net` as the middleware running zookeeper and kafka. Essentially just follow the steps:
 
 0. ***Step 0***: Git clone the NSL-Spindle in some directory of the dev environment. 
-Go to ~/NSL-Spindle/Vehicle/Vehicle-Node/src/main/resources/application.conf file and set the root-domain to point to the middleware hostname. 
+Go to `~/NSL-Spindle/Vehicle/Vehicle-Node/src/main/resources/application.conf` file and set the `root-domain` to point to the middleware hostname. 
 
 1. Configure the middleware (this should always be the first step):
 	+ Download and setup Kafka
@@ -64,7 +64,7 @@ Go to ~/NSL-Spindle/Vehicle/Vehicle-Node/src/main/resources/application.conf fil
 	+ Git Clone the repo.
 	+ Make sure if exists / create the folder structure `~/NSL-Spindle/Vehicle/Vehicle-Node/target/scala-2.11` if does not exist.
 	+ Deploy / scp the jar from the dev environment into the above specified folder.
-	+ Set the environment variables for `CLUSTERHEAD_BROKER` for Kafka and `CLUSTERHEAD_ZK_STRING` for Zookeeper to point to the respective cluster-head/heads' kafka and zookeeper configuration in the `\Vehicle-Node\src\main\resources\application.conf` file. Also set root-domain variable to point to middleware host. Alternatively set the MIDDLEWARE_HOSTNAME environment variable to point to the middle-ware host. ( ***Make sure this is done in all the pis, or all the nodes.*** )
+	+ Set the environment variables for `CLUSTERHEAD_BROKER` for Kafka and `CLUSTERHEAD_ZK_STRING` for Zookeeper to point to the respective cluster-head/heads' kafka and zookeeper configuration in the `\Vehicle-Node\src\main\resources\application.conf` file. Also set `root-domain` variable to point to middleware host. Alternatively set the `MIDDLEWARE_HOSTNAME` environment variable to point to the middle-ware host. ( ***Make sure this is done in all the pis, or all the nodes.*** )
 	+ Set the `advertised.listeners` in `\Vehicle-Node\src\main\resources\kafka.props` to `PLAINTEXT://your_public_ip:Kafka_server_port`
 	+ If the `listeners` points to localhost, then set it to `PLAINTEXT://0.0.0.0:Kafka_server_port` to listen to all configured network interfaces.
 	+ Run the jar file from inside the directory `~/Vehicle-Node`
