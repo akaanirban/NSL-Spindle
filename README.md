@@ -65,6 +65,7 @@ Go to `~/NSL-Spindle/Vehicle/Vehicle-Node/src/main/resources/application.conf` f
 	+ Make sure if exists / create the folder structure `~/NSL-Spindle/Vehicle/Vehicle-Node/target/scala-2.11` if does not exist.
 	+ Deploy / scp the jar from the dev environment into the above specified folder.
 	+ Set the environment variables for `CLUSTERHEAD_BROKER` for Kafka and `CLUSTERHEAD_ZK_STRING` for Zookeeper to point to the respective cluster-head/heads' kafka and zookeeper configuration in the `\Vehicle-Node\src\main\resources\application.conf` file. Also set `root-domain` variable to point to middleware host. Alternatively set the `MIDDLEWARE_HOSTNAME` environment variable to point to the middle-ware host. ( ***Make sure this is done in all the pis, or all the nodes.*** )
+		* So you would do something like `export CLUSTERHEAD_BROKER=$ClusterHeadIP:9093` , `export CLUSTERHEAD_ZK_STRING=$Clusterhead_IP:2182` & `export MIDDLEWARE_HOSTNAME=$Middleware_IP`
 	+ Set the `advertised.listeners` in `\Vehicle-Node\src\main\resources\kafka.props` to `PLAINTEXT://your_public_ip:Kafka_server_port`
 	+ If the `listeners` points to localhost, then set it to `PLAINTEXT://0.0.0.0:Kafka_server_port` to listen to all configured network interfaces.
 	+ Run the jar file from inside the directory `~/Vehicle-Node`
