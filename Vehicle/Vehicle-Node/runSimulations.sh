@@ -10,8 +10,11 @@ fi
 docker kill $(docker ps|grep "SPINDLE"|awk '{print $1}')
 
 # Write code to start up Cluster
+echo
 echo "Starting the cluster head" 
+echo
 #modify to change the Middleware host name everytime , if the host name has changed.
+#ports are published to bind with the host for the cluster head
 docker run -it --rm -d \
 		-e MIDDLEWARE_HOSTNAME=192.168.0.9\
 		-p 9001:9001 -p 2182:2182 -p 9093:9093\
@@ -27,12 +30,15 @@ CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182
 
 
 #for starting up the nodes
+#also, ports are not published because the docker containers can talk with eachother if the ports are exposed only.
 numberOfNodes=$1
 nodeName=SPINDLE-NODE
 for (( c=1; i<$numberOfNodes; i++ ))
 do
 	#docker run --rm -d --name $DOCKER_NAME --env --env-file ./env-list -p 9001:9001 -p 2182:2182 -p 9093:9093 nslrpi/spindle-node:latest
+	echo
 	echo "Starting Node $i"
+	echo
 	docker run -it --rm -d \
 				-e MIDDLEWARE_HOSTNAME=192.168.0.9\
 				-e CLUSTERHEAD_BROKER=$ClusterHeadIP:9093\
