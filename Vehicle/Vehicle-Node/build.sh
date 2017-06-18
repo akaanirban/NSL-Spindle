@@ -18,7 +18,9 @@ function buildJar() {
 
 function moveJar() {
     JAR_SOURCE=`ls $JAR_DIR/$JAR_REGEX`
-    mv $JAR_SOURCE $DOCKER_DIR/$JAR_NAME
+    #mv $JAR_SOURCE $DOCKER_DIR/$JAR_NAME
+    cp -a src $DOCKER_DIR
+    cp $JAR_SOURCE $DOCKER_DIR/$JAR_NAME
 }
 
 function buildDocker() {

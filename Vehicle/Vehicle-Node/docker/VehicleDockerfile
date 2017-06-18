@@ -1,0 +1,34 @@
+FROM wkronmiller/scala-sbt
+
+ENV workdir /opt
+
+RUN apt-get install -y supervisor && mkdir -p /var/log/supervisor
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 9001
+
+EXPOSE 2182 9093
+
+ENV JAR_NAME vehicle.jar
+
+ENV vehicledir $workdir/vehicle
+
+RUN mkdir -p $vehicledir
+
+COPY ./$JAR_NAME $vehicledir/
+
+ENV srcfolder $workdir/src
+
+RUN mkdir -p $srcfolder
+
+ADD src $srcfolder/
+
+COPY entrypoint.sh $workdir/
+
+RUN chmod +x $workdir/entrypoint.sh
+
+WORKDIR $workdir
+
+CMD ["./entrypoint.sh"]
+
