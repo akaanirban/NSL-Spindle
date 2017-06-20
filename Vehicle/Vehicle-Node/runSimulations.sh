@@ -16,7 +16,7 @@ echo
 #modify to change the Middleware host name everytime , if the host name has changed.
 #ports are published to bind with the host for the cluster head
 docker run -it --rm -d \
-		-e MIDDLEWARE_HOSTNAME=192.168.0.9\
+		-e MIDDLEWARE_HOSTNAME=128.213.11.108\
 		-p 9001:9001 -p 2182:2182 -p 9093:9093\
 		--name SPINDLE-CLUSTERHEAD\
 		nslrpi/spindle-node
@@ -24,7 +24,7 @@ ClusterHeadIP=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddres
 
 
 #Set the middleware hostname, cluster head broker and zookeeper config for nodes
-MIDDLEWARE_HOSTNAME=192.168.0.9
+MIDDLEWARE_HOSTNAME=128.213.11.108
 CLUSTERHEAD_BROKER=$ClusterHeadIP:9093	
 CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182
 
@@ -40,7 +40,7 @@ do
 	echo "Starting Node $i"
 	echo
 	docker run -it --rm -d \
-				-e MIDDLEWARE_HOSTNAME=192.168.0.9\
+				-e MIDDLEWARE_HOSTNAME=128.213.11.108\
 				-e CLUSTERHEAD_BROKER=$ClusterHeadIP:9093\
 				-e CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182\
 				--name $nodeName$i\
