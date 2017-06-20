@@ -7,7 +7,11 @@ if [ $# -eq 0 ]; then
 fi
 
 #close if there are any stray containers
-docker kill $(docker ps|grep "SPINDLE"|awk '{print $1}')
+if [[ `docker ps|grep "SPINDLE"|awk '{print $1}'` ]]
+then  
+   echo "Killing old Spindle processes"
+   docker kill $(docker ps|grep "SPINDLE"|awk '{print $1}')
+fi
 
 # Write code to start up Cluster
 echo
@@ -33,7 +37,7 @@ CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182
 #also, ports are not published because the docker containers can talk with eachother if the ports are exposed only.
 numberOfNodes=$1
 nodeName=SPINDLE-NODE
-for (( c=1; i<$numberOfNodes; i++ ))
+for (( i=1; i<=$numberOfNodes; i++ ))
 do
 	#docker run --rm -d --name $DOCKER_NAME --env --env-file ./env-list -p 9001:9001 -p 2182:2182 -p 9093:9093 nslrpi/spindle-node:latest
 	echo
