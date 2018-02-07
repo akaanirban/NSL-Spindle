@@ -34,12 +34,12 @@ parallelExecution in Test := false
 
 
 //Scaladoc and gh-pages configurations
-site.includeScaladoc()
+//site.includeScaladoc()
 
-ghpages.settings
-git.remoteRepo := "git@github.com:wkronmiller/NSL-SubscriptionSubsumption.git"
+//ghpages.settings
+//git.remoteRepo := "git@github.com:wkronmiller/NSL-SubscriptionSubsumption.git"
 
-excludeFilter in GhPagesKeys.cleanSite :=
-  new FileFilter {
-    def accept(f: File) = f.getCanonicalPath == "index.html"
-  }
+//excludeFilter in GhPagesKeys.cleanSite :=
+//  new FileFilter {
+//    def accept(f: File) = f.getCanonicalPath == "index.html"
+//  }

@@ -17,10 +17,17 @@ fi
 echo
 echo "Starting the cluster head" 
 echo
-#modify to change the Middleware host name everytime , if the host name has changed.
+
+# modify to change the Middleware host name everytime , if the host name has changed.
+#####################################################
+# NOTE: modify this variable when running the scrip
+# you can find this address by running ifconfig
+#####################################################
+MIDDLEWARE_IP=192.168.133.146
+
 #ports are published to bind with the host for the cluster head
 docker run -it --rm -d \
-		-e MIDDLEWARE_HOSTNAME=128.213.11.108\
+		-e MIDDLEWARE_HOSTNAME=$MIDDLEWARE_IP\
 		-p 9001:9001 -p 2182:2182 -p 9093:9093\
 		--name SPINDLE-CLUSTERHEAD\
 		nslrpi/spindle-node
@@ -28,13 +35,16 @@ ClusterHeadIP=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddres
 
 
 #Set the middleware hostname, cluster head broker and zookeeper config for nodes
-MIDDLEWARE_HOSTNAME=128.213.11.108
+MIDDLEWARE_HOSTNAME=$MIDDLEWARE_IP
 CLUSTERHEAD_BROKER=$ClusterHeadIP:9093	
 CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182
 
 
 #for starting up the nodes
 #also, ports are not published because the docker containers can talk with eachother if the ports are exposed only.
+
+####################################################
+# NOTE: when I had it working the last was localhost and the others were from ifconfig
 numberOfNodes=$1
 nodeName=SPINDLE-NODE
 for (( i=1; i<=$numberOfNodes; i++ ))
@@ -44,7 +54,7 @@ do
 	echo "Starting Node $i"
 	echo
 	docker run -it --rm -d \
-				-e MIDDLEWARE_HOSTNAME=128.213.11.108\
+				-e MIDDLEWARE_HOSTNAME=$MIDDLEWARE_IP\
 				-e CLUSTERHEAD_BROKER=$ClusterHeadIP:9093\
 				-e CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182\
 				--name $nodeName$i\
