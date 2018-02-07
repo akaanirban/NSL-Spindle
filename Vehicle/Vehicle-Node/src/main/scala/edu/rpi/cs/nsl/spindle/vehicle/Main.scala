@@ -175,13 +175,15 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   }
   private implicit val ec = ExecutionContext.fromExecutor(pool)
   private val queryLoader: QueryLoader = QueryLoader.getLoader
-  private val gossipEvent: GossipEvent[String, (Float, Float)] =
-    GossipEvent.mkGossipEvent[String, (Float, Float)](("speedAndCount", (123, 123)))
   private val executionCount = new AtomicLong(0)
   private val queryManager = new QueryManager(kafkaLocal)
   private val clusterheadRelayManager = new ClusterheadRelayManager(kafkaLocal)
   private val sensorProducer = SensorProducer.load(kafkaLocal)
   private val middlewareRelay = ByteRelay.mkMiddlewareRelay(ec)
+  logger.debug("tryna make the gossip")
+  private val gossipEvent =
+    GossipEvent.mkGossipEvent[String, (Float, Float)](("speedAndCount", (123, 123)))
+  logger.debug(s"Made the gossip thing")
 
   private type Queries = Iterable[Query[_,_]]
 
@@ -211,6 +213,8 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val relayChangeFuture: Future[Unit] = queryChangeFuture.flatMap(_ => clusterheadRelayManager.updateRelay)
     val sensorProduceFuture: Future[Unit] = relayChangeFuture.flatMap(_ => sensorProducer.executeInterval(timestamp))
     sensorProduceFuture
+    //val gossipFuture = gossipEvent.executeInterval(timestamp)
+    //gossipFuture
   }
 
   /**
