@@ -6,7 +6,7 @@ import java.util.concurrent._
 
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections._
-import edu.rpi.cs.nsl.spindle.vehicle.events.SensorProducer
+import edu.rpi.cs.nsl.spindle.vehicle.events.{GossipEvent, SensorProducer}
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.KafkaQueryUtils._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{ByteRelay, KVReducer, KafkaConnectionInfo, Mapper}
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
@@ -175,6 +175,8 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   }
   private implicit val ec = ExecutionContext.fromExecutor(pool)
   private val queryLoader: QueryLoader = QueryLoader.getLoader
+  private val gossipEvent: GossipEvent[String, (Float, Float)] =
+    GossipEvent.mkGossipEvent[String, (Float, Float)](("speedAndCount", (123, 123)))
   private val executionCount = new AtomicLong(0)
   private val queryManager = new QueryManager(kafkaLocal)
   private val clusterheadRelayManager = new ClusterheadRelayManager(kafkaLocal)
