@@ -16,6 +16,8 @@ function buildJar() {
     sbt assembly
 }
 
+echo "thru buildjar"
+
 function moveJar() {
     JAR_SOURCE=`ls $JAR_DIR/$JAR_REGEX`
     #mv $JAR_SOURCE $DOCKER_DIR/$JAR_NAME
@@ -28,4 +30,4 @@ function buildDocker() {
 }
 
 
-echo "Packaging project" && buildJar && echo "Preparing docker image" && moveJar && buildDocker && echo "Done"
+echo "Packaging project\n\n\n" && buildJar && echo "Preparing docker image\n\n\n" && moveJar && echo "moved\n\n\n" && buildDocker && echo "Done"
