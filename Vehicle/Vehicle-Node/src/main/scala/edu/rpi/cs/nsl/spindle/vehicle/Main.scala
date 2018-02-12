@@ -4,6 +4,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent._
 
+import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes.MPH
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections._
 import edu.rpi.cs.nsl.spindle.vehicle.events.{GossipEvent, SensorProducer}
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success}
 
 /**
   * Handle cluster connections on startup
@@ -182,7 +184,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   private val middlewareRelay = ByteRelay.mkMiddlewareRelay(ec)
   logger.debug("tryna make the gossip")
   private val gossipEvent =
-    GossipEvent.mkGossipEvent[String, (Float, Float)](("speedAndCount", (123, 123)))
+    GossipEvent.mkGossipEvent[String, (MPH, Long)](("customMsg", (123, 123)))
   logger.debug(s"Made the gossip thing")
 
   private type Queries = Iterable[Query[_,_]]
@@ -212,9 +214,24 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val queryChangeFuture: Future[Option[Queries]] = queryFuture.flatMap(changeQueries)
     val relayChangeFuture: Future[Unit] = queryChangeFuture.flatMap(_ => clusterheadRelayManager.updateRelay)
     val sensorProduceFuture: Future[Unit] = relayChangeFuture.flatMap(_ => sensorProducer.executeInterval(timestamp))
-    sensorProduceFuture
-    //val gossipFuture = gossipEvent.executeInterval(timestamp)
-    //gossipFuture
+    val gossipFuture = gossipEvent.executeInterval(timestamp)
+    val result = for {
+      r1 <- sensorProduceFuture
+      r2 <- gossipFuture
+    } yield (r1 , r2)
+
+    result.onComplete {
+      case Success(x) => {
+        logger.debug("success")
+        Future.successful(Unit)
+      }
+      case Failure(x) => {
+        logger.debug("failure")
+        Future.successful(Unit)
+      }
+    }
+
+    Future.successful(Unit)
   }
 
   /**

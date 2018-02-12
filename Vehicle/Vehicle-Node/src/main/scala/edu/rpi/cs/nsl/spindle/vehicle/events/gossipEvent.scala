@@ -68,10 +68,11 @@ extends TemporalDaemon[Unit] {
 
   protected def sendMessage(k: K, v: V): Future[Unit] = {
     logger.info("tring to send")
-    logger.trace(s"Stream executor $uid sending ($k,$v) to $sinkTopics")
+    logger.info(s"Stream executor $uid sending ($k,$v) to $sinkTopics")
     producers.toSeq.flatMap{case (producer, topics) =>
       topics.map(producer.sendKafka(_, k,v))
     }
+    logger.info("done sending!")
     Future.successful(())
   }
 
