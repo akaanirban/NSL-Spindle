@@ -182,10 +182,8 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
   private val clusterheadRelayManager = new ClusterheadRelayManager(kafkaLocal)
   private val sensorProducer = SensorProducer.load(kafkaLocal)
   private val middlewareRelay = ByteRelay.mkMiddlewareRelay(ec)
-  logger.debug("tryna make the gossip")
   private val gossipEvent =
     GossipEvent.mkGossipEvent[String, (MPH, Long)](("customMsg", (123, 123)))
-  logger.debug(s"Made the gossip thing")
 
   private type Queries = Iterable[Query[_,_]]
 

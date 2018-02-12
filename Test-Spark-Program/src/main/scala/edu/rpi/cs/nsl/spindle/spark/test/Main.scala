@@ -7,7 +7,7 @@ import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 
 class MockQueryUidGenerator extends QueryUidGenerator {
-  override def getQueryUid: String = "globalSpeedAvg"
+  override def getQueryUid: String = "gossipResult"
 }
 
 /**

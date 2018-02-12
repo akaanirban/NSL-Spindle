@@ -20,7 +20,7 @@ class GossipEvent[K:TypeTag: ClassTag, V:TypeTag: ClassTag]
                          produceFunc: (K, V) )(implicit ec: ExecutionContext)
 extends TemporalDaemon[Unit] {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  protected val uid = "hey hey"
+  protected val uid = "GossipEvent"
 
   private implicit class GlobalTopicSet(globalTopicSet: Set[GlobalTopic]) {
     def getBrokerMap: Map[KafkaConnectionInfo, Set[String]] = {
@@ -33,24 +33,18 @@ extends TemporalDaemon[Unit] {
   private def initTopics(connectionInfo: KafkaConnectionInfo, topics: Set[String]): Future[Unit] = {
     logger.debug(s"Stream executor $uid initializing topics $topics")
     val kafkaConnection = new KafkaConnection(connectionInfo)
-    logger.debug(s"got the connection")
     val admin = kafkaConnection.getAdmin
-    logger.debug(s"got the admin")
     Future.sequence(topics.toSeq.map(admin.mkTopic(_))).map{_ =>
       logger.debug(s"Stream executor $uid initialized topics $topics $connectionInfo")
       Unit
     }
   }
-  protected def getProducerQueryUid: Option[String] = None
+  protected def getProducerQueryUid: Option[String] = Some(s"gossipResult")
 
   private def mkProducer(connectionInfo: KafkaConnectionInfo, topics: Set[String]) = {
-    logger.info("tring to make producer")
     Await.ready(initTopics(connectionInfo, topics), INIT_TOPIC_TIMEOUT) //TODO: use futures
-    logger.debug(s"init'd topics")
     val config = KafkaConfig().withProducerDefaults.withServers(connectionInfo.brokerString)
-    logger.debug("got config")
     val producer: ProducerKafka[K, V] = new ProducerKafka[K, V](config, queryUid = getProducerQueryUid)
-    logger.debug("got producer!")
     (producer, topics)
 
   }
@@ -59,25 +53,20 @@ extends TemporalDaemon[Unit] {
     .getBrokerMap
     .map{case(connectionInfo, topics) => mkProducer(connectionInfo, topics)}
 
-  logger.debug("got the producers")
 
   protected def getMessage(): (K, V) = {
-    logger.info("producing the message!")
     produceFunc
   }
 
   protected def sendMessage(k: K, v: V): Future[Unit] = {
-    logger.info("tring to send")
     logger.info(s"Stream executor $uid sending ($k,$v) to $sinkTopics")
     producers.toSeq.flatMap{case (producer, topics) =>
       topics.map(producer.sendKafka(_, k,v))
     }
-    logger.info("done sending!")
     Future.successful(())
   }
 
   protected def reportMessages(): Future[Unit] = {
-    logger.info(s"sending message from gossip")
     val (k, v) = getMessage()
     sendMessage(k, v)
   }
