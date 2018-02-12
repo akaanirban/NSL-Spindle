@@ -12,7 +12,6 @@ import scala.reflect.runtime.universe.TypeTag
 
 object ObjectSerializer {
   type ByteArray = Array[Byte]
-  private val logger = LoggerFactory.getLogger(this.getClass)
   /**
    * Convert java object to byte array
    */
@@ -46,13 +45,8 @@ object ObjectSerializer {
     * @return
     */
   def checkQueryIdMatch(queryId: String, kSer: ByteArray, vSer: ByteArray): Boolean = {
-    logger.debug(s"going to check query id match, item is $queryId")
     val k = ObjectSerializer.deserialize[TypedValue[Any]](kSer)
-    logger.debug("got the k!")
     val v = ObjectSerializer.deserialize[TypedValue[Any]](vSer)
-    logger.debug("got the v!")
-    logger.debug("trying to print out the key and the value")
-    logger.debug(s"checking $k $v")
     assert(k.queryUid == v.queryUid, s"Key/value query uid mismatch ${k.queryUid} != ${v.queryUid}")
     val idsMatch: Boolean = k.queryUid.map(kqid => kqid == queryId).getOrElse(false)
     idsMatch
