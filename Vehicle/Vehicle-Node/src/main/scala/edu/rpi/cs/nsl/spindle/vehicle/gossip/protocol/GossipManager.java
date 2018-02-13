@@ -3,6 +3,8 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip.NormalGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.NetworkLayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
@@ -13,6 +15,8 @@ public class GossipManager extends Thread {
 	protected boolean running;
 	protected ConnectionMap connectionMap;
 	protected String myID;
+	Logger logger = LoggerFactory.getLogger(this.getClass());
+
 
 	public GossipManager(String myID) {
 		this.running = false;
@@ -65,11 +69,11 @@ public class GossipManager extends Thread {
 					target = connectionMap.ChooseRandomTarget();
 				}
 				
-				long sleepTime = getPoisson(10) * 40;
+				long sleepTime = getPoisson(10) * 20;
 				sleep(sleepTime);
-				
-				
-				System.out.println(myID + " going to gossip with " + target + " after: " + sleepTime);
+
+
+                logger.debug(myID + " going to gossip with " + target + " after: " + sleepTime);
 				gossip.LeadGossip(target);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
@@ -77,8 +81,8 @@ public class GossipManager extends Thread {
 			}
 		}
 
-		System.out.println("closing: " + this);
-		System.out.println("layer: " + layer);
+        logger.debug("closing: " + this);
+        logger.debug("layer: " + layer);
 		layer.closeServer();
 		try {
 			layer.join(300);
@@ -86,7 +90,7 @@ public class GossipManager extends Thread {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println("closed: " + this);
+        logger.debug("closed: " + this);
 	}
 
 	public int getPoisson(double lambda) {

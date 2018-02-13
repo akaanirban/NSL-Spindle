@@ -28,6 +28,7 @@ MIDDLEWARE_IP=192.168.133.146
 #ports are published to bind with the host for the cluster head
 docker run -it --rm -d \
 		-e MIDDLEWARE_HOSTNAME=$MIDDLEWARE_IP\
+    -e NODE_ID=0\
 		-p 9001:9001 -p 2182:2182 -p 9093:9093\
 		--name SPINDLE-CLUSTERHEAD\
 		nslrpi/spindle-node
@@ -57,6 +58,7 @@ do
 				-e MIDDLEWARE_HOSTNAME=$MIDDLEWARE_IP\
 				-e CLUSTERHEAD_BROKER=$ClusterHeadIP:9093\
 				-e CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182\
+        -e NODE_ID=$i\
 				--name $nodeName$i\
 				nslrpi/spindle-node
 done

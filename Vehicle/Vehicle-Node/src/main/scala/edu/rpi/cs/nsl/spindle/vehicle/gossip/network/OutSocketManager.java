@@ -4,6 +4,8 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.StartUpMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -15,6 +17,8 @@ public class OutSocketManager extends Thread implements INetworkSender {
 	protected Socket socket;
 	protected ArrayList<INetworkObserver> observers;
 	protected ObjectOutputStream ostr;
+	Logger logger = LoggerFactory.getLogger(this.getClass());
+
 
 	protected boolean running;
 	
@@ -69,7 +73,7 @@ public class OutSocketManager extends Thread implements INetworkSender {
 			@Override
 			public void run() {
 				// try to send the message
-				System.out.println("trying to send: " + message + " to: " + target);
+				logger.debug("trying to send: " + message + " to: " + target);
 				try {
 					//socket.setSoTimeout(300);
 					//ObjectOutputStream ostr = new ObjectOutputStream(socket.getOutputStream());

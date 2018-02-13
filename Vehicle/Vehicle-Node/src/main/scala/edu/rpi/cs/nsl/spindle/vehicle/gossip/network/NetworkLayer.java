@@ -3,6 +3,8 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.*;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -48,21 +50,21 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 		if(!outSocks.containsKey(target)) {
 			boolean good = TryOpenSocket(target);
 			if(!good) {
-				System.out.println("failed to find, trying to build");
+                logger.debug("failed to find, trying to build");
 				return;
 			}
 		}
 		
 		// try to send on the socket
 		OutSocketManager manager = outSocks.get(target);
-		System.out.printf("%s sending %s to %s over %s\n", 
+        logger.debug("{} sending {} to {} over {}\n",
 				myID, message, target, manager);
 		manager.Send(target, message);
 	}
 	
 	protected boolean TryOpenSocket(String target) {
 		try {
-			
+			logger.debug("trying to open socket to {}", target);
 			InetSocketAddress addr = connectionMap.GetAddr(target);
 			Socket socket = new Socket();
 			socket.connect(addr, 300);
@@ -70,11 +72,13 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 
 			// try to add to map
 			outManager.AddObserver(this);
-			
+
+			logger.debug("created socket to: {}", target);
 			outSocks.put(target, outManager);
 			
 		} catch(Exception e) {
 			e.printStackTrace();
+			logger.debug("failed to create socket to: {}", target);
 			return false;
 		}
 		
@@ -110,17 +114,19 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 				// TODO: check if in map
 				inSocks.put(tempID, manager);
 			}
-			System.out.println("going to close: " + myID);
+            logger.debug("going to close: " + myID);
 			serverSocket.close();
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
 	}
+	Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Override
 	public void OnNetworkActivity(String sender, Object message) {
 		// TODO Auto-generated method stub
-		System.out.printf("message %s from: %s got %s\n", myID, sender, message.toString());
+
+		logger.debug("message {} from: {} got {}\n", myID, sender, message.toString());
 		if(message instanceof StartUpMessage) {
 			StartUpMessage startUpMessage = (StartUpMessage) message;
 			
@@ -129,8 +135,8 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 			inSocks.remove(sender);
 			manager.SetID(startUpMessage.sourceID);
 			inSocks.put(startUpMessage.sourceID, manager);
-			
-			System.out.printf("%s fixed socket for %s\n", myID, startUpMessage.sourceID);
+
+			logger.debug("{} fixed socket for {}\n", myID, startUpMessage.sourceID);
 			
 			
 			// don't pass down
@@ -143,7 +149,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 	@Override
 	public void OnMessageStatus(String target, MessageStatus status) {
 		// TODO Auto-generated method stub	
-		System.out.printf("status %s from: %s got %s\n", myID, target, status);
+		logger.debug("status {} from: {} got {}\n", myID, target, status);
 
 		NotifyStatusObservers(target, status);
 	}

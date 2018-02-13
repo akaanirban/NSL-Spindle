@@ -1,5 +1,8 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Random;
@@ -8,13 +11,18 @@ import java.util.Set;
 
 public class ConnectionMap {
 	protected HashMap<String, Integer> nodes;
-	
+	protected HashMap<String, String> ips;
+	Logger logger = LoggerFactory.getLogger(this.getClass());
+
+
 	public ConnectionMap() {
 		nodes = new HashMap<String, Integer>();
+		ips = new HashMap<>();
 	}
 	
-	public void AddNode(String node, int port) {
+	public void AddNode(String node, String ip, int port) {
 		nodes.put(node, port);
+		ips.put(node, ip);
 	}
 	
 	public HashMap<String, Integer> GetNodes() {
@@ -32,13 +40,15 @@ public class ConnectionMap {
 			}
 		}
 		
-		System.out.println("couldn't find id for port: " + port);
+		logger.debug("couldn't find id for port: " + port);
 		return "";
 	}
 	
 	public InetSocketAddress GetAddr(String target) {
 		int port = nodes.get(target);
-		return new InetSocketAddress("127.0.0.1", port);
+		String ip = ips.get(target);
+		logger.debug("ip for {} is {} on port {}", target, ip, port);
+		return new InetSocketAddress(ip, port);
 	}
 	
 	public String ChooseRandomTarget() {
