@@ -8,6 +8,7 @@ import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes.MPH
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections._
 import edu.rpi.cs.nsl.spindle.vehicle.events.{GossipEvent, SensorProducer}
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.GossipRunner
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.KafkaQueryUtils._
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{ByteRelay, KVReducer, KafkaConnectionInfo, Mapper}
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
@@ -318,6 +319,10 @@ object Main {
   }
 
   def main(argv: Array[String]): Unit ={
+    val gossipRunner = new GossipRunner()
+    val thisId = System.getenv("NODE_ID")
+    val numNodes = System.getenv("NUM_NODES")
+    gossipRunner.Start(thisId, numNodes);
     startZkLocal
     startKafkaLocal
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal

@@ -11,7 +11,7 @@ function buildImage(){
     	#docker build -t $VERSIONED_IMAGE -f VehicleDockerfile . && echo "Built base image with $JAR_NAME"
     	docker build -t $NODE_BASE_IMAGE_NAME -f VehicleDockerfile . && echo "Built base image with $JAR_NAME"
     	docker tag $NODE_BASE_IMAGE_NAME $NODE_BASE_IMAGE_NAME:latest
-	docker push $OUTPUT_TAG
+	#docker push $OUTPUT_TAG
 }
 
 buildImage
