@@ -5,7 +5,7 @@ import java.io.Serializable;
 public class PushSumData implements Serializable {
 	@Override
 	public String toString() {
-		return "PushSumData [value=" + value + "]";
+		return "PushSumData [value=" + value + "\tweight=" + weight + "]";
 	}
 
 	public double value;

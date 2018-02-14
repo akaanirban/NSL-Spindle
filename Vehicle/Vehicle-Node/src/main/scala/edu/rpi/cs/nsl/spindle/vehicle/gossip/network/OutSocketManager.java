@@ -85,6 +85,7 @@ public class OutSocketManager extends Thread implements INetworkSender {
 					return;
 				}
 				NotifyStatusObservers(MessageStatus.GOOD);
+				logger.debug("good send of {} to {}", message, target);
 			}
 			
 		}).start();

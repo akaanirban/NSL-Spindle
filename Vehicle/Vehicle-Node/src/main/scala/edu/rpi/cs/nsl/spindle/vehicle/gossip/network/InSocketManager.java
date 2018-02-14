@@ -2,6 +2,8 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -9,7 +11,8 @@ import java.net.Socket;
 import java.util.ArrayList;
 
 public class InSocketManager extends Thread {
-	
+	Logger logger = LoggerFactory.getLogger(this.getClass());
+
 	protected String myID;
 	protected Socket socket;
 	protected ArrayList<INetworkObserver> observers;
@@ -45,6 +48,7 @@ public class InSocketManager extends Thread {
 	}
 	
 	public void Close() {
+		logger.debug("trying to close");
 		this.running = false;
 	}
 	
@@ -59,21 +63,25 @@ public class InSocketManager extends Thread {
 				
 				NotifyMessageObservers(obj);				
 			}
+			logger.debug("done running, trying to close");
 			
 			istr.close();
 			socket.close();
 			
 		} catch(IOException e) {
+			logger.debug("exception {}",e.getMessage());
 			e.printStackTrace();
-			
 		} catch (ClassNotFoundException e) {
+			logger.debug("exception {}", e.getMessage());
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
 		try {
+		    // be doubly sure we closed the socket
 			socket.close();
 		} catch (IOException e) {
+		    logger.debug("error closing the socket");
 			e.printStackTrace();
 		}
 		System.out.println("finished running isock: " + myID);
