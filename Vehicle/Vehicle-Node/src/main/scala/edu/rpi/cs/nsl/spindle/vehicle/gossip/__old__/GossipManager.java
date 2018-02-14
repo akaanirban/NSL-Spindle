@@ -1,6 +1,6 @@
-package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol;
+package edu.rpi.cs.nsl.spindle.vehicle.gossip.__old__;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip.NormalGossip;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.__old__.NormalGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.NetworkLayer;
 import org.slf4j.Logger;

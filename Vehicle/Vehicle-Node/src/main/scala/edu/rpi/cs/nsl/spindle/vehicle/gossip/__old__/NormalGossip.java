@@ -1,6 +1,7 @@
-package edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip;
+package edu.rpi.cs.nsl.spindle.vehicle.gossip.__old__;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip.PushSumData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 

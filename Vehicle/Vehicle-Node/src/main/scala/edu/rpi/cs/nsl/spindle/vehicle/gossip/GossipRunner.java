@@ -1,10 +1,10 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip.PushSum;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip.PushSumOld;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.__old__.PushSumOld;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.NetworkLayer;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.GossipManager;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.__old__.GossipManager;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.PushSumProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
 import org.slf4j.Logger;
@@ -46,7 +46,7 @@ public class GossipRunner {
 
 
 
-        ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 50);
+        ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 20);
         logger.debug("built the scheduler");
         try {
 
