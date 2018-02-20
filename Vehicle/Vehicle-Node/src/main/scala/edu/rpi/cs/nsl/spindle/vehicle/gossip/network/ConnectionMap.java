@@ -1,5 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.ILogicalNetwork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,7 +10,7 @@ import java.util.Random;
 import java.util.Map.Entry;
 import java.util.Set;
 
-public class ConnectionMap {
+public class ConnectionMap implements ILogicalNetwork{
 	protected HashMap<String, Integer> nodes;
 	protected HashMap<String, String> ips;
 	Logger logger = LoggerFactory.getLogger(this.getClass());
