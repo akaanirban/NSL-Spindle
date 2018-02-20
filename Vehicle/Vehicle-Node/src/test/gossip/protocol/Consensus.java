@@ -10,8 +10,12 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusLeadGossipMessage
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusNoGossipResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.ConsensusProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.PushSumProtocol;
+import gossip.util.MessageMatcher;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -79,7 +83,7 @@ public class Consensus {
         // good lead gossip, send message, get response
         protocol.LeadGossip();
 
-        when(gossip.GetLeadGossipMessage()).thenReturn(leadMsg);
+        when(gossip.GetLeadGossipMessage()).thenReturn(leadMsgData);
         when(logicalNetwork.ChooseRandomTarget()).thenReturn(otherId);
 
         protocol.doIteration();
@@ -109,7 +113,7 @@ public class Consensus {
     public void testLeadGetGossipingMessage() {
         // try to gossip but received "already trying to gossip" response from m_target
         doSendLeadMessage();
-        verify(sender, times(1)).Send(otherId, leadMsg);
+        verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
         protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
@@ -119,7 +123,7 @@ public class Consensus {
         protocol.OnNetworkActivity(otherId, noGossipResponse);
         protocol.doIteration();
 
-        // now should be able to follow a separate m_target
+        // now should be able to follow a separate target
         when(gossip.GetGossipMessage()).thenReturn(leadMsg);
         protocol.OnNetworkActivity(otherId2, leadMsg);
         protocol.doIteration();
@@ -133,7 +137,7 @@ public class Consensus {
     public void testLeadGetFollowMessage() {
         // trying to gossip but receive follow message from m_target, should gossip fine
         doSendLeadMessage();
-        verify(sender, times(1)).Send(otherId, leadMsg);
+        verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
         protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
@@ -141,9 +145,13 @@ public class Consensus {
 
         // now receive a message for other to follow
         protocol.OnNetworkActivity(otherId, leadMsg);
+        protocol.doIteration();
 
-        // they should have our message, just commit with their message
-        // TODO: make commit mechanism
+        // now check that we committed
+        verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(leadMsgData));
+        verify(gossip, times(1)).Commit();
+        verify(gossip, times(1)).GetLeadGossipMessage();
+        verify(gossip, never()).GetGossipMessage();
     }
 
     @Test
@@ -208,5 +216,13 @@ public class Consensus {
         verify(gossip, times(1)).GetGossipMessage();
         verify(sender, times(1)).Send(eq(otherId), isA(ConsensusFollowResponse.class));
         verify(gossip, times(1)).Abort();
+    }
+
+    MessageMatcher grmm() {
+        return new MessageMatcher(responseMsgData);
+    }
+
+    MessageMatcher glmm() {
+        return new MessageMatcher(leadMsgData);
     }
 }

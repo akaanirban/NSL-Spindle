@@ -124,12 +124,12 @@ public class ConsensusProtocol extends BaseProtocol {
         MessageQueueData messageQueueData = m_messageQueue.remove(0);
         if(!messageQueueData.Sender.equalsIgnoreCase(m_target)) {
             // if not to us we should be able to discard
-            logger.debug("discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
+            logger.debug("leading: discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
             return;
         }
 
         if(messageQueueData.Message instanceof ConsensusFollowResponse) {
-            // good to follow, grab response and return
+            // got good response, can commit!
             ConsensusFollowResponse message = (ConsensusFollowResponse) messageQueueData.Message;
             m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.getData());
 
@@ -139,11 +139,23 @@ public class ConsensusProtocol extends BaseProtocol {
             isLeading = false;
             isLeadingWaitingForResponse = false;
 
-            logger.debug("received message {} from {}, committing!", message, messageQueueData.Sender);
+            logger.debug("leading: received message {} from {}, committing!", message, messageQueueData.Sender);
+        }
+        else if(messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
+            // if we get a lead msg from other, then we can treat it like a follow
+            // TODO: verify this is OK
+            ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;
+            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.getData());
+
+            m_gossip.Commit();
+
+            isLeading = false;
+            isLeadingWaitingForResponse = false;
+            logger.debug("leading: received message {} from {}, committing!", message, messageQueueData.Sender);
         }
         else {
             // if its any other kind of message we should be able to discard it...
-            logger.debug("discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
+            logger.debug("leading: discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
         }
     }
 
