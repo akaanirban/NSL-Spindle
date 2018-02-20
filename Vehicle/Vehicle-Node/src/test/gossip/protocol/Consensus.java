@@ -9,15 +9,10 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusFollowResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusLeadGossipMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusNoGossipResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.ConsensusProtocol;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.PushSumProtocol;
 import gossip.util.MessageMatcher;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentMatcher;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.*;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
@@ -123,14 +118,10 @@ public class Consensus {
         protocol.OnNetworkActivity(otherId, noGossipResponse);
         protocol.doIteration();
 
-        // now should be able to follow a separate target
-        when(gossip.GetGossipMessage()).thenReturn(leadMsg);
-        protocol.OnNetworkActivity(otherId2, leadMsg);
-        protocol.doIteration();
-
-
-        // expect it to send a follow message
-        verify(sender).Send(otherId2, responseMsg);
+        // check that abort was called
+        verify(gossip, times(1)).Abort();
+        verify(gossip, times(1)).GetLeadGossipMessage();
+        verify(gossip, never()).GetGossipMessage();
     }
 
     @Test
@@ -155,20 +146,21 @@ public class Consensus {
     }
 
     @Test
-    public void testLeadSecondLeadRequest() {
-        // trying to gossip but get a second lead request from manager
+    public void testGetLeadMessageFromThird() {
+        // trying to gossip with one, but then someone sends a lead, make sure we send nogossip
         doSendLeadMessage();
-        verify(sender, times(1)).Send(otherId, leadMsg);
 
-        // indicate good status and send
+        // get to the message wait
         protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
         protocol.doIteration();
 
-        // waiting, then get a request to lead
-        protocol.LeadGossip();
+        // now send third
+        protocol.OnNetworkActivity(otherId2, leadMsg);
         protocol.doIteration();
 
-        // expect that the sender gets no more, should be from above
+        InOrder inOrder = inOrder(sender);
+        inOrder.verify(sender).Send(eq(otherId), argThat(glmm()));
+        inOrder.verify(sender).Send(eq(otherId2), isA(ConsensusNoGossipResponse.class));
     }
 
     @Test

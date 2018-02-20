@@ -4,6 +4,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusFollowResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusLeadGossipMessage;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusNoGossipResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -123,8 +124,17 @@ public class ConsensusProtocol extends BaseProtocol {
         // else pull messages off the queue
         MessageQueueData messageQueueData = m_messageQueue.remove(0);
         if(!messageQueueData.Sender.equalsIgnoreCase(m_target)) {
-            // if not to us we should be able to discard
-            logger.debug("leading: discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
+            // if someone sent us a lead message, ignore them
+            if(messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
+                ConsensusNoGossipResponse response = new ConsensusNoGossipResponse();
+                m_networkSender.Send(messageQueueData.Sender, response);
+
+                logger.debug("sending nogossip message to {}", messageQueueData.Sender);
+            }
+            else {
+                logger.debug("leading: discarding message {} from {}", messageQueueData.Message, messageQueueData.Sender);
+            }
+
             return;
         }
 
@@ -152,6 +162,16 @@ public class ConsensusProtocol extends BaseProtocol {
             isLeading = false;
             isLeadingWaitingForResponse = false;
             logger.debug("leading: received message {} from {}, committing!", message, messageQueueData.Sender);
+        }
+        else if(messageQueueData.Message instanceof ConsensusNoGossipResponse) {
+            // stop leading
+            m_gossip.Abort();
+
+            isLeading = false;
+            isLeadingWaitingForResponse = false;
+
+            logger.debug("leading: got nogossip message {} from {}",
+                    messageQueueData.Sender, messageQueueData.Message);
         }
         else {
             // if its any other kind of message we should be able to discard it...
