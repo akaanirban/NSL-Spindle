@@ -17,9 +17,7 @@ import org.mockito.MockitoAnnotations;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class Consensus {
     ConsensusProtocol protocol;
@@ -34,9 +32,11 @@ public class Consensus {
     @Mock
     IGossipMessageData leadMsgData;
 
+    @Mock
+    IGossipMessageData responseMsgData;
+
     ConsensusLeadGossipMessage leadMsg;
 
-    @Mock
     ConsensusFollowResponse responseMsg;
 
     @Mock
@@ -51,6 +51,8 @@ public class Consensus {
         MockitoAnnotations.initMocks(this);
 
         leadMsg = new ConsensusLeadGossipMessage(leadMsgData);
+        responseMsg = new ConsensusFollowResponse(responseMsgData);
+
         protocol = new ConsensusProtocol(selfId);
         protocol.SetGossip(gossip);
         protocol.SetNetwork(sender);
@@ -62,7 +64,7 @@ public class Consensus {
      * leading gossip
      *  - good
      *  - get message from another
-     *      - get follow message from gossip target
+     *      - get follow message from gossip m_target
      *  - get another request to lead
      *  - fail status
      *  - follow fails?
@@ -95,12 +97,17 @@ public class Consensus {
         // now get response message
         // TODO: is this really what we want? Or do we want to parse something out of it...
         protocol.OnNetworkActivity(otherId, responseMsg);
-        verify(gossip).HandleUpdateMessage(otherId, responseMsg);
+        protocol.doIteration();
+
+        verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(responseMsgData));
+        verify(gossip, times(1)).Commit();
+        verify(gossip, times(1)).GetLeadGossipMessage();
+        verify(gossip, never()).GetGossipMessage();
     }
 
     @Test
     public void testLeadGetGossipingMessage() {
-        // try to gossip but received "already trying to gossip" response from target
+        // try to gossip but received "already trying to gossip" response from m_target
         doSendLeadMessage();
         verify(sender, times(1)).Send(otherId, leadMsg);
 
@@ -108,11 +115,11 @@ public class Consensus {
         protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
         protocol.doIteration();
 
-        // target doesn't want to gossip
+        // m_target doesn't want to gossip
         protocol.OnNetworkActivity(otherId, noGossipResponse);
         protocol.doIteration();
 
-        // now should be able to follow a separate target
+        // now should be able to follow a separate m_target
         when(gossip.GetGossipMessage()).thenReturn(leadMsg);
         protocol.OnNetworkActivity(otherId2, leadMsg);
         protocol.doIteration();
@@ -124,7 +131,7 @@ public class Consensus {
 
     @Test
     public void testLeadGetFollowMessage() {
-        // trying to gossip but receive follow message from target, should gossip fine
+        // trying to gossip but receive follow message from m_target, should gossip fine
         doSendLeadMessage();
         verify(sender, times(1)).Send(otherId, leadMsg);
 
@@ -188,5 +195,18 @@ public class Consensus {
     @Test
     public void testFollowFailStatus() {
         // receive follow message send status then get fail status
+        // receive a follow message and work fine
+        protocol.OnNetworkActivity(otherId, leadMsg);
+        protocol.doIteration();
+
+        protocol.OnMessageStatus(otherId, MessageStatus.BAD);
+        protocol.doIteration();
+
+        // now should ask for a response message and send it
+        when(gossip.GetGossipMessage()).thenReturn(responseMsg);
+        verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(leadMsgData));
+        verify(gossip, times(1)).GetGossipMessage();
+        verify(sender, times(1)).Send(eq(otherId), isA(ConsensusFollowResponse.class));
+        verify(gossip, times(1)).Abort();
     }
 }

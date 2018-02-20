@@ -18,9 +18,11 @@ public class ConsensusProtocol extends BaseProtocol {
 
 
     protected boolean isLeading;
+    protected boolean isLeadingWaitingForStatus;
+    protected boolean isLeadingWaitingForResponse;
     protected boolean isFollowing;
 
-    protected String target;
+    protected String m_target;
 
     public ConsensusProtocol(String id){
 
@@ -28,6 +30,8 @@ public class ConsensusProtocol extends BaseProtocol {
         this.m_id = id;
 
         isLeading = false;
+        isLeadingWaitingForResponse = false;
+        isLeadingWaitingForStatus = false;
         isFollowing = false;
     }
 
@@ -35,13 +39,18 @@ public class ConsensusProtocol extends BaseProtocol {
     public void doIteration() {
         m_messageQueueLock.lock();
 
-        boolean notGossiping = !isLeading && !isFollowing;
-        if(notGossiping) {
-            // can process messages off the queue
-            processNotGossiping();
-        }
-        else if(isFollowing) {
+        if(isFollowing) {
             processFollowing();
+        }
+        else if(isLeading && isLeadingWaitingForStatus) {
+            processLeadingWaitStatus();
+        }
+        else if(isLeading && isLeadingWaitingForResponse) {
+            processLeadingWaitRepsonse();
+        }
+        else {
+            // will handle starting the leadership
+            processNotGossiping();
         }
 
         m_messageQueueLock.unlock();
@@ -56,7 +65,7 @@ public class ConsensusProtocol extends BaseProtocol {
 
         MessageQueueData statusQueueData = m_statusQueue.remove(0);
 
-        if(statusQueueData.Sender.equalsIgnoreCase(target)){
+        if(statusQueueData.Sender.equalsIgnoreCase(m_target)){
             MessageStatus status = (MessageStatus) statusQueueData.Message;
             if(status == MessageStatus.GOOD){
                 m_gossip.Commit();
@@ -71,13 +80,91 @@ public class ConsensusProtocol extends BaseProtocol {
             }
         }
         else {
-            logger.debug("following: discarding status {} to {}",statusQueueData.Message, statusQueueData.Sender);
+            logger.debug("following: discarding status {} to {}",
+                    statusQueueData.Message, statusQueueData.Sender);
+        }
+    }
+
+    protected void processLeadingWaitStatus() {
+        if(m_statusQueue.isEmpty()){
+            return;
+        }
+
+        // else pull message off
+        MessageQueueData statusQueueData = m_statusQueue.remove(0);
+        if(statusQueueData.Sender.equalsIgnoreCase(m_target)) {
+            MessageStatus status = (MessageStatus) statusQueueData.Message;
+            if(status == MessageStatus.GOOD){
+                logger.debug("leading: good status, waiting for response");
+
+                // message sent, now need to wait for response
+                isLeadingWaitingForStatus = false;
+                isLeadingWaitingForResponse = true;
+            }
+            else {
+                m_gossip.Abort();
+                logger.debug("leading: bad status, aborting");
+                // TODO: should we try again?
+                isLeading = false;
+                isLeadingWaitingForResponse = false;
+            }
+        }
+        else {
+            logger.debug("leading: discarding status {} to {}",
+                    statusQueueData.Message, statusQueueData.Sender);
+        }
+    }
+
+    protected void processLeadingWaitRepsonse() {
+        if(m_messageQueue.isEmpty()){
+            return;
+        }
+
+        // else pull messages off the queue
+        MessageQueueData messageQueueData = m_messageQueue.remove(0);
+        if(!messageQueueData.Sender.equalsIgnoreCase(m_target)) {
+            // if not to us we should be able to discard
+            logger.debug("discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
+            return;
+        }
+
+        if(messageQueueData.Message instanceof ConsensusFollowResponse) {
+            // good to follow, grab response and return
+            ConsensusFollowResponse message = (ConsensusFollowResponse) messageQueueData.Message;
+            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.getData());
+
+            m_gossip.Commit();
+
+            // done gossiping
+            isLeading = false;
+            isLeadingWaitingForResponse = false;
+
+            logger.debug("received message {} from {}, committing!", message, messageQueueData.Sender);
+        }
+        else {
+            // if its any other kind of message we should be able to discard it...
+            logger.debug("discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
         }
     }
 
     protected void processNotGossiping() {
         if(m_messageQueue.isEmpty()) {
-           return;
+            if(m_wantsLeadGossip.get()) {
+                // choose a m_target, send the message
+                String target = m_logicalNetwork.ChooseRandomTarget();
+                IGossipMessageData data = m_gossip.GetLeadGossipMessage();
+                ConsensusLeadGossipMessage message = new ConsensusLeadGossipMessage(data);
+
+                m_networkSender.Send(target, message);
+
+                // now set the state
+                m_target = target;
+                isLeading = true;
+                isLeadingWaitingForStatus = true;
+                isLeadingWaitingForResponse = false;
+            }
+
+            return;
         }
 
         // else pull messages off the queue
@@ -96,8 +183,8 @@ public class ConsensusProtocol extends BaseProtocol {
 
             // say we are gossiping
             isFollowing = true;
-            target = messageQueueData.Sender;
-            logger.debug("sending message {} to {}", responseData, target);
+            m_target = messageQueueData.Sender;
+            logger.debug("sending message {} to {}", responseData, m_target);
         }
         else {
             // if its any other kind of message we should be able to discard it...
