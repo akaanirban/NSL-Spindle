@@ -10,7 +10,8 @@ public interface IGossip<DataT> {
     IGossipMessageData GetGossipMessage();
     boolean HandleUpdateMessage(String sender, Object message);
 
-    void Reset();
+    void Abort();
+    void Commit();
 
     DataT GetValue();
 }

@@ -54,6 +54,7 @@ public class GossipRunner {
             Thread.sleep(1000);
             Thread protocolThread = new Thread(protocol);
             protocolThread.start();
+
             logger.debug("started protocol");
             scheduler.start();
             Thread.sleep(20000);

@@ -8,14 +8,19 @@ import org.slf4j.LoggerFactory;
 
 public class PushSum implements IGossip {
     Logger logger = LoggerFactory.getLogger(this.getClass());
-    protected PushSumData m_data;
     protected double m_weight;
     protected double m_value;
+
+    protected double m_tempWeight;
+    protected double m_tempValue;
 
     public PushSum(double value, double weight) {
         //m_data = new PushSumData(value, weight);
         m_value = value;
         m_weight = weight;
+
+        m_tempValue = value;
+        m_tempWeight = weight;
     }
 
     @Override
@@ -25,10 +30,10 @@ public class PushSum implements IGossip {
 
     @Override
     public IGossipMessageData GetGossipMessage() {
-        m_value = m_value / 2.0;
-        m_weight = m_weight / 2.0;
+        m_tempValue = m_value / 2.0;
+        m_tempWeight = m_weight / 2.0;
 
-        ValueWeightMessageData messageData = new ValueWeightMessageData(m_value, m_weight);
+        ValueWeightMessageData messageData = new ValueWeightMessageData(m_tempValue, m_tempWeight);
         logger.debug("sending message ({},\t{})", messageData.getValue(), messageData.getWeight());
 
         return messageData;
@@ -40,14 +45,8 @@ public class PushSum implements IGossip {
             ValueWeightMessageData castMessage = (ValueWeightMessageData) message;
             PushSumData newValue = new PushSumData(castMessage.getValue(), castMessage.getWeight());
 
-            logger.debug("estimated old weight: ({}\t{})", m_value, m_weight);
-            m_value = m_value + newValue.value;
-            m_weight = m_weight + newValue.weight;
-            //m_data.Update(newValue);
-
-            logger.debug("updated with ({},\t{})\tnew val: ({},\t{})\t, new estimate: {}",
-                    newValue.value, newValue.weight, m_value, m_weight, m_value / m_weight);
-            //        newValue.weight, newValue.value, m_data.value / m_data.weight);
+            m_tempValue = m_tempValue + newValue.value;
+            m_tempWeight = m_tempWeight + newValue.weight;
 
             return true;
         }
@@ -57,8 +56,15 @@ public class PushSum implements IGossip {
     }
 
     @Override
-    public void Reset() {
-        // TODO: implement
+    public void Abort() {
+        m_tempWeight = m_weight;
+        m_tempValue = m_value;
+    }
+
+    @Override
+    public void Commit() {
+        m_weight = m_tempWeight;
+        m_value = m_tempValue;
     }
 
     @Override

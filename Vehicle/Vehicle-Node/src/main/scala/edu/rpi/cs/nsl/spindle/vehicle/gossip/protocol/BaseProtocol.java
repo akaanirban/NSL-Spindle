@@ -2,8 +2,8 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.ILogicalNetwork;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +22,7 @@ public abstract class BaseProtocol implements IGossipProtocol {
 
     protected IGossip m_gossip;
     protected INetworkSender m_networkSender;
-    protected ConnectionMap m_connectionMap;
+    protected ILogicalNetwork m_logicalNetwork;
 
     protected AtomicBoolean m_wantsLeadGossip;
     protected AtomicBoolean m_wantsStop;
@@ -56,8 +56,8 @@ public abstract class BaseProtocol implements IGossipProtocol {
     }
 
     @Override
-    public void SetConnectionMap(ConnectionMap connectionMap) {
-        m_connectionMap = connectionMap;
+    public void SetConnectionMap(ILogicalNetwork logicalNetwork) {
+        this.m_logicalNetwork = logicalNetwork;
     }
 
     @Override
