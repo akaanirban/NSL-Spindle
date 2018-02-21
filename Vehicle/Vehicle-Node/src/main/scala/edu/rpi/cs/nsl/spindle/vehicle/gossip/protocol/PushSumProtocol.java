@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class PushSumProtocol extends BaseProtocol {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -19,8 +20,8 @@ public class PushSumProtocol extends BaseProtocol {
     }
 
     @Override
-    public void OnMessageStatus(String target, MessageStatus status) {
-        logger.debug("{} status {}",target, status);
+    public void OnMessageStatus(UUID messageId, MessageStatus status) {
+        logger.debug("{} status {}", messageId, status);
     }
 
     @Override

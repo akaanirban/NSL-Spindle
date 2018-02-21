@@ -1,15 +1,18 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol;
 
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.ILogicalNetwork;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.StatusQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -28,6 +31,8 @@ public abstract class BaseProtocol implements IGossipProtocol {
     protected AtomicBoolean m_wantsStop;
 
     protected List<MessageQueueData> m_messageQueue;
+    protected List<StatusQueueData> m_statusQueue;
+
     protected Lock m_messageQueueLock;
 
     public BaseProtocol() {
@@ -35,6 +40,7 @@ public abstract class BaseProtocol implements IGossipProtocol {
         m_wantsStop = new AtomicBoolean(false);
 
         m_messageQueue = new LinkedList<>();
+        m_statusQueue = new LinkedList<>();
 
         // TODO: double check that we are OK to use this mechanism
         m_messageQueueLock = new ReentrantLock();
@@ -75,7 +81,17 @@ public abstract class BaseProtocol implements IGossipProtocol {
     }
 
     @Override
+    public void OnMessageStatus(UUID messageId, MessageStatus status) {
+        // TODO: add to queue with locking
+        m_messageQueueLock.lock();
+        m_statusQueue.add(new StatusQueueData(messageId, status));
+        m_messageQueueLock.unlock();
+    }
+
+    @Override
     public void Stop() {
         m_wantsStop.lazySet(true);
     }
+
+
 }

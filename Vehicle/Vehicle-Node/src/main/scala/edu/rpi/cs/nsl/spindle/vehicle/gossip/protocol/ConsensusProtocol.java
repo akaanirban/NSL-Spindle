@@ -6,15 +6,17 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusFollowResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusLeadGossipMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusNoGossipResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.StatusQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 public class ConsensusProtocol extends BaseProtocol {
-    protected List<MessageQueueData> m_statusQueue;
     protected String m_id;
+
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 
@@ -24,11 +26,11 @@ public class ConsensusProtocol extends BaseProtocol {
     protected boolean isFollowing;
 
     protected String m_target;
+    protected UUID m_waitingStatusId; // uuid of message we are waiting for
 
     public ConsensusProtocol(String id){
         super();
 
-        m_statusQueue = new LinkedList<>();
         this.m_id = id;
 
         isLeading = false;
@@ -65,10 +67,10 @@ public class ConsensusProtocol extends BaseProtocol {
             return;
         }
 
-        MessageQueueData statusQueueData = m_statusQueue.remove(0);
+        StatusQueueData statusQueueData = m_statusQueue.remove(0);
 
-        if(statusQueueData.Sender.equalsIgnoreCase(m_target)){
-            MessageStatus status = (MessageStatus) statusQueueData.Message;
+        if(statusQueueData.GetMessageId().equals(m_waitingStatusId)){
+            MessageStatus status = (MessageStatus) statusQueueData.GetMessage();
             if(status == MessageStatus.GOOD){
                 m_gossip.Commit();
                 logger.debug("following: good status, committing");
@@ -82,8 +84,8 @@ public class ConsensusProtocol extends BaseProtocol {
             }
         }
         else {
-            logger.debug("following: discarding status {} to {}",
-                    statusQueueData.Message, statusQueueData.Sender);
+            logger.debug("following: discarding status {}",
+                    statusQueueData.GetMessage());
         }
     }
 
@@ -93,9 +95,9 @@ public class ConsensusProtocol extends BaseProtocol {
         }
 
         // else pull message off
-        MessageQueueData statusQueueData = m_statusQueue.remove(0);
-        if(statusQueueData.Sender.equalsIgnoreCase(m_target)) {
-            MessageStatus status = (MessageStatus) statusQueueData.Message;
+        StatusQueueData statusQueueData = m_statusQueue.remove(0);
+        if(statusQueueData.GetMessageId().equals(m_waitingStatusId)){
+            MessageStatus status = (MessageStatus) statusQueueData.GetMessage();
             if(status == MessageStatus.GOOD){
                 logger.debug("leading: good status, waiting for response");
 
@@ -112,8 +114,8 @@ public class ConsensusProtocol extends BaseProtocol {
             }
         }
         else {
-            logger.debug("leading: discarding status {} to {}",
-                    statusQueueData.Message, statusQueueData.Sender);
+            logger.debug("following: discarding status {}",
+                    statusQueueData.GetMessage());
         }
     }
 
@@ -196,6 +198,10 @@ public class ConsensusProtocol extends BaseProtocol {
 
                 // now set the state
                 m_target = target;
+
+                // which message we want to wait for
+                m_waitingStatusId = message.getUUID();
+
                 isLeading = true;
                 isLeadingWaitingForStatus = true;
                 isLeadingWaitingForResponse = false;
@@ -221,20 +227,14 @@ public class ConsensusProtocol extends BaseProtocol {
             // say we are gossiping
             isFollowing = true;
             m_target = messageQueueData.Sender;
+            m_waitingStatusId = response.getUUID();
+
             logger.debug("sending message {} to {}", responseData, m_target);
         }
         else {
             // if its any other kind of message we should be able to discard it...
             logger.debug("discarding message {} from {}",messageQueueData.Message, messageQueueData.Sender);
         }
-    }
-
-    @Override
-    public void OnMessageStatus(String target, MessageStatus status) {
-        // TODO: add to queue with locking
-        m_messageQueueLock.lock();
-        m_statusQueue.add(new MessageQueueData(target, status));
-        m_messageQueueLock.unlock();
     }
 
     @Override

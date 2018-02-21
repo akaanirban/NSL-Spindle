@@ -2,6 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.StartUpMessage;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.UUID;
 
 public class OutSocketManager extends Thread implements INetworkSender {
 	protected String myID;
@@ -49,9 +51,9 @@ public class OutSocketManager extends Thread implements INetworkSender {
 		this.observers.add(observer);
 	}
 	
-	public void NotifyStatusObservers(MessageStatus status) {
+	public void NotifyStatusObservers(UUID messageId, MessageStatus status) {
 		for(INetworkObserver observer : observers) {
-			observer.OnMessageStatus(myID, status);
+			observer.OnMessageStatus(messageId, status);
 		}
 	}
 	
@@ -66,7 +68,7 @@ public class OutSocketManager extends Thread implements INetworkSender {
 	}
 
 	@Override
-	public void Send(String target, Object message) {
+	public void Send(String target, IGossipMessageData message) {
 		// try to send the message, need to do it async
 		new Thread(new Runnable() {
 
@@ -75,16 +77,16 @@ public class OutSocketManager extends Thread implements INetworkSender {
 				// try to send the message
 				logger.debug("trying to send: " + message + " to: " + target);
 				try {
-					//socket.setSoTimeout(300);
-					//ObjectOutputStream ostr = new ObjectOutputStream(socket.getOutputStream());
+
 					ostr.writeObject(message);
-					//ostr.close();
+
 				} catch(Exception e) {
-					NotifyStatusObservers(MessageStatus.BAD);
+					NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
 					e.printStackTrace();
 					return;
 				}
-				NotifyStatusObservers(MessageStatus.GOOD);
+
+				NotifyStatusObservers(message.getUUID(), MessageStatus.GOOD);
 				logger.debug("good send of {} to {}", message, target);
 			}
 			

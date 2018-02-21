@@ -4,16 +4,14 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 
 import java.util.UUID;
 
-public class ValueWeightMessageData implements IGossipMessageData {
+public class ValueWeightMessageData extends BaseMessage {
 
     private double m_value;
     private double m_weight;
-    private String m_uuid;
 
     public ValueWeightMessageData(double value, double weight) {
         this.m_value = value;
         this.m_weight = weight;
-        this.m_uuid = UUID.randomUUID().toString();
     }
 
     @Override
@@ -31,7 +29,7 @@ public class ValueWeightMessageData implements IGossipMessageData {
 
     @Override
     public String toString() {
-        return "[id=" + m_uuid + "]";
+        return "[id=" + m_uuid.toString() + "]";
 
     }
 }
