@@ -18,6 +18,9 @@ public class PushSum implements IGossip {
         //m_data = new PushSumData(value, weight);
         m_value = value;
         m_weight = weight;
+
+        m_tempValue = value;
+        m_tempWeight = weight;
     }
 
     @Override
@@ -27,8 +30,8 @@ public class PushSum implements IGossip {
 
     @Override
     public IGossipMessageData GetGossipMessage() {
-        m_tempValue = m_tempValue / 2.0;
-        m_tempWeight = m_tempWeight / 2.0;
+        m_tempValue = m_value / 2.0;
+        m_tempWeight = m_weight / 2.0;
 
         ValueWeightMessageData messageData = new ValueWeightMessageData(m_tempValue, m_tempWeight);
         logger.debug("sending message ({},\t{})", messageData.getValue(), messageData.getWeight());
