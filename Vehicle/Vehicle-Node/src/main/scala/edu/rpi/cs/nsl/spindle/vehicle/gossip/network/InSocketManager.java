@@ -42,9 +42,8 @@ public class InSocketManager extends Thread {
 	}
 	
 	public void NotifyStatusObservers(MessageStatus status) {
-		for(INetworkObserver observer : observers) {
-			observer.OnMessageStatus(myID, status);
-		}
+		logger.debug("error: shouldn't notify status observers from insocket!");
+		assert (false);
 	}
 	
 	public void Close() {

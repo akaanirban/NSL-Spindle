@@ -1,2 +1,3 @@
 # ignore log files
 Node-Logs*/*
+LogOutput*/*

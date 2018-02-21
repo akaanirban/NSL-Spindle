@@ -26,6 +26,7 @@ public class ConsensusProtocol extends BaseProtocol {
     protected String m_target;
 
     public ConsensusProtocol(String id){
+        super();
 
         m_statusQueue = new LinkedList<>();
         this.m_id = id;
@@ -184,6 +185,10 @@ public class ConsensusProtocol extends BaseProtocol {
             if(m_wantsLeadGossip.get()) {
                 // choose a m_target, send the message
                 String target = m_logicalNetwork.ChooseRandomTarget();
+                if(target.equalsIgnoreCase(m_id)) {
+                    return;
+                }
+
                 IGossipMessageData data = m_gossip.GetLeadGossipMessage();
                 ConsensusLeadGossipMessage message = new ConsensusLeadGossipMessage(data);
 
@@ -235,5 +240,15 @@ public class ConsensusProtocol extends BaseProtocol {
     @Override
     public void run() {
         // TODO: pull out and put in the base
+        logger.debug("starting consensus protocol");
+
+        while(true){
+            if(m_wantsStop.get() == true){
+                logger.debug("stopping");
+                break;
+            }
+
+            doIteration();
+        }
     }
 }
