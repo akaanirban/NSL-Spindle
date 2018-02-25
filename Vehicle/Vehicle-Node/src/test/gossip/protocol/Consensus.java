@@ -14,6 +14,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.*;
 
+import java.util.UUID;
+
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.*;
@@ -45,12 +47,18 @@ public class Consensus {
     String otherId = "2";
     String otherId2 = "3";
 
+    UUID uuid1 = UUID.randomUUID();
+    UUID uuid2 = UUID.randomUUID();
+
     @Before
     public void doFirst() {
         MockitoAnnotations.initMocks(this);
+        when(leadMsgData.getUUID()).thenReturn(uuid1);
+        when(responseMsgData.getUUID()).thenReturn(uuid1);
+        when(noGossipResponse.GetLeadUUID()).thenReturn(uuid1);
 
         leadMsg = new ConsensusLeadGossipMessage(leadMsgData);
-        responseMsg = new ConsensusFollowResponse(responseMsgData);
+        responseMsg = new ConsensusFollowResponse(responseMsgData, uuid1);
 
         protocol = new ConsensusProtocol(selfId);
         protocol.SetGossip(gossip);
@@ -79,6 +87,7 @@ public class Consensus {
         protocol.LeadGossip();
 
         when(gossip.GetLeadGossipMessage()).thenReturn(leadMsgData);
+        when(gossip.GetGossipMessage()).thenReturn(responseMsgData);
         when(logicalNetwork.ChooseRandomTarget()).thenReturn(otherId);
 
         protocol.doIteration();
@@ -87,10 +96,10 @@ public class Consensus {
     @Test
     public void testLeadGood() {
         doSendLeadMessage();
-        verify(sender, times(0)).Send(otherId, leadMsg);
+        verify(sender, times(1)).Send(otherId, leadMsg);
 
         // indicate good status and send
-        protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
+        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
         protocol.doIteration();
 
         // now get response message
@@ -111,7 +120,7 @@ public class Consensus {
         verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
-        protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
+        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
         protocol.doIteration();
 
         // m_target doesn't want to gossip
@@ -131,17 +140,18 @@ public class Consensus {
         verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
-        protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
+        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
         protocol.doIteration();
 
         // now receive a message for other to follow
         protocol.OnNetworkActivity(otherId, leadMsg);
         protocol.doIteration();
 
-        // now check that we committed
-        verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(leadMsgData));
-        verify(gossip, times(1)).Commit();
-        verify(gossip, times(1)).GetLeadGossipMessage();
+        verify(sender).Send(eq(otherId), isA(ConsensusNoGossipResponse.class));
+
+        // now check that we did not commit
+        verify(gossip, never()).HandleUpdateMessage(anyString(), anyObject());
+        verify(gossip, never()).Commit();
         verify(gossip, never()).GetGossipMessage();
     }
 
@@ -151,7 +161,7 @@ public class Consensus {
         doSendLeadMessage();
 
         // get to the message wait
-        protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
+        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
         protocol.doIteration();
 
         // now send third
@@ -168,7 +178,7 @@ public class Consensus {
         doSendLeadMessage();
 
         // try to lead but get failure message
-        protocol.OnMessageStatus(otherId, MessageStatus.BAD);
+        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.BAD);
         protocol.doIteration();
 
         // now should be able to follow
@@ -178,14 +188,14 @@ public class Consensus {
     @Test
     public void testFollowGood() {
         // receive a follow message and work fine
+        when(gossip.GetGossipMessage()).thenReturn(responseMsgData);
         protocol.OnNetworkActivity(otherId, leadMsg);
         protocol.doIteration();
 
-        protocol.OnMessageStatus(otherId, MessageStatus.GOOD);
+        protocol.OnMessageStatus(responseMsg.getUUID(), MessageStatus.GOOD);
         protocol.doIteration();
 
         // now should ask for a response message and send it
-        when(gossip.GetGossipMessage()).thenReturn(responseMsg);
         verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(leadMsgData));
         verify(gossip, times(1)).GetGossipMessage();
         verify(sender, times(1)).Send(eq(otherId), isA(ConsensusFollowResponse.class));
@@ -196,14 +206,16 @@ public class Consensus {
     public void testFollowFailStatus() {
         // receive follow message send status then get fail status
         // receive a follow message and work fine
+        when(gossip.GetGossipMessage()).thenReturn(responseMsgData);
+
         protocol.OnNetworkActivity(otherId, leadMsg);
         protocol.doIteration();
 
-        protocol.OnMessageStatus(otherId, MessageStatus.BAD);
+        protocol.OnMessageStatus(responseMsg.getUUID(), MessageStatus.BAD);
         protocol.doIteration();
 
+
         // now should ask for a response message and send it
-        when(gossip.GetGossipMessage()).thenReturn(responseMsg);
         verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(leadMsgData));
         verify(gossip, times(1)).GetGossipMessage();
         verify(sender, times(1)).Send(eq(otherId), isA(ConsensusFollowResponse.class));

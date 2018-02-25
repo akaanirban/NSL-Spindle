@@ -6,5 +6,5 @@ public interface INetworkSender {
 	 * @param target
 	 * @param message
 	 */
-	public void Send(String target, Object message);
+	public void Send(String target, IGossipMessageData message);
 }

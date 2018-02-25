@@ -21,11 +21,10 @@ public class ProtocolScheduler extends Thread {
     @Override
     public void run() {
         running = true;
-
         while(running) {
             try {
                 m_protocol.LeadGossip();
-                long sleepTime = getPoisson(windowSize) * 20;
+                long sleepTime = getPoisson(windowSize);
                 logger.debug("sleeping {}", sleepTime);
                 sleep(sleepTime);
             }

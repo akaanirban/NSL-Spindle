@@ -1,6 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.*;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class NetworkLayer extends Thread implements INetworkSender, INetworkObserver {
@@ -24,6 +26,8 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 
     protected ArrayList<INetworkObserver> observers;
 
+    protected NetworkMessageBuffer buffer;
+
     // only build when there is an attempt to use
     protected ConcurrentHashMap<String, InSocketManager> inSocks;
     protected ConcurrentHashMap<String, OutSocketManager> outSocks;
@@ -35,22 +39,29 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         this.myPort = myPort;
         this.running = false;
 
-        this.observers = new ArrayList<INetworkObserver>();
-        this.inSocks = new ConcurrentHashMap<String, InSocketManager>();
-        this.outSocks = new ConcurrentHashMap<String, OutSocketManager>();
+        this.observers = new ArrayList<>();
+        this.inSocks = new ConcurrentHashMap<>();
+        this.outSocks = new ConcurrentHashMap<>();
+
+        // set up the buffer./r
+        this.buffer = new NetworkMessageBuffer();
+        this.observers.add(this.buffer);
     }
 
     public void AddObserver(INetworkObserver observer) {
-        this.observers.add(observer);
+        // TODO: set observer, not add
+        buffer.SetObserver(observer);
+
     }
 
     @Override
-    public void Send(String target, Object message) {
+    public void Send(String target, IGossipMessageData message) {
         // try to open the socket
         if(!outSocks.containsKey(target)) {
             boolean good = TryOpenSocket(target);
             if(!good) {
                 logger.debug("failed to find, trying to build");
+                logger.error("failed to find, trying to build");
                 return;
             }
         }
@@ -79,7 +90,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         } catch(Exception e) {
             e.printStackTrace();
             // TODO: be sure to remove bad socket and indicate bad status
-            logger.debug("failed to create socket to: {}", target);
+            logger.debug("error opening socket to {}: {}", target, e.getMessage());
             return false;
         }
 
@@ -146,11 +157,11 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
     }
 
     @Override
-    public void OnMessageStatus(String target, MessageStatus status) {
+    public void OnMessageStatus(UUID messageId, MessageStatus status) {
         // TODO Auto-generated method stub
-        logger.debug("status {} from: {} got {}\n", myID, target, status);
+        logger.debug("status {} from: {} got {}\n", myID, messageId, status);
 
-        NotifyStatusObservers(target, status);
+        NotifyStatusObservers(messageId, status);
     }
 
     public void NotifyMessageObservers(String sender, Object message) {
@@ -159,7 +170,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         }
     }
 
-    public void NotifyStatusObservers(String sender, MessageStatus status) {
+    public void NotifyStatusObservers(UUID sender, MessageStatus status) {
         for(INetworkObserver observer : observers) {
             observer.OnMessageStatus(sender, status);
         }
