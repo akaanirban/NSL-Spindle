@@ -96,7 +96,7 @@ public class Consensus {
     @Test
     public void testLeadGood() {
         doSendLeadMessage();
-        verify(sender, times(0)).Send(otherId, leadMsg);
+        verify(sender, times(1)).Send(otherId, leadMsg);
 
         // indicate good status and send
         protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);

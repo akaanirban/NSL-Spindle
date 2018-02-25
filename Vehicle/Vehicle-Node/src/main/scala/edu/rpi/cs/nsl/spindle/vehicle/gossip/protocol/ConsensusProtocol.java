@@ -10,8 +10,6 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.StatusQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedList;
-import java.util.List;
 import java.util.UUID;
 
 public class ConsensusProtocol extends BaseProtocol {
@@ -52,7 +50,7 @@ public class ConsensusProtocol extends BaseProtocol {
             processLeadingWaitStatus();
         }
         else if(isLeading && isLeadingWaitingForResponse) {
-            processLeadingWaitRepsonse();
+            ProcessLeadingWaitResponse();
         }
         else {
             // will handle starting the leadership
@@ -62,66 +60,59 @@ public class ConsensusProtocol extends BaseProtocol {
         m_messageQueueLock.unlock();
     }
 
-    protected void processFollowing() {
-        // look for good status message in the queue
-        // shouldn't have any stales...
+    protected MessageStatus CheckForMessageStatus(UUID whichStatus) {
+        // wait for our specific status message in the queue
         if(m_statusQueue.isEmpty()) {
-            return;
+            return MessageStatus.WAITING;
         }
 
         StatusQueueData statusQueueData = m_statusQueue.remove(0);
-
-        if(statusQueueData.GetMessageId().equals(m_waitingStatusId)){
+        if(statusQueueData.GetMessageId().equals(whichStatus)) {
             MessageStatus status = (MessageStatus) statusQueueData.GetMessage();
-            if(status == MessageStatus.GOOD){
-                m_gossip.Commit();
-                logger.debug("following: good status, committing");
-                isFollowing = false;
-            }
-            else {
-                m_gossip.Abort();
-                logger.debug("following: bad status, aborting");
-                // TODO: should we try again?
-                isFollowing = false;
-            }
+            return status;
         }
         else {
-            logger.debug("following: discarding status {}",
-                    statusQueueData.GetMessage());
+            logger.debug("discarding status {}", statusQueueData.GetMessage());
+            return MessageStatus.WAITING;
+        }
+    }
+
+    protected void processFollowing() {
+
+        // check if our message status is in the queue
+        MessageStatus status = CheckForMessageStatus(m_waitingStatusId);
+        if(status == MessageStatus.GOOD){
+            m_gossip.Commit();
+            logger.debug("following: good status, committing");
+            isFollowing = false;
+        }
+        else if(status == MessageStatus.BAD){
+            m_gossip.Abort();
+            logger.debug("following: bad status, aborting");
+            isFollowing = false;
         }
     }
 
     protected void processLeadingWaitStatus() {
-        if(m_statusQueue.isEmpty()){
-            return;
-        }
+        MessageStatus status = CheckForMessageStatus(m_waitingStatusId);
+        if(status == MessageStatus.GOOD){
+            logger.debug("leading: good status, waiting for response");
 
-        // else pull message off
-        StatusQueueData statusQueueData = m_statusQueue.remove(0);
-        if(statusQueueData.GetMessageId().equals(m_waitingStatusId)){
-            MessageStatus status = (MessageStatus) statusQueueData.GetMessage();
-            if(status == MessageStatus.GOOD){
-                logger.debug("leading: good status, waiting for response");
-
-                // message sent, now need to wait for response
-                isLeadingWaitingForStatus = false;
-                isLeadingWaitingForResponse = true;
-            }
-            else {
-                m_gossip.Abort();
-                logger.debug("leading: bad status, aborting");
-                // TODO: should we try again?
-                isLeading = false;
-                isLeadingWaitingForResponse = false;
-            }
+            // message sent, now need to wait for response
+            isLeadingWaitingForStatus = false;
+            isLeadingWaitingForResponse = true;
         }
-        else {
-            logger.debug("following: discarding status {}",
-                    statusQueueData.GetMessage());
+        else if(status == MessageStatus.BAD){
+            m_gossip.Abort();
+            logger.debug("leading: bad status, aborting");
+            // TODO: should we try again?
+            isLeading = false;
+            isLeadingWaitingForResponse = false;
         }
     }
 
-    protected void processLeadingWaitRepsonse() {
+    protected void ProcessLeadingWaitResponse() {
+        // leading, process messages as they come in
         if(m_messageQueue.isEmpty()){
             return;
         }

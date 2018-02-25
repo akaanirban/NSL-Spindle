@@ -6,6 +6,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.NetworkLayer;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.Query;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryBuilder;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,8 @@ public class Manager {
     protected Set<Query> m_queries;
 
     protected QueryBuilder m_queryBuilder;
+    protected QueryRouter m_router;
+
     protected ConnectionMap m_connectionMap;
     protected NetworkLayer m_networkLayer;
 
@@ -40,8 +43,8 @@ public class Manager {
         m_schedulerThreads = new TreeMap<>();
 
         m_queries = new TreeSet<>();
-
         m_queryBuilder = builder;
+
         m_connectionMap = connectionMap;
         m_networkLayer = networkLayer;
     }
@@ -132,19 +135,22 @@ public class Manager {
     protected void StartNewRound() {
         StopProtocols();
 
+        // build the new router, but don't add it as an observer until all the queries are built
+        // if we receive a message for q2, but haven't yet added q2 then we will incorrectly discard the message
+        m_router = new QueryRouter();
+        m_router.SetNetwork(m_networkLayer);
+
         // now for each query, build it and insert it
         for(Query query : m_queries){
             logger.debug("building protocol for {}", query);
             // has the gossip but nothing else
             IGossipProtocol protocol = m_queryBuilder.BuildGossipProtocolFor(query);
 
+            // wire the protocol to the router
             protocol.SetConnectionMap(m_connectionMap);
-            protocol.SetNetwork(m_networkLayer);
-            m_networkLayer.AddObserver(protocol);
+            m_router.InsertOrReplace(query, protocol);
 
-            // TODO: build the query layer
-
-            // start it up, add result
+            // fire up the threads
             Thread protocolThread = new Thread(protocol);
             logger.debug("starting protocol");
             protocolThread.start();
@@ -171,6 +177,8 @@ public class Manager {
             logger.debug("done storing!");
         }
 
+        // finally add the router as a network observer
+        m_networkLayer.AddObserver(m_router);
         logger.debug("done starting new round");
     }
 }

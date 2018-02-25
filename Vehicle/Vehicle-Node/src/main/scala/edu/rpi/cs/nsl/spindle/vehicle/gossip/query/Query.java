@@ -1,6 +1,8 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.query;
 
-public class Query implements Comparable{
+import java.io.Serializable;
+
+public class Query implements Comparable, Serializable {
     protected String m_operation;
     protected String m_item;
 
