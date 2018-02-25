@@ -45,19 +45,18 @@ public class GossipRunner {
             QueryBuilder builder = new QueryBuilder(ID);
             Manager manager = new Manager(builder, connectionMap, networkLayer);
 
-            Query sumQuery = new Query("sum", "speed");
-            manager.AddQuery(Query.BLANK_QUERY);
-            //manager.AddQuery(sumQuery);
+            manager.AddQuery(new Query("sum", "ids"));
+            manager.AddQuery(new Query("avg", "ids"));
             manager.Start();
             logger.debug("build and started manager!");
-            Thread.sleep(15000);
+            Thread.sleep(5000);
 
             // now shut down the shedulers
             logger.debug("going to stop scheduler");
             manager.StopSchedulers();
             // sleep to let anything finish
 
-            Thread.sleep(4000);
+            Thread.sleep(2000);
 
             logger.debug("going to get result");
             // now try to get the result, then shut down

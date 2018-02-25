@@ -322,7 +322,7 @@ object Main {
     val gossipRunner = new GossipRunner()
     val thisId = System.getenv("NODE_ID")
     val numNodes = System.getenv("NUM_NODES")
-    gossipRunner.StartManagedGossip(thisId, numNodes);
+    gossipRunner.StartManagedGossipTwoQueries(thisId, numNodes);
     startZkLocal
     startKafkaLocal
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal

@@ -135,7 +135,12 @@ public class Consensus implements IGossip {
 
     @Override
     public Object GetValue() {
-        logger.debug("FINAL: {}\t{}", m_value/m_weight, m_weight);
-        return m_value / m_weight;
+        double value = 0.0;
+        if(m_weight > 0.0) {
+            value = m_value / m_weight;
+        }
+
+        logger.debug("FINAL: {}\t{}", value, m_weight);
+        return value;
     }
 }

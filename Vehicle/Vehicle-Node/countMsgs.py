@@ -7,8 +7,8 @@ uuidRe = re.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 sendMsgRE = re.compile("OutSocketManager trying to send")
 recvMsgRE = re.compile("NetworkLayer message . from: . got")
 commitRe = re.compile("Consensus commit")
-abortRe = re.compile("Consensus abort")
-abortFollowRe = re.compile("Consensus abort  ")
+abortRe = re.compile("Consensus abort ")
+abortFollowRe = re.compile("Consensus abort null")
 errorRe = re.compile("ERROR")
 
 
@@ -77,6 +77,7 @@ def parse(fd):
             print key, ":", val
     
     print "num errors:", len(errors)
+    print "num aborts:", len(alead)
 
 def main():
     fd = open(sys.argv[1])

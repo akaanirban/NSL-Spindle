@@ -135,10 +135,19 @@ public class Manager {
     protected void StartNewRound() {
         StopProtocols();
 
-        // build the new router, but don't add it as an observer until all the queries are built
-        // if we receive a message for q2, but haven't yet added q2 then we will incorrectly discard the message
+        // wire everything up, the order needs to be:
+        // 1) connect the protocols to the router
+        // 2) connect the router to the network
+        // 3) start the protocol / protocol scheduler threads
+        //
+        // the router needs to have all the protocols before it can connect to the network. If the network gets a
+        // message for q2, but we haven't added the protocol for q2 to the router yet, then we will erroneously discard
+        // the message.
+        //
+        // If the protocol send a message before it is observing the network then the status could get lost and it
+        // may "hang". We could either buffer the status or just start the threads after we are all wired up.
+
         m_router = new QueryRouter();
-        m_router.SetNetwork(m_networkLayer);
 
         // now for each query, build it and insert it
         for(Query query : m_queries){
@@ -150,15 +159,11 @@ public class Manager {
             protocol.SetConnectionMap(m_connectionMap);
             m_router.InsertOrReplace(query, protocol);
 
-            // fire up the threads
+            // build the threads but don't start them until everything is wired up
             Thread protocolThread = new Thread(protocol);
-            logger.debug("starting protocol");
-            protocolThread.start();
 
-            logger.debug("starting scheduler");
-            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 40);
+            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 800);
             Thread schedulerThread = new Thread(scheduler);
-            scheduler.start();
 
             logger.debug("storing");
             try {
@@ -171,14 +176,21 @@ public class Manager {
                 logger.debug("storing 4");
                 m_protocolThreads.put(query, protocolThread);
             }catch(Exception e) {
-                logger.debug("error building: {}", e.getMessage());
+                logger.error("ERROR building: {}", e.getMessage());
             }
 
             logger.debug("done storing!");
         }
 
-        // finally add the router as a network observer
+        // connect the router to the network
+        m_router.SetNetwork(m_networkLayer);
         m_networkLayer.AddObserver(m_router);
+
+        // now we can start the threads
+        for(Query query : m_queries) {
+            m_protocolThreads.get(query).start();
+            m_schedulerThreads.get(query).start();
+        }
         logger.debug("done starting new round");
     }
 }
