@@ -47,13 +47,18 @@ public class Consensus {
     String otherId = "2";
     String otherId2 = "3";
 
+    UUID uuid1 = UUID.randomUUID();
+    UUID uuid2 = UUID.randomUUID();
+
     @Before
     public void doFirst() {
         MockitoAnnotations.initMocks(this);
-        when(leadMsgData.getUUID()).thenReturn(UUID.randomUUID());
-        when(responseMsgData.getUUID()).thenReturn(UUID.randomUUID());
+        when(leadMsgData.getUUID()).thenReturn(uuid1);
+        when(responseMsgData.getUUID()).thenReturn(uuid1);
+        when(noGossipResponse.GetLeadUUID()).thenReturn(uuid1);
+
         leadMsg = new ConsensusLeadGossipMessage(leadMsgData);
-        responseMsg = new ConsensusFollowResponse(responseMsgData);
+        responseMsg = new ConsensusFollowResponse(responseMsgData, uuid1);
 
         protocol = new ConsensusProtocol(selfId);
         protocol.SetGossip(gossip);
@@ -142,10 +147,11 @@ public class Consensus {
         protocol.OnNetworkActivity(otherId, leadMsg);
         protocol.doIteration();
 
-        // now check that we committed
-        verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(leadMsgData));
-        verify(gossip, times(1)).Commit();
-        verify(gossip, times(1)).GetLeadGossipMessage();
+        verify(sender).Send(eq(otherId), isA(ConsensusNoGossipResponse.class));
+
+        // now check that we did not commit
+        verify(gossip, never()).HandleUpdateMessage(anyString(), anyObject());
+        verify(gossip, never()).Commit();
         verify(gossip, never()).GetGossipMessage();
     }
 

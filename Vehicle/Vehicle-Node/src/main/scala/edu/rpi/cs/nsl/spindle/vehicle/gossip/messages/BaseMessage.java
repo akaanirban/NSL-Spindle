@@ -15,4 +15,9 @@ public abstract class BaseMessage implements IGossipMessageData {
     public UUID getUUID() {
         return m_uuid;
     }
+
+    @Override
+    public String toString() {
+        return m_uuid.toString();
+    }
 }

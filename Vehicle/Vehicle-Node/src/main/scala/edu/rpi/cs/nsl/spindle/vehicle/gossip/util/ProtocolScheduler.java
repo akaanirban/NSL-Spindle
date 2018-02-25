@@ -21,7 +21,6 @@ public class ProtocolScheduler extends Thread {
     @Override
     public void run() {
         running = true;
-
         while(running) {
             try {
                 m_protocol.LeadGossip();

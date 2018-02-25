@@ -83,6 +83,8 @@ public class OutSocketManager extends Thread implements INetworkSender {
 				} catch(Exception e) {
 					NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
 					e.printStackTrace();
+					logger.debug("bad send of {} to {}", message, target);
+                    logger.error("bad send of {} to {}", message, target);
 					return;
 				}
 

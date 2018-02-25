@@ -1,7 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.query;
 
-
-public class Query {
+public class Query implements Comparable{
     protected String m_operation;
     protected String m_item;
 
@@ -11,5 +10,18 @@ public class Query {
     }
 
     public static final Query BLANK_QUERY = new Query("blank", "blank");
+
+    @Override
+    public String toString() {
+        return "[op=" + m_operation + ", item=" + m_item + "]";
+    }
+
+    @Override
+    public int compareTo(Object o) {
+        if(o != null) {
+            return toString().compareTo(o.toString());
+        }
+        return 1;
+    }
 };
 

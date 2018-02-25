@@ -26,6 +26,8 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 
     protected ArrayList<INetworkObserver> observers;
 
+    protected NetworkMessageBuffer buffer;
+
     // only build when there is an attempt to use
     protected ConcurrentHashMap<String, InSocketManager> inSocks;
     protected ConcurrentHashMap<String, OutSocketManager> outSocks;
@@ -40,10 +42,16 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         this.observers = new ArrayList<>();
         this.inSocks = new ConcurrentHashMap<>();
         this.outSocks = new ConcurrentHashMap<>();
+
+        // set up the buffer./r
+        this.buffer = new NetworkMessageBuffer();
+        this.observers.add(this.buffer);
     }
 
     public void AddObserver(INetworkObserver observer) {
-        this.observers.add(observer);
+        // TODO: set observer, not add
+        buffer.SetObserver(observer);
+
     }
 
     @Override
@@ -53,6 +61,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
             boolean good = TryOpenSocket(target);
             if(!good) {
                 logger.debug("failed to find, trying to build");
+                logger.error("failed to find, trying to build");
                 return;
             }
         }
@@ -81,7 +90,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         } catch(Exception e) {
             e.printStackTrace();
             // TODO: be sure to remove bad socket and indicate bad status
-            logger.debug("failed to create socket to: {}", target);
+            logger.debug("error opening socket to {}: {}", target, e.getMessage());
             return false;
         }
 

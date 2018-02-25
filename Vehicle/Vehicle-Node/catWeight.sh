@@ -27,4 +27,6 @@ for x in `docker ps |grep SPINDLE-|awk '{print $NF}'`;
     cd ..;
 done;
 
+echo "combining"
+find . | grep log | xargs cat | grep 'edu.rpi.cs.nsl.spindle.vehicle.gossip' > combined.final
 echo "Completed aquiring logs"
