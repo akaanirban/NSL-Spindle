@@ -15,4 +15,9 @@ public class QueryTaggedMessage extends NestedMessage {
     public Query GetQuery() {
         return m_query;
     }
+
+    @Override
+    public String toString() {
+        return "[type=qtm,query=" + m_query.toString() + super.toString() + "]";
+    }
 }
