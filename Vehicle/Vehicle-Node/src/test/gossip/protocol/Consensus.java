@@ -9,7 +9,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusFollowResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusLeadGossipMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusNoGossipResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.ConsensusProtocol;
-import gossip.util.MessageMatcher;
+import gossip.testingUtils.MessageMatcher;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.*;

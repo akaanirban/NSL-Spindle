@@ -8,16 +8,20 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.Query;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryBuilder;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.RunScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Contains the logic for managing gossip running.
  * Handles queries, epochs
  */
-public class Manager {
+public class Manager implements Runnable {
     Logger logger = LoggerFactory.getLogger(this.getClass());
 
 
@@ -35,6 +39,9 @@ public class Manager {
     protected ConnectionMap m_connectionMap;
     protected NetworkLayer m_networkLayer;
 
+    protected AtomicBoolean m_requestStop;
+    protected RunScheduler m_runScheduler;
+
     public Manager(QueryBuilder builder, ConnectionMap connectionMap, NetworkLayer networkLayer) {
         m_protocols = new TreeMap<>();
         m_protocolThreads = new TreeMap<>();
@@ -47,6 +54,9 @@ public class Manager {
 
         m_connectionMap = connectionMap;
         m_networkLayer = networkLayer;
+
+        m_requestStop = new AtomicBoolean(false);
+        m_runScheduler = new RunScheduler(10);
     }
 
     public Map<Query, Object> GetResults() {
@@ -192,5 +202,42 @@ public class Manager {
             m_schedulerThreads.get(query).start();
         }
         logger.debug("done starting new round");
+    }
+
+    @Override
+    public void run() {
+        Date previous = Date.from(m_runScheduler.GetNext());
+        Timer timer = new Timer();
+
+        while(!m_requestStop.get()) {
+            Instant nextRunInstant = m_runScheduler.GetNext();
+            Date nextRun = Date.from(nextRunInstant);
+            if(nextRun.equals(previous)) {
+                // TODO: handle this case...
+                continue;
+            }
+
+            // otherwise schedule the run task, and sleep until we're done
+            timer.schedule(new StartNewRoundTask(), nextRun);
+
+            // try to wake exactly a half second after
+            Instant sleepToInstant = nextRunInstant.plusMillis(500);
+            Duration durationUntil = Duration.between(Instant.now(), sleepToInstant);
+            long nsToSleep = durationUntil.getNano();
+            long msToSleep = nsToSleep / 1000000;
+
+            try {
+                Thread.sleep(msToSleep);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    protected class StartNewRoundTask extends TimerTask {
+        @Override
+        public void run() {
+            StartNewRound();
+        }
     }
 }
