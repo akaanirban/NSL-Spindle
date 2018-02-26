@@ -1,4 +1,4 @@
-package edu.rpi.cs.nsl.spindle.vehicle.gossip.util;
+package edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

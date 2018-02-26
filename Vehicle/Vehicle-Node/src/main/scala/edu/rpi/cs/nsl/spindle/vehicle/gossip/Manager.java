@@ -8,7 +8,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.Query;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryBuilder;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.RunScheduler;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.RunScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

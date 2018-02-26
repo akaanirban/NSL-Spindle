@@ -1,6 +1,6 @@
-package gossip.util;
+package gossip.epoch;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.RunScheduler;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.RunScheduler;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
