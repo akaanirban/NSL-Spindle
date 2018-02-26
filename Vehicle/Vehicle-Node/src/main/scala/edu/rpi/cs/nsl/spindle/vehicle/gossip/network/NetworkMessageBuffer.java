@@ -31,10 +31,11 @@ public class NetworkMessageBuffer implements INetworkObserver {
     }
 
     public void SetObserver(INetworkObserver observer) {
+        m_messageQueueLock.lock();
+
         this.m_observer = observer;
         // now lock and move all messages into observer's queue
 
-        m_messageQueueLock.lock();
         logger.debug("adding messages to queue, there are: {}", m_messageBuffer.size());
         for(MessageQueueData item : m_messageBuffer) {
             m_observer.OnNetworkActivity(item.Sender, item.Message);

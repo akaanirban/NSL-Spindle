@@ -45,18 +45,23 @@ public class GossipRunner {
             QueryBuilder builder = new QueryBuilder(ID);
             Manager manager = new Manager(builder, connectionMap, networkLayer);
 
+            Thread managerThread = new Thread(manager);
+
             manager.AddQuery(new Query("sum", "ids"));
             manager.AddQuery(new Query("avg", "ids"));
-            manager.Start();
             logger.debug("build and started manager!");
-            Thread.sleep(5000);
 
-            // now shut down the shedulers
-            logger.debug("going to stop scheduler");
-            manager.StopSchedulers();
+            managerThread.start();
+
+            Thread.sleep(30000);
+
+            // now try to shut it down
+            logger.debug("going to stop whole thing!");
+            manager.Stop();
+
             // sleep to let anything finish
 
-            Thread.sleep(2000);
+            Thread.sleep(10000);
 
             logger.debug("going to get result");
             // now try to get the result, then shut down
@@ -66,7 +71,7 @@ public class GossipRunner {
                 logger.debug("{} got result {}",result.getKey(), result.getValue());
             }
 
-            manager.Stop();
+            managerThread.join();
 
             logger.debug("trying to close server");
             networkLayer.closeServer();
@@ -106,7 +111,6 @@ public class GossipRunner {
             Manager manager = new Manager(builder, connectionMap, networkLayer);
 
             manager.AddQuery(Query.BLANK_QUERY);
-            manager.Start();
             logger.debug("build and started manager!");
             Thread.sleep(15000);
 

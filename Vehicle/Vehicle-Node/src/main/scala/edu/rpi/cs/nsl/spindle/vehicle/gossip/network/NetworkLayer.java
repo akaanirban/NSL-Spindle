@@ -49,9 +49,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
     }
 
     public void AddObserver(INetworkObserver observer) {
-        // TODO: set observer, not add
         buffer.SetObserver(observer);
-
     }
 
     @Override

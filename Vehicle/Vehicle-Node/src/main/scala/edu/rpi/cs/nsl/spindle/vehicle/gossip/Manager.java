@@ -1,5 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.Epoch;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.EpochRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
@@ -9,11 +11,13 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryBuilder;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.RunScheduler;
+import jnr.ffi.annotations.In;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,13 +38,17 @@ public class Manager implements Runnable {
     protected Set<Query> m_queries;
 
     protected QueryBuilder m_queryBuilder;
-    protected QueryRouter m_router;
+    protected QueryRouter m_queryRouter;
 
     protected ConnectionMap m_connectionMap;
     protected NetworkLayer m_networkLayer;
 
     protected AtomicBoolean m_requestStop;
     protected RunScheduler m_runScheduler;
+
+    protected EpochRouter m_epochRouter;
+
+    protected boolean m_isFirstRun;
 
     public Manager(QueryBuilder builder, ConnectionMap connectionMap, NetworkLayer networkLayer) {
         m_protocols = new TreeMap<>();
@@ -57,6 +65,9 @@ public class Manager implements Runnable {
 
         m_requestStop = new AtomicBoolean(false);
         m_runScheduler = new RunScheduler(10);
+        m_epochRouter = new EpochRouter(networkLayer);
+
+        m_isFirstRun = true;
     }
 
     public Map<Query, Object> GetResults() {
@@ -71,14 +82,8 @@ public class Manager implements Runnable {
         return result;
     }
 
-    public void Start() {
-        StartNewRound();
-    }
-
     public void Stop() {
-        logger.debug("stop called");
-        StopProtocols();
-        logger.debug("stop done");
+        m_requestStop.set(true);
     }
 
     // adds query to the list so that next itr it will be created
@@ -143,7 +148,17 @@ public class Manager implements Runnable {
     }
 
     protected void StartNewRound() {
+        // get the protocol results before killing them
+        logger.debug("FINAL RESULT: {}", GetResults());
+
+        // start buffering the epoch router
+        m_epochRouter.StartBuffering();
+        Instant currentInstant = m_runScheduler.GetCurrentInterval();
+        logger.debug("trying to start new round on epoch {}", currentInstant);
+
+        // stop everything
         StopProtocols();
+        StopSchedulers();
 
         // wire everything up, the order needs to be:
         // 1) connect the protocols to the router
@@ -157,7 +172,7 @@ public class Manager implements Runnable {
         // If the protocol send a message before it is observing the network then the status could get lost and it
         // may "hang". We could either buffer the status or just start the threads after we are all wired up.
 
-        m_router = new QueryRouter();
+        m_queryRouter = new QueryRouter();
 
         // now for each query, build it and insert it
         for(Query query : m_queries){
@@ -167,7 +182,7 @@ public class Manager implements Runnable {
 
             // wire the protocol to the router
             protocol.SetConnectionMap(m_connectionMap);
-            m_router.InsertOrReplace(query, protocol);
+            m_queryRouter.InsertOrReplace(query, protocol);
 
             // build the threads but don't start them until everything is wired up
             Thread protocolThread = new Thread(protocol);
@@ -192,51 +207,80 @@ public class Manager implements Runnable {
             logger.debug("done storing!");
         }
 
-        // connect the router to the network
-        m_router.SetNetwork(m_networkLayer);
-        m_networkLayer.AddObserver(m_router);
+        // connect the query router to the epoch router
+        // have query router observe network router
+        // finally connect epoch router to the query router
+        m_queryRouter.SetNetwork(m_epochRouter);
+        m_epochRouter.SetObserver(m_queryRouter);
+
+        // this will send all the messages up to the query router
+        m_epochRouter.SetEpoch(new Epoch(currentInstant));
+
+        if(m_isFirstRun) {
+            m_networkLayer.AddObserver(m_epochRouter);
+            m_isFirstRun = false;
+        }
 
         // now we can start the threads
         for(Query query : m_queries) {
             m_protocolThreads.get(query).start();
             m_schedulerThreads.get(query).start();
         }
+
         logger.debug("done starting new round");
     }
 
     @Override
     public void run() {
-        Date previous = Date.from(m_runScheduler.GetNext());
+        Instant previous = m_runScheduler.GetNext();
         Timer timer = new Timer();
 
         while(!m_requestStop.get()) {
             Instant nextRunInstant = m_runScheduler.GetNext();
-            Date nextRun = Date.from(nextRunInstant);
-            if(nextRun.equals(previous)) {
-                // TODO: handle this case...
+
+            if(nextRunInstant.equals(previous)) {
+                // sleep until after the next interval
+                SleepTillNextInterval(nextRunInstant);
                 continue;
             }
 
             // otherwise schedule the run task, and sleep until we're done
+            logger.debug("scheduling next run on {}, current is {}", nextRunInstant, Instant.now());
+            Date nextRun = Date.from(nextRunInstant);
             timer.schedule(new StartNewRoundTask(), nextRun);
 
-            // try to wake exactly a half second after
-            Instant sleepToInstant = nextRunInstant.plusMillis(500);
-            Duration durationUntil = Duration.between(Instant.now(), sleepToInstant);
-            long nsToSleep = durationUntil.getNano();
-            long msToSleep = nsToSleep / 1000000;
-
-            try {
-                Thread.sleep(msToSleep);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            previous = nextRunInstant;
+            SleepTillNextInterval(nextRunInstant);
         }
+
+        logger.debug("done with stop");
+        timer.cancel();
+        timer.purge();
+    }
+
+    protected void SleepTillNextInterval(Instant nextRunInstant) {
+
+        // try to wake exactly a half second after
+        //Instant sleepToInstant = nextRunInstant.plusMillis(1500);
+        //Duration durationUntil = Duration.between(Instant.now(), sleepToInstant);
+        //long nsToSleep = durationUntil.getNano();
+        //long msToSleep = nsToSleep / 1000000;
+        //logger.debug("trying to sleep {} ms wants {} ns sleep to is {}", msToSleep, nsToSleep);
+        //Instant now = Instant.now();
+        long msToSleep = 500; // now.until(sleepToInstant, ChronoUnit.MILLIS);
+        try {
+            Thread.sleep(msToSleep);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        //logger.debug("now is {}, sleep to is {} sleeping {}", now, sleepToInstant, msToSleep);
     }
 
     protected class StartNewRoundTask extends TimerTask {
         @Override
         public void run() {
+            logger.debug("running the start task");
             StartNewRound();
         }
     }

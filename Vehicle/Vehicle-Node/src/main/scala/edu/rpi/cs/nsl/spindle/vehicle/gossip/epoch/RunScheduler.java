@@ -13,6 +13,13 @@ public class RunScheduler {
         this.m_period = period;
     }
 
+    public Instant GetCurrentInterval() {
+        Instant nextInstant = GetNext();
+        Instant currentInstant = nextInstant.minusSeconds(m_period);
+
+        return currentInstant;
+    }
+
     public Instant GetNext() {
         Instant now = Instant.now();
         long sinceEpoch = now.getEpochSecond();
