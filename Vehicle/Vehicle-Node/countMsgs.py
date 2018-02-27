@@ -10,8 +10,13 @@ commitRe = re.compile("Consensus commit")
 abortRe = re.compile("Consensus abort ")
 abortFollowRe = re.compile("Consensus abort null")
 errorRe = re.compile("ERROR")
+
 epochRe = re.compile(":[0-6][0-9]Z")
 startRoundRe = re.compile("start new round")
+
+# make sure that recv'd msgs get queued
+queuedRe = re.compile("queueing")
+
 
 
 def countOccurOnce(lst): 
@@ -26,6 +31,7 @@ def parse(fd):
     alead = []
     tupMap = {}
     errors = []
+    queued = []
     epochsMap = {}
 
     for line in fd: 
@@ -37,6 +43,7 @@ def parse(fd):
         isAbortFollow = abortFollowRe.findall(line)
         isError = errorRe.findall(line)
         isStartRound = startRoundRe.findall(line)
+        isQueued = queuedRe.findall(line)
         epoch = epochRe.findall(line)
 
         if isSend:
@@ -61,7 +68,8 @@ def parse(fd):
             assert(reversePair not in tupMap)
 
         elif isAbort:
-            assert(len(uuids) == 1)
+            if len(uuids) != 1: 
+                print line
 
             alead.append(uuids[0])
         elif isError:
@@ -76,12 +84,18 @@ def parse(fd):
                 epochsMap[e] = epochsMap[e] + 1
             else:
                 epochsMap[e] = 1
+        elif isQueued:
+            queued.append(uuids[0])
 
         assert(not isAbortFollow)
 
-    print "bad sends that got commited"
+    print "messages sent but not received"
     badSends = np.setdiff1d(sendIds, recvIds)
     print set(badSends) & set(set(clead) | set(cfollow))
+
+    print "messages that got queued but not recieved"
+    badQueues = np.setdiff1d(recvIds, queued)
+    print badQueues
 
     print "tups:", len(tupMap)
     if len(tupMap) > 0: 

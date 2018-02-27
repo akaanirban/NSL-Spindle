@@ -64,7 +64,7 @@ public class Manager implements Runnable {
         m_networkLayer = networkLayer;
 
         m_requestStop = new AtomicBoolean(false);
-        m_runScheduler = new RunScheduler(10);
+        m_runScheduler = new RunScheduler(20);
         m_epochRouter = new EpochRouter(networkLayer);
 
         m_isFirstRun = true;
@@ -150,6 +150,9 @@ public class Manager implements Runnable {
     protected void StartNewRound() {
         // get the protocol results before killing them
         logger.debug("FINAL RESULT: {}", GetResults());
+        if(m_isFirstRun == false) {
+            return;
+        }
 
         // start buffering the epoch router
         m_epochRouter.StartBuffering();
