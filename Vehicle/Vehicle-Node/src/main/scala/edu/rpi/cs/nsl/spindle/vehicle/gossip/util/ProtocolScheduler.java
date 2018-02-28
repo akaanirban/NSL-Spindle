@@ -21,6 +21,16 @@ public class ProtocolScheduler extends Thread {
     @Override
     public void run() {
         running = true;
+        // sleep before first step
+        try {
+            long sleepTime = getPoisson(windowSize);
+            logger.debug("sleeping {}", sleepTime);
+            sleep(sleepTime);
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        
         while(running) {
             try {
                 m_protocol.LeadGossip();

@@ -89,8 +89,11 @@ def parse(fd):
 
         assert(not isAbortFollow)
 
-    print "messages sent but not received"
     badSends = np.setdiff1d(sendIds, recvIds)
+    print len(badSends), "messages sent but not received"
+    print badSends
+
+    print "bad sends that got commited"
     print set(badSends) & set(set(clead) | set(cfollow))
 
     print "messages that got queued but not recieved"
@@ -115,6 +118,8 @@ def parse(fd):
     
     print "num errors:", len(errors)
     print "num aborts:", len(alead)
+    print "num sent:", len(sendIds)
+    print "num recvd:", len(recvIds)
 
 def main():
     fd = open(sys.argv[1])

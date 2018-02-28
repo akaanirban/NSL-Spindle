@@ -13,88 +13,96 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class OutSocketManager extends Thread implements INetworkSender {
-	protected String myID;
-	protected Socket socket;
-	protected ArrayList<INetworkObserver> observers;
-	protected ObjectOutputStream ostr;
-	Logger logger = LoggerFactory.getLogger(this.getClass());
+    protected String myID;
+    protected Socket socket;
+    protected ArrayList<INetworkObserver> observers;
+    protected ObjectOutputStream ostr;
+    Logger logger = LoggerFactory.getLogger(this.getClass());
+    protected Lock lock;
 
 
-	protected boolean running;
-	
-	public OutSocketManager(String myID, String sourceID, Socket socket) {
-		this.myID = myID;
-		this.socket = socket;
-		this.observers = new ArrayList<INetworkObserver>();
-		
-		// try to build the output stream
-		try {
-			ostr = new ObjectOutputStream(socket.getOutputStream());
-			ostr.writeObject(new StartUpMessage(sourceID));
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			try {
-				socket.close();
-			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-		}
-		
-		this.running = false;
-	}
-	
-	public void AddObserver(INetworkObserver observer) {
-		this.observers.add(observer);
-	}
-	
-	public void NotifyStatusObservers(UUID messageId, MessageStatus status) {
-		for(INetworkObserver observer : observers) {
-			observer.OnMessageStatus(messageId, status);
-		}
-	}
-	
-	public void Close() {
-		try {
-			ostr.close();
-			socket.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
+    protected boolean running;
 
-	@Override
-	public void Send(String target, IGossipMessageData message) {
-		// try to send the message, need to do it async
-		new Thread(new Runnable() {
+    public OutSocketManager(String myID, String sourceID, Socket socket) {
+        this.myID = myID;
+        this.socket = socket;
+        this.observers = new ArrayList<INetworkObserver>();
+        this.lock = new ReentrantLock();
 
-			@Override
-			public void run() {
-				// try to send the message
-				logger.debug("trying to send: " + message + " to: " + target);
-				try {
+        // try to build the output stream
+        try {
+            ostr = new ObjectOutputStream(socket.getOutputStream());
+            ostr.writeObject(new StartUpMessage(sourceID));
+        } catch (IOException e) {
+            logger.debug("io exception {} {}", e, e.getMessage());
+            e.printStackTrace();
+            try {
+                socket.close();
+            } catch (IOException e1) {
+                logger.debug("io exception {} {}", e, e.getMessage());
+                e1.printStackTrace();
+            }
+        }
 
-					ostr.writeObject(message);
+        this.running = false;
+    }
 
-				} catch(Exception e) {
-					NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
-					e.printStackTrace();
-					logger.debug("bad send of {} to {}", message, target);
-                    logger.error("bad send of {} to {}", message, target);
-					return;
-				}
+    public void AddObserver(INetworkObserver observer) {
+        this.observers.add(observer);
+    }
 
-				NotifyStatusObservers(message.getUUID(), MessageStatus.GOOD);
-				logger.debug("good send of {} to {}", message, target);
-			}
-			
-		}).start();
-	}
-	
-	
-	
+    public synchronized void NotifyStatusObservers(UUID messageId, MessageStatus status) {
+        for (INetworkObserver observer : observers) {
+            observer.OnMessageStatus(messageId, status);
+        }
+    }
+
+    public void Close() {
+        try {
+            ostr.close();
+            socket.close();
+        } catch (IOException e) {
+            logger.debug("io exception {} {}", e, e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public synchronized void Send(String target, IGossipMessageData message) {
+        // try to send the message, do it async so we don't block
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                DoSend(target, message);
+            }
+
+        }).start();
+    }
+
+    protected synchronized void DoSend(String target, IGossipMessageData message) {
+        // try to send the message
+        logger.debug("trying to send: " + message + " to: " + target);
+        lock.lock();
+        try {
+
+            ostr.writeObject(message);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("bad send of {} to {}, got exception {} with message {}",
+                    message, target, e, e.toString());
+
+            lock.unlock();
+            NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
+            return;
+        }
+        lock.unlock();
+        NotifyStatusObservers(message.getUUID(), MessageStatus.GOOD);
+        logger.debug("good send of {} to {}", message, target);
+    }
 }

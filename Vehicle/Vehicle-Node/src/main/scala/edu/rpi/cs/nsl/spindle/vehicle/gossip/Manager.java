@@ -1,7 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.Epoch;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.EpochRouter;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.RunScheduler;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
@@ -10,14 +10,10 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.Query;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryBuilder;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.RunScheduler;
-import jnr.ffi.annotations.In;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -64,7 +60,7 @@ public class Manager implements Runnable {
         m_networkLayer = networkLayer;
 
         m_requestStop = new AtomicBoolean(false);
-        m_runScheduler = new RunScheduler(20);
+        m_runScheduler = new RunScheduler(15);
         m_epochRouter = new EpochRouter(networkLayer);
 
         m_isFirstRun = true;
@@ -72,7 +68,7 @@ public class Manager implements Runnable {
 
     public Map<Query, Object> GetResults() {
         Map<Query, Object> result = new TreeMap<>();
-        for(Map.Entry<Query, IGossipProtocol> entry : m_protocols.entrySet()) {
+        for (Map.Entry<Query, IGossipProtocol> entry : m_protocols.entrySet()) {
             IGossip gossip = entry.getValue().GetGossip();
             Object value = gossip.GetValue();
 
@@ -88,23 +84,22 @@ public class Manager implements Runnable {
 
     // adds query to the list so that next itr it will be created
     public void AddQuery(Query query) {
-        if(m_queries.contains(query)) {
+        if (m_queries.contains(query)) {
             logger.debug("set already contains: {}", query);
-        }
-        else {
+        } else {
             m_queries.add(query);
         }
     }
 
     public void StopSchedulers() {
-        for(Map.Entry<Query, ProtocolScheduler> entry : m_schedulers.entrySet()) {
+        for (Map.Entry<Query, ProtocolScheduler> entry : m_schedulers.entrySet()) {
             ProtocolScheduler scheduler = entry.getValue();
             scheduler.Finish();
             logger.debug("asked to stop protocol: {}", entry.getKey());
         }
 
         // make sure everything shut down
-        for(Map.Entry<Query, Thread> entry : m_schedulerThreads.entrySet()) {
+        for (Map.Entry<Query, Thread> entry : m_schedulerThreads.entrySet()) {
             Thread thread = entry.getValue();
             try {
                 thread.join();
@@ -123,13 +118,13 @@ public class Manager implements Runnable {
     }
 
     protected void StopProtocols() {
-        for(Map.Entry<Query, IGossipProtocol> entry : m_protocols.entrySet()) {
+        for (Map.Entry<Query, IGossipProtocol> entry : m_protocols.entrySet()) {
             IGossipProtocol protocol = entry.getValue();
             protocol.Stop();
         }
 
         // now check the futures to make sure everything shut down
-        for(Map.Entry<Query, Thread> entry : m_protocolThreads.entrySet()) {
+        for (Map.Entry<Query, Thread> entry : m_protocolThreads.entrySet()) {
             Thread thread = entry.getValue();
             try {
                 thread.join();
@@ -147,15 +142,15 @@ public class Manager implements Runnable {
         m_protocolThreads.clear();
     }
 
-    protected void StartNewRound() {
+    public void StartNewRound() {
         // get the protocol results before killing them
         logger.debug("FINAL RESULT: {}", GetResults());
-        if(m_isFirstRun == false) {
+        if (m_isFirstRun == false) {
             return;
         }
 
         // start buffering the epoch router
-        m_epochRouter.StartBuffering();
+        //m_epochRouter.StartBuffering();
         Instant currentInstant = m_runScheduler.GetCurrentInterval();
         logger.debug("trying to start new round on epoch {}", currentInstant);
 
@@ -178,7 +173,7 @@ public class Manager implements Runnable {
         m_queryRouter = new QueryRouter();
 
         // now for each query, build it and insert it
-        for(Query query : m_queries){
+        for (Query query : m_queries) {
             logger.debug("building protocol for {}", query);
             // has the gossip but nothing else
             IGossipProtocol protocol = m_queryBuilder.BuildGossipProtocolFor(query);
@@ -203,7 +198,7 @@ public class Manager implements Runnable {
                 m_protocols.put(query, protocol);
                 logger.debug("storing 4");
                 m_protocolThreads.put(query, protocolThread);
-            }catch(Exception e) {
+            } catch (Exception e) {
                 logger.error("ERROR building: {}", e.getMessage());
             }
 
@@ -213,19 +208,21 @@ public class Manager implements Runnable {
         // connect the query router to the epoch router
         // have query router observe network router
         // finally connect epoch router to the query router
-        m_queryRouter.SetNetwork(m_epochRouter);
-        m_epochRouter.SetObserver(m_queryRouter);
+        m_queryRouter.SetNetwork(m_networkLayer);
+        m_networkLayer.AddObserver(m_queryRouter);
+        //m_queryRouter.SetNetwork(m_epochRouter);
+        //m_epochRouter.SetObserver(m_queryRouter);
 
         // this will send all the messages up to the query router
-        m_epochRouter.SetEpoch(new Epoch(currentInstant));
+        //m_epochRouter.SetEpoch(new Epoch(currentInstant));
 
-        if(m_isFirstRun) {
-            m_networkLayer.AddObserver(m_epochRouter);
+        if (m_isFirstRun) {
+            //m_networkLayer.AddObserver(m_epochRouter);
             m_isFirstRun = false;
         }
 
         // now we can start the threads
-        for(Query query : m_queries) {
+        for (Query query : m_queries) {
             m_protocolThreads.get(query).start();
             m_schedulerThreads.get(query).start();
         }
@@ -238,10 +235,10 @@ public class Manager implements Runnable {
         Instant previous = m_runScheduler.GetNext();
         Timer timer = new Timer();
 
-        while(!m_requestStop.get()) {
+        while (!m_requestStop.get()) {
             Instant nextRunInstant = m_runScheduler.GetNext();
 
-            if(nextRunInstant.equals(previous)) {
+            if (nextRunInstant.equals(previous)) {
                 // sleep until after the next interval
                 SleepTillNextInterval(nextRunInstant);
                 continue;

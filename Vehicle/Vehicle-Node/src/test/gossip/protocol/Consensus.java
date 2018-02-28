@@ -12,7 +12,9 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.ConsensusProtocol;
 import gossip.testingUtils.MessageMatcher;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.*;
+import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.util.UUID;
 
@@ -69,15 +71,15 @@ public class Consensus {
     /**
      * cases:
      * leading gossip
-     *  - good
-     *  - get message from another
-     *      - get follow message from gossip m_target
-     *  - get another request to lead
-     *  - fail status
-     *  - follow fails?
+     * - good
+     * - get message from another
+     * - get follow message from gossip m_target
+     * - get another request to lead
+     * - fail status
+     * - follow fails?
      * follow gossip:
-     *  - good
-     *  - fail status
+     * - good
+     * - fail status
      */
 
     // does the send message side
@@ -96,7 +98,7 @@ public class Consensus {
     @Test
     public void testLeadGood() {
         doSendLeadMessage();
-        verify(sender, times(1)).Send(otherId, leadMsg);
+        verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
         protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);

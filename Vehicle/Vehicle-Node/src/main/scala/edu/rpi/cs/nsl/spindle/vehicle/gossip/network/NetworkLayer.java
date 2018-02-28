@@ -1,6 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.*;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.StartUpMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
@@ -13,6 +14,8 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class NetworkLayer extends Thread implements INetworkSender, INetworkObserver {
 
@@ -32,6 +35,8 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
     protected ConcurrentHashMap<String, InSocketManager> inSocks;
     protected ConcurrentHashMap<String, OutSocketManager> outSocks;
 
+    protected Lock lock;
+
     public NetworkLayer(String myID, int myPort, ConnectionMap connectionMap) {
         this.connectionMap = connectionMap;
 
@@ -46,6 +51,8 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         // set up the buffer./r
         this.buffer = new NetworkMessageBuffer();
         this.observers.add(this.buffer);
+
+        this.lock = new ReentrantLock();
     }
 
     public void AddObserver(INetworkObserver observer) {
@@ -53,24 +60,35 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
     }
 
     @Override
-    public void Send(String target, IGossipMessageData message) {
+    public synchronized void Send(String target, IGossipMessageData message) {
         // try to open the socket
-        if(!outSocks.containsKey(target)) {
+        lock.lock();
+        if (!outSocks.containsKey(target)) {
             boolean good = TryOpenSocket(target);
-            if(!good) {
-                logger.debug("failed to find, trying to build");
-                logger.error("failed to find, trying to build");
+            if (!good) {
+                logger.debug("failed to open socket to {} for message {}", target, message);
+                lock.unlock();
+
+                NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
+                // send message back up
                 return;
             }
         }
 
+
         // try to send on the socket
         OutSocketManager manager = outSocks.get(target);
-        logger.debug("{} sending {} to {} over {}\n",
-                myID, message, target, manager);
+        logger.debug("{} sending {} to {} over {}", myID, message, target, manager);
+        lock.unlock();
         manager.Send(target, message);
     }
 
+    /**
+     * trys to open socket to target, note that it doesn't report status back up
+     *
+     * @param target
+     * @return
+     */
     protected boolean TryOpenSocket(String target) {
         try {
             logger.debug("trying to open socket to {}", target);
@@ -85,9 +103,8 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
             logger.debug("created socket to: {}", target);
             outSocks.put(target, outManager);
 
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
-            // TODO: be sure to remove bad socket and indicate bad status
             logger.debug("error opening socket to {}: {}", target, e.getMessage());
             return false;
         }
@@ -99,7 +116,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         running = false;
         try {
             serverSocket.close();
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -110,7 +127,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
             running = true;
             this.serverSocket = new ServerSocket(myPort);
 
-            while(running) {
+            while (running) {
                 Socket socket = serverSocket.accept();
                 // just to the port for temp
                 int port = socket.getPort();
@@ -121,21 +138,22 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
                 manager.AddObserver(this);
                 manager.start();
 
-                // TODO: check if in map
+                logger.debug("adding insocket with temp id {}", tempID);
                 inSocks.put(tempID, manager);
             }
-            logger.debug("going to close: " + myID);
+            logger.debug("closing socket server {}" + myID);
             serverSocket.close();
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    protected Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Override
-    public void OnNetworkActivity(String sender, Object message) {
+    public synchronized void OnNetworkActivity(String sender, Object message) {
         logger.debug("message {} from: {} got {}\n", myID, sender, message.toString());
-        if(message instanceof StartUpMessage) {
+        if (message instanceof StartUpMessage) {
             StartUpMessage startUpMessage = (StartUpMessage) message;
 
             // change the socket locations
@@ -146,8 +164,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
 
             logger.debug("{} fixed socket for {}\n", myID, startUpMessage.sourceID);
 
-
-            // don't pass down
+            // don't pass up
             return;
         }
 
@@ -155,21 +172,20 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
     }
 
     @Override
-    public void OnMessageStatus(UUID messageId, MessageStatus status) {
-        // TODO Auto-generated method stub
-        logger.debug("status {} from: {} got {}\n", myID, messageId, status);
+    public synchronized void OnMessageStatus(UUID messageId, MessageStatus status) {
+        logger.debug("status {} from {} got {}\n", myID, messageId, status);
 
         NotifyStatusObservers(messageId, status);
     }
 
-    public void NotifyMessageObservers(String sender, Object message) {
-        for(INetworkObserver observer : observers) {
+    public synchronized void NotifyMessageObservers(String sender, Object message) {
+        for (INetworkObserver observer : observers) {
             observer.OnNetworkActivity(sender, message);
         }
     }
 
-    public void NotifyStatusObservers(UUID sender, MessageStatus status) {
-        for(INetworkObserver observer : observers) {
+    public synchronized void NotifyStatusObservers(UUID sender, MessageStatus status) {
+        for (INetworkObserver observer : observers) {
             observer.OnMessageStatus(sender, status);
         }
     }
