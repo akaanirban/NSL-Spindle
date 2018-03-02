@@ -75,7 +75,7 @@ public abstract class BaseProtocol implements IGossipProtocol {
     @Override
     public void OnNetworkActivity(String sender, Object message) {
         m_messageQueueLock.lock();
-        logger.debug("from {} queueing {}",sender, message);
+        logger.debug("from {} queueing {}", sender, message);
         m_messageQueue.add(new MessageQueueData(sender, message));
         m_messageQueueLock.unlock();
     }
@@ -93,5 +93,36 @@ public abstract class BaseProtocol implements IGossipProtocol {
         m_wantsStop.lazySet(true);
     }
 
+    protected boolean IsMessageQueueEmpty() {
+        m_messageQueueLock.lock();
+        boolean isEmpty = m_messageQueue.isEmpty();
+        m_messageQueueLock.unlock();
+
+        return isEmpty;
+    }
+
+    protected boolean IsStatusQueueEmpty() {
+        m_messageQueueLock.lock();
+        boolean isEmpty = m_statusQueue.isEmpty();
+        m_messageQueueLock.unlock();
+
+        return isEmpty;
+    }
+
+    protected MessageQueueData PopMessageQueue() {
+        m_messageQueueLock.lock();
+        MessageQueueData messageQueueData = m_messageQueue.remove(0);
+        m_messageQueueLock.unlock();
+
+        return messageQueueData;
+    }
+
+    protected StatusQueueData PopStatusQueue() {
+        m_messageQueueLock.lock();
+        StatusQueueData statusQueueData = m_statusQueue.remove(0);
+        m_messageQueueLock.unlock();
+
+        return statusQueueData;
+    }
 
 }

@@ -2,10 +2,15 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
 import java.io.Serializable;
 
-public class StartUpMessage implements Serializable{
-	public String sourceID;
-	
-	public StartUpMessage(String ID) {
-		this.sourceID = ID;
-	}
+public class StartUpMessage implements Serializable {
+    public String sourceID;
+
+    public StartUpMessage(String ID) {
+        this.sourceID = ID;
+    }
+
+    @Override
+    public String toString() {
+        return "[type=startM sourceid=" + sourceID + "]";
+    }
 }

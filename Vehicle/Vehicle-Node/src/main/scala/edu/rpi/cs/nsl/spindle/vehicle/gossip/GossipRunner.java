@@ -19,8 +19,7 @@ import java.util.Map;
  */
 public class GossipRunner {
 
-
-    public void StartManagedGossipTwoQueries(String ID, String countStr) {
+    public void StartManagedGossipTwoQueriesWithEpoch(String ID, String countStr) {
         Logger logger = LoggerFactory.getLogger(this.getClass());
         logger.debug("about to build connection map!");
 
@@ -29,8 +28,8 @@ public class GossipRunner {
         String baseIP = "172.17.0.";
         int numNodes = Integer.parseInt(countStr) + 1;
         int ipStart = 2;
-        for(int i = 0; i < numNodes; ++i){
-            String ipToAdd = baseIP + (ipStart+ i);
+        for (int i = 0; i < numNodes; ++i) {
+            String ipToAdd = baseIP + (ipStart + i);
             logger.debug("trying to add node with string: {}", ipToAdd);
             connectionMap.AddNode("" + i, ipToAdd, 8085);
         }
@@ -45,28 +44,105 @@ public class GossipRunner {
             QueryBuilder builder = new QueryBuilder(ID);
             Manager manager = new Manager(builder, connectionMap, networkLayer);
 
+            Thread managerThread = new Thread(manager);
+
             manager.AddQuery(new Query("sum", "ids"));
             manager.AddQuery(new Query("avg", "ids"));
-            manager.Start();
             logger.debug("build and started manager!");
-            Thread.sleep(5000);
 
-            // now shut down the shedulers
-            logger.debug("going to stop scheduler");
-            manager.StopSchedulers();
+            managerThread.start();
+
+            Thread.sleep(30000);
+
+            // now try to shut it down
+            logger.debug("going to stop whole thing!");
+            manager.Stop();
+
             // sleep to let anything finish
-
-            Thread.sleep(2000);
+            manager.StopSchedulers();
+            Thread.sleep(4000);
 
             logger.debug("going to get result");
             // now try to get the result, then shut down
             Map<Query, Object> results = manager.GetResults();
             logger.debug("result is {}", results);
-            for(Map.Entry<Query, Object> result : results.entrySet()) {
-                logger.debug("{} got result {}",result.getKey(), result.getValue());
+            for (Map.Entry<Query, Object> result : results.entrySet()) {
+                logger.debug("{} got result {}", result.getKey(), result.getValue());
             }
 
+            managerThread.join();
+
+            logger.debug("joined manager, going to stop protocols");
+            manager.StopProtocols();
+
+            logger.debug("trying to close server");
+            networkLayer.closeServer();
+            networkLayer.join();
+            logger.debug("closed server");
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        logger.debug("all done, yay!");
+    }
+
+    public void StartManagedGossipTwoQueries(String ID, String countStr) {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+        logger.debug("about to build connection map!");
+
+        ConnectionMap connectionMap = new ConnectionMap();
+        // star network hard coded
+        String baseIP = "172.17.0.";
+        int numNodes = Integer.parseInt(countStr) + 1;
+        int ipStart = 2;
+        for (int i = 0; i < numNodes; ++i) {
+            String ipToAdd = baseIP + (ipStart + i);
+            logger.debug("trying to add node with string: {}", ipToAdd);
+            connectionMap.AddNode("" + i, ipToAdd, 8085);
+        }
+
+        logger.debug("starting network layer!");
+        NetworkLayer networkLayer = new NetworkLayer(ID, connectionMap.GetPortFromID(ID), connectionMap);
+        networkLayer.start();
+        try {
+            // sleep to be sure everyone has started
+            Thread.sleep(2000);
+
+            QueryBuilder builder = new QueryBuilder(ID);
+            Manager manager = new Manager(builder, connectionMap, networkLayer);
+
+            //Thread managerThread = new Thread(manager);
+
+            manager.AddQuery(new Query("sum", "ids"));
+            manager.AddQuery(new Query("avg", "ids"));
+            logger.debug("build and started manager!");
+
+            //managerThread.start();
+            manager.StartNewRound();
+
+            Thread.sleep(30000);
+
+            // now try to shut it down
+            logger.debug("going to stop whole thing!");
             manager.Stop();
+
+            // sleep to let anything finish
+            manager.StopSchedulers();
+            Thread.sleep(4000);
+
+            logger.debug("going to get result");
+            // now try to get the result, then shut down
+            Map<Query, Object> results = manager.GetResults();
+            logger.debug("result is {}", results);
+            for (Map.Entry<Query, Object> result : results.entrySet()) {
+                logger.debug("{} got result {}", result.getKey(), result.getValue());
+            }
+
+            //managerThread.join();
+
+            logger.debug("joined manager, going to stop protocols");
+            manager.StopProtocols();
 
             logger.debug("trying to close server");
             networkLayer.closeServer();
@@ -89,8 +165,8 @@ public class GossipRunner {
         String baseIP = "172.17.0.";
         int numNodes = Integer.parseInt(countStr) + 1;
         int ipStart = 2;
-        for(int i = 0; i < numNodes; ++i){
-            String ipToAdd = baseIP + (ipStart+ i);
+        for (int i = 0; i < numNodes; ++i) {
+            String ipToAdd = baseIP + (ipStart + i);
             logger.debug("trying to add node with string: {}", ipToAdd);
             connectionMap.AddNode("" + i, ipToAdd, 8085);
         }
@@ -106,7 +182,6 @@ public class GossipRunner {
             Manager manager = new Manager(builder, connectionMap, networkLayer);
 
             manager.AddQuery(Query.BLANK_QUERY);
-            manager.Start();
             logger.debug("build and started manager!");
             Thread.sleep(15000);
 
@@ -121,8 +196,8 @@ public class GossipRunner {
             // now try to get the result, then shut down
             Map<Query, Object> results = manager.GetResults();
             logger.debug("result is {}", results);
-            for(Map.Entry<Query, Object> result : results.entrySet()) {
-                logger.debug("{} got result {}",result.getKey(), result.getValue());
+            for (Map.Entry<Query, Object> result : results.entrySet()) {
+                logger.debug("{} got result {}", result.getKey(), result.getValue());
             }
 
             manager.Stop();
@@ -148,8 +223,8 @@ public class GossipRunner {
         String baseIP = "172.17.0.";
         int numNodes = Integer.parseInt(countStr) + 1;
         int ipStart = 2;
-        for(int i = 0; i < numNodes; ++i){
-            String ipToAdd = baseIP + (ipStart+ i);
+        for (int i = 0; i < numNodes; ++i) {
+            String ipToAdd = baseIP + (ipStart + i);
             logger.debug("trying to add node with string: {}", ipToAdd);
             connectionMap.AddNode("" + i, ipToAdd, 8085);
         }
@@ -204,6 +279,7 @@ public class GossipRunner {
 
         logger.debug("all done, yay!");
     }
+
     public void StartPushSumGossip(String ID, String countStr) {
         Logger logger = LoggerFactory.getLogger(this.getClass());
         logger.debug("about to build connection map!");
@@ -213,8 +289,8 @@ public class GossipRunner {
         String baseIP = "172.17.0.";
         int numNodes = Integer.parseInt(countStr) + 1;
         int ipStart = 2;
-        for(int i = 0; i < numNodes; ++i){
-            String ipToAdd = baseIP + (ipStart+ i);
+        for (int i = 0; i < numNodes; ++i) {
+            String ipToAdd = baseIP + (ipStart + i);
             logger.debug("trying to add node with string: {}", ipToAdd);
             connectionMap.AddNode("" + i, ipToAdd, 8085);
         }
@@ -232,7 +308,6 @@ public class GossipRunner {
 
         logger.debug("setting protocol as network observer");
         networkLayer.AddObserver(protocol);
-
 
 
         ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 20);

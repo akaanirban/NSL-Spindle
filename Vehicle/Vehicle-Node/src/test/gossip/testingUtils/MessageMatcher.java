@@ -1,4 +1,4 @@
-package gossip.util;
+package gossip.testingUtils;
 
 import com.intellij.openapi.ui.Messages;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;

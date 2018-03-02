@@ -11,6 +11,13 @@ abortRe = re.compile("Consensus abort ")
 abortFollowRe = re.compile("Consensus abort null")
 errorRe = re.compile("ERROR")
 
+epochRe = re.compile(":[0-6][0-9]Z")
+startRoundRe = re.compile("start new round")
+
+# make sure that recv'd msgs get queued
+queuedRe = re.compile("queueing")
+
+
 
 def countOccurOnce(lst): 
     cnt = Counter(lst)
@@ -24,6 +31,8 @@ def parse(fd):
     alead = []
     tupMap = {}
     errors = []
+    queued = []
+    epochsMap = {}
 
     for line in fd: 
         uuids = uuidRe.findall(line)
@@ -33,6 +42,9 @@ def parse(fd):
         isAbort = abortRe.findall(line)
         isAbortFollow = abortFollowRe.findall(line)
         isError = errorRe.findall(line)
+        isStartRound = startRoundRe.findall(line)
+        isQueued = queuedRe.findall(line)
+        epoch = epochRe.findall(line)
 
         if isSend:
             sendIds.append(uuids[0])
@@ -56,21 +68,49 @@ def parse(fd):
             assert(reversePair not in tupMap)
 
         elif isAbort:
-            assert(len(uuids) == 1)
+            if len(uuids) != 1: 
+                print line
 
             alead.append(uuids[0])
         elif isError:
             errors.append(isError)
 
+        elif isStartRound:
+            if len(epoch) != 1: 
+                print line
+            assert(len(epoch) == 1)
+            e = epoch[0]
+            if e in epochsMap: 
+                epochsMap[e] = epochsMap[e] + 1
+            else:
+                epochsMap[e] = 1
+        elif isQueued:
+            queued.append(uuids[0])
+
         assert(not isAbortFollow)
 
-    print "bad sends that got commited"
     badSends = np.setdiff1d(sendIds, recvIds)
+    print len(badSends), "messages sent but not received"
+    print badSends
+
+    print "bad sends that got commited"
     print set(badSends) & set(set(clead) | set(cfollow))
 
+    print "messages that got queued but not recieved"
+    badQueues = np.setdiff1d(recvIds, queued)
+    print badQueues
+
     print "tups:", len(tupMap)
-    print "min:", tupMap[min(tupMap, key=tupMap.get)]
-    print "max:", tupMap[max(tupMap, key=tupMap.get)]
+    if len(tupMap) > 0: 
+        print "min:", tupMap[min(tupMap, key=tupMap.get)]
+        print "max:", tupMap[max(tupMap, key=tupMap.get)]
+
+    print "eps:", len(epochsMap)
+    print epochsMap
+    if len(epochsMap) > 0: 
+        print "min:", epochsMap[min(epochsMap, key=epochsMap.get)]
+        print "max:", epochsMap[max(epochsMap, key=epochsMap.get)]
+
     for key in tupMap:
         val = tupMap[key]
         if val != 2: 
@@ -78,6 +118,8 @@ def parse(fd):
     
     print "num errors:", len(errors)
     print "num aborts:", len(alead)
+    print "num sent:", len(sendIds)
+    print "num recvd:", len(recvIds)
 
 def main():
     fd = open(sys.argv[1])
