@@ -24,6 +24,7 @@ public class PushSumTest {
         msg = new ValueWeightMessageData(2.0, 1.0);
     }
 
+    @Test
     public void testGetValue() {
         assertEquals(startValue, (double) pushSum.GetValue(), epsilon);
     }
