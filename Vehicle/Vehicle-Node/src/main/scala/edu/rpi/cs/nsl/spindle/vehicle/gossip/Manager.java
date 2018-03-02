@@ -61,7 +61,7 @@ public class Manager implements Runnable {
         m_networkLayer = networkLayer;
 
         m_requestStop = new AtomicBoolean(false);
-        m_runScheduler = new RunScheduler(10);
+        m_runScheduler = new RunScheduler(5);
         m_epochRouter = new EpochRouter(networkLayer);
 
         m_isFirstRun = true;
@@ -185,7 +185,7 @@ public class Manager implements Runnable {
             // build the threads but don't start them until everything is wired up
             Thread protocolThread = new Thread(protocol);
 
-            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 200);
+            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 80);
             Thread schedulerThread = new Thread(scheduler);
 
             logger.debug("storing");
