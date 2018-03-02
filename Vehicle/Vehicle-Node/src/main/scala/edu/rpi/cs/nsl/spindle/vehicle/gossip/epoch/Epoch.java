@@ -3,6 +3,9 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch;
 import java.io.Serializable;
 import java.time.Instant;
 
+/**
+ * represents a period of time
+ */
 public class Epoch implements Serializable {
 
     protected Instant m_instant;
@@ -11,7 +14,10 @@ public class Epoch implements Serializable {
         this.m_instant = instant;
     }
 
-    public boolean IsSamePeriod(Epoch other) { return m_instant.equals(other.m_instant); }
+    public boolean IsSamePeriod(Epoch other) {
+        return m_instant.equals(other.m_instant);
+    }
+
     public boolean IsBefore(Epoch other) {
         return m_instant.isBefore(other.m_instant);
     }

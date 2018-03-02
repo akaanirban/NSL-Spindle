@@ -2,7 +2,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.Epoch;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.EpochRouter;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.RunScheduler;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.IntervalHelper;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
@@ -41,7 +41,7 @@ public class Manager implements Runnable {
     protected NetworkLayer m_networkLayer;
 
     protected AtomicBoolean m_requestStop;
-    protected RunScheduler m_runScheduler;
+    protected IntervalHelper m_runScheduler;
 
     protected EpochRouter m_epochRouter;
 
@@ -61,12 +61,18 @@ public class Manager implements Runnable {
         m_networkLayer = networkLayer;
 
         m_requestStop = new AtomicBoolean(false);
-        m_runScheduler = new RunScheduler(5);
+        m_runScheduler = new IntervalHelper(5);
         m_epochRouter = new EpochRouter(networkLayer);
 
         m_isFirstRun = true;
     }
 
+    /**
+     * gets result from all of the gossip protocols
+     * NOTE: can't get result after the StopProtocol function called
+     *
+     * @return map[query, resultObj]
+     */
     public Map<Query, Object> GetResults() {
         Map<Query, Object> result = new TreeMap<>();
         for (Map.Entry<Query, IGossipProtocol> entry : m_protocols.entrySet()) {
@@ -79,19 +85,30 @@ public class Manager implements Runnable {
         return result;
     }
 
+    /**
+     * Requests a stop
+     */
     public void Stop() {
         m_requestStop.set(true);
     }
 
-    // adds query to the list so that next itr it will be created
+    /**
+     * Add a query to the list of current queries
+     *
+     * @param query
+     */
     public void AddQuery(Query query) {
         if (m_queries.contains(query)) {
             logger.debug("set already contains: {}", query);
-        } else {
+        }
+        else {
             m_queries.add(query);
         }
     }
 
+    /**
+     * hardstop the schedulers, blocks until they have all joined
+     */
     public void StopSchedulers() {
         for (Map.Entry<Query, ProtocolScheduler> entry : m_schedulers.entrySet()) {
             ProtocolScheduler scheduler = entry.getValue();
@@ -113,11 +130,14 @@ public class Manager implements Runnable {
         logger.debug("done joining schedulers");
 
         // now we can clear the list, no reference so should get GC'd
-        // TODO: test that everything gets cleaned up properly
         m_schedulers.clear();
         m_schedulerThreads.clear();
     }
 
+    /**
+     * hardstop the protocols, blocks until they have all joined.
+     * NOTE: can't get the result after this method is called
+     */
     protected void StopProtocols() {
         for (Map.Entry<Query, IGossipProtocol> entry : m_protocols.entrySet()) {
             IGossipProtocol protocol = entry.getValue();
@@ -137,20 +157,37 @@ public class Manager implements Runnable {
 
         logger.debug("done joining protocols");
 
-        // now we can clear the list, no reference so should get GC'd
-        // TODO: test that everything gets cleaned up properly
+        // now we can clear the list, should only be referenced by the scheduler
         m_protocols.clear();
         m_protocolThreads.clear();
     }
 
     public void StartNewRound() {
-        // get the protocol results before killing them
+        // print the protocol results before killing them
         logger.debug("FINAL RESULT: {}", GetResults());
+
+        // wire everything up, the order needs to be:
+        // 1) set network as epoch sender (happens in constructor)
+        // 2) start buffering the epoch router
+        // 3) stop everything
+        // 4) build query router
+        // 5) build, but don't start protocols, can connect them to the query router
+        // 6) let query router observe epoch, will get buffered messages
+        // 7) stop buffering epoch
+        // 8) if first run, let epoch router observe the network
+        // 9) start scheduler, protocol threads
+        //
+        // General idea here is we need to connect layers in the opposite direction that messages flow so that if
+        // messages start flowing we are definitely connected. On the observe side because we need to leave the network
+        // layer up and running. The epoch router acts as a buffer, holding on to messages until the new epoch is set.
+        //
+        // Create a new query router and protocols each time so that we don't need to worry about resetting state.
+        //
+        // Only start threads once everything is hooked up. Any buffered messages should be connected.
 
         m_epochRouter.StartBuffering();
 
         // start buffering the epoch router
-        //m_epochRouter.StartBuffering();
         Instant currentInstant = m_runScheduler.GetCurrentInterval();
         logger.debug("trying to start new round on epoch {}", currentInstant);
 
@@ -158,21 +195,10 @@ public class Manager implements Runnable {
         StopProtocols();
         StopSchedulers();
 
-        // wire everything up, the order needs to be:
-        // 1) connect the protocols to the router
-        // 2) connect the router to the network
-        // 3) start the protocol / protocol scheduler threads
-        //
-        // the router needs to have all the protocols before it can connect to the network. If the network gets a
-        // message for q2, but we haven't added the protocol for q2 to the router yet, then we will erroneously discard
-        // the message.
-        //
-        // If the protocol send a message before it is observing the network then the status could get lost and it
-        // may "hang". We could either buffer the status or just start the threads after we are all wired up.
-
+        // build the new query router
         m_queryRouter = new QueryRouter();
 
-        // now for each query, build it and insert it
+        // build and insert each query
         for (Query query : m_queries) {
             logger.debug("building protocol for {}", query);
             // has the gossip but nothing else
@@ -205,11 +231,7 @@ public class Manager implements Runnable {
             logger.debug("done storing!");
         }
 
-        // connect the query router to the epoch router
-        // have query router observe network router
-        // finally connect epoch router to the query router
-        //m_queryRouter.SetNetwork(m_networkLayer);
-        //m_networkLayer.AddObserver(m_queryRouter);
+        // connect the query router and the new epoch router
         m_queryRouter.SetNetwork(m_epochRouter);
         m_epochRouter.SetObserver(m_queryRouter);
 
@@ -239,8 +261,8 @@ public class Manager implements Runnable {
             Instant nextRunInstant = m_runScheduler.GetNext();
 
             if (nextRunInstant.equals(previous)) {
-                // sleep until after the next interval
-                SleepTillNextInterval(nextRunInstant);
+                // sleep just a half second so we can respond to stop requests
+                SleepHalfSecond();
                 continue;
             }
 
@@ -250,7 +272,7 @@ public class Manager implements Runnable {
             timer.schedule(new StartNewRoundTask(), nextRun);
 
             previous = nextRunInstant;
-            SleepTillNextInterval(nextRunInstant);
+            SleepHalfSecond();
         }
 
         logger.debug("done with stop");
@@ -258,25 +280,18 @@ public class Manager implements Runnable {
         timer.purge();
     }
 
-    protected void SleepTillNextInterval(Instant nextRunInstant) {
-
-        // try to wake exactly a half second after
-        //Instant sleepToInstant = nextRunInstant.plusMillis(1500);
-        //Duration durationUntil = Duration.between(Instant.now(), sleepToInstant);
-        //long nsToSleep = durationUntil.getNano();
-        //long msToSleep = nsToSleep / 1000000;
-        //logger.debug("trying to sleep {} ms wants {} ns sleep to is {}", msToSleep, nsToSleep);
-        //Instant now = Instant.now();
-        long msToSleep = 500; // now.until(sleepToInstant, ChronoUnit.MILLIS);
+    protected void SleepHalfSecond() {
+        long msToSleep = 500;
         try {
             Thread.sleep(msToSleep);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-        //logger.debug("now is {}, sleep to is {} sleeping {}", now, sleepToInstant, msToSleep);
     }
 
+    /**
+     * timer task to start new round async.
+     */
     protected class StartNewRoundTask extends TimerTask {
         @Override
         public void run() {
