@@ -1,14 +1,16 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.query;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.*;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.QueryTaggedMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -45,11 +47,12 @@ public class QueryRouter implements INetworkObserver, INetworkSender {
 
     /**
      * wires up the message
+     *
      * @param query
      * @param observer
      */
     public void InsertOrReplace(Query query, IGossipProtocol observer) {
-        if(m_queryObservers.containsKey(query)) {
+        if (m_queryObservers.containsKey(query)) {
             logger.debug("already contains: {}, replacing", query);
 
         }
@@ -63,22 +66,21 @@ public class QueryRouter implements INetworkObserver, INetworkSender {
 
     @Override
     public void OnNetworkActivity(String sender, Object raw) {
-        if(raw instanceof QueryTaggedMessage) {
+        if (raw instanceof QueryTaggedMessage) {
             // pull out query, find the target, and send
             QueryTaggedMessage message = (QueryTaggedMessage) raw;
             Query query = message.GetQuery();
 
             m_lock.lock();
-            if(m_queryObservers.containsKey(query)) {
+            if (m_queryObservers.containsKey(query)) {
                 IGossipProtocol which = m_queryObservers.get(query);
                 m_lock.unlock();
                 which.OnNetworkActivity(sender, message.getData());
-            }
-            else {
+            } else {
                 logger.error("ERROR: don't have query {} for message {}", query, message);
+                m_lock.unlock();
             }
-        }
-        else {
+        } else {
             logger.error("unexpected message {} from {}", raw, sender);
         }
     }
@@ -87,7 +89,7 @@ public class QueryRouter implements INetworkObserver, INetworkSender {
     public void OnMessageStatus(UUID messageId, MessageStatus status) {
         // figure out which query the msg is for, then send to that one
         m_lock.lock();
-        if(!m_messageMap.containsKey(messageId)) {
+        if (!m_messageMap.containsKey(messageId)) {
             logger.error("ERROR: do not have message {}", messageId);
             m_lock.unlock();
             return;
@@ -104,24 +106,23 @@ public class QueryRouter implements INetworkObserver, INetworkSender {
 
     @Override
     public void Send(String target, IGossipMessageData raw) {
-        if(raw instanceof QueryTaggedMessage) {
+        if (raw instanceof QueryTaggedMessage) {
             // pull the uuid out so we can deal with regular messages
             QueryTaggedMessage message = (QueryTaggedMessage) raw;
 
             m_lock.lock();
-            if(!m_queryObservers.containsKey(message.GetQuery())){
+            if (!m_queryObservers.containsKey(message.GetQuery())) {
                 logger.error("ERROR: trying to send message {} with unknown query {}", message, message.GetQuery());
                 m_lock.unlock();
-            }
-            else {
-                logger.debug("inserting {}", message.getUUID());
+            } else {
+                logger.debug("inserting {}", message);
                 m_messageMap.put(message.getUUID(), message.GetQuery());
                 m_lock.unlock();
 
                 m_networkSender.Send(target, raw);
+                logger.debug("done with send {}", message);
             }
-        }
-        else {
+        } else {
             logger.error("ERROR: untagged message {}", raw);
         }
     }

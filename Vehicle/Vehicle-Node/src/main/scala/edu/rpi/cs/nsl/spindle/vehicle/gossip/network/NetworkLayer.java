@@ -35,7 +35,8 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
     protected ConcurrentHashMap<String, InSocketManager> inSocks;
     protected ConcurrentHashMap<String, OutSocketManager> outSocks;
 
-    protected Lock lock;
+    protected Lock sendLock;
+    protected Lock recvLock;
 
     public NetworkLayer(String myID, int myPort, ConnectionMap connectionMap) {
         this.connectionMap = connectionMap;
@@ -52,7 +53,9 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         this.buffer = new NetworkMessageBuffer();
         this.observers.add(this.buffer);
 
-        this.lock = new ReentrantLock();
+        this.sendLock = new ReentrantLock();
+        this.recvLock = new ReentrantLock();
+
     }
 
     public void AddObserver(INetworkObserver observer) {
@@ -60,14 +63,14 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
     }
 
     @Override
-    public synchronized void Send(String target, IGossipMessageData message) {
+    public void Send(String target, IGossipMessageData message) {
         // try to open the socket
-        lock.lock();
+        sendLock.lock();
         if (!outSocks.containsKey(target)) {
             boolean good = TryOpenSocket(target);
             if (!good) {
                 logger.debug("failed to open socket to {} for message {}", target, message);
-                lock.unlock();
+                sendLock.unlock();
 
                 NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
                 // send message back up
@@ -79,7 +82,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
         // try to send on the socket
         OutSocketManager manager = outSocks.get(target);
         logger.debug("{} sending {} to {} over {}", myID, message, target, manager);
-        lock.unlock();
+        sendLock.unlock();
         manager.Send(target, message);
     }
 
@@ -89,7 +92,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
      * @param target
      * @return
      */
-    protected boolean TryOpenSocket(String target) {
+    protected synchronized boolean TryOpenSocket(String target) {
         try {
             logger.debug("trying to open socket to {}", target);
             InetSocketAddress addr = connectionMap.GetAddr(target);
@@ -133,18 +136,25 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
                 int port = socket.getPort();
 
                 String tempID = "" + port;
+                logger.debug("adding insocket with temp id {}", tempID);
                 // add to map
+                recvLock.lock();
                 InSocketManager manager = new InSocketManager(tempID, socket);
+
+                inSocks.put(tempID, manager);
+                recvLock.unlock();
+
                 manager.AddObserver(this);
                 manager.start();
 
-                logger.debug("adding insocket with temp id {}", tempID);
-                inSocks.put(tempID, manager);
+                logger.debug("done adding insocket with temp id {}", tempID);
             }
+
             logger.debug("closing socket server {}" + myID);
             serverSocket.close();
         } catch (Exception e) {
             e.printStackTrace();
+            logger.error("got exception, possibly failed to close server", e);
         }
     }
 
@@ -157,10 +167,18 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
             StartUpMessage startUpMessage = (StartUpMessage) message;
 
             // change the socket locations
+            logger.debug("insocks: {}", inSocks);
+            recvLock.lock();
+            if (!inSocks.containsKey(sender)) {
+                logger.error("ERROR: could not find sender {} in insocks! Message: {} ", sender, message);
+            }
+
             InSocketManager manager = inSocks.get(sender);
             inSocks.remove(sender);
             manager.SetID(startUpMessage.sourceID);
             inSocks.put(startUpMessage.sourceID, manager);
+
+            recvLock.unlock();
 
             logger.debug("{} fixed socket for {}\n", myID, startUpMessage.sourceID);
 

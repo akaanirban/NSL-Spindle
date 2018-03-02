@@ -48,8 +48,6 @@ public class ConsensusProtocol extends BaseProtocol {
 
     @Override
     public void doIteration() {
-        m_messageQueueLock.lock();
-
         if (isFollowing) {
             processFollowing();
         } else if (isLeading && isLeadingWaitingForStatus) {
@@ -60,17 +58,17 @@ public class ConsensusProtocol extends BaseProtocol {
             // will handle starting the leadership
             processNotGossiping();
         }
-
-        m_messageQueueLock.unlock();
     }
 
     protected MessageStatus CheckForMessageStatus(UUID whichStatus) {
         // wait for our specific status message in the queue
-        if (m_statusQueue.isEmpty()) {
+
+        if (IsStatusQueueEmpty()) {
             return MessageStatus.WAITING;
         }
 
-        StatusQueueData statusQueueData = m_statusQueue.remove(0);
+        StatusQueueData statusQueueData = PopStatusQueue();
+
         if (statusQueueData.GetMessageId().equals(whichStatus)) {
             MessageStatus status = (MessageStatus) statusQueueData.GetMessage();
             logger.debug("got status {} for message {}", status, statusQueueData.GetMessageId());
@@ -116,12 +114,13 @@ public class ConsensusProtocol extends BaseProtocol {
 
     protected void ProcessLeadingWaitResponse() {
         // leading, process messages as they come in
-        if (m_messageQueue.isEmpty()) {
+        if (IsMessageQueueEmpty()) {
             return;
         }
 
         // else pull messages off the queue
-        MessageQueueData messageQueueData = m_messageQueue.remove(0);
+        MessageQueueData messageQueueData = PopMessageQueue();
+
         if (!messageQueueData.Sender.equalsIgnoreCase(m_target)) {
             // don't gossip with people other than our partner
             if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
@@ -194,18 +193,19 @@ public class ConsensusProtocol extends BaseProtocol {
     }
 
     protected void processNotGossiping() {
-        if (m_messageQueue.isEmpty()) {
+        if (IsMessageQueueEmpty()) {
+            // unlock because definitely not continuing
             if (m_wantsLeadGossip.get()) {
                 m_wantsLeadGossip.set(false);
 
                 // choose a m_target, send the message
                 String target = m_logicalNetwork.ChooseRandomTarget();
                 if (m_id.equalsIgnoreCase(target)) {
-                    logger.debug("{} wants to target {}, ignoring", target);
+                    logger.debug("{} wants to target {}, ignoring", m_id, target);
                     return;
                 }
 
-                logger.debug("{} wants to target {}, allowing", target);
+                logger.debug("{} wants to target {}, allowing", m_id, target);
 
                 IGossipMessageData data = m_gossip.GetLeadGossipMessage();
                 ConsensusLeadGossipMessage message = new ConsensusLeadGossipMessage(data);
@@ -228,7 +228,8 @@ public class ConsensusProtocol extends BaseProtocol {
         }
 
         // else pull messages off the queue
-        MessageQueueData messageQueueData = m_messageQueue.remove(0);
+        MessageQueueData messageQueueData = PopMessageQueue();
+
         if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
             // good to follow, grab response and return
             ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;

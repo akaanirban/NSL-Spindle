@@ -37,7 +37,9 @@ public class InSocketManager extends Thread {
 
     public void NotifyMessageObservers(Object message) {
         for (INetworkObserver observer : observers) {
+            logger.debug("{} notifying observer about: {}", myID, message);
             observer.OnNetworkActivity(myID, message);
+            logger.debug("{} done notifying observer about {}", myID, message);
         }
     }
 
@@ -52,14 +54,16 @@ public class InSocketManager extends Thread {
     }
 
     public void run() {
+        logger.debug("starting to run inmanager for: {}", myID);
         try {
             ObjectInputStream istr = new ObjectInputStream(socket.getInputStream());
             running = true;
             while (running) {
+                logger.debug("trying to read obj for {}", myID);
                 //System.out.println("trying to read message");
                 Object obj = istr.readObject();
                 //System.out.println("got message: " + obj.toString());
-
+                logger.debug("{} got message {}", myID, obj);
                 NotifyMessageObservers(obj);
             }
             logger.debug("done running, trying to close");
@@ -69,12 +73,12 @@ public class InSocketManager extends Thread {
 
         } catch (IOException e) {
             logger.debug("io exception {} {}", e, e.getMessage());
-            logger.error("io exception {} {} {}", e.getMessage(), e);
+            logger.error("io exception {}", e.getMessage(), e);
 
             e.printStackTrace();
         } catch (Exception e) {
-            logger.debug("unknown exception {} {} {}", e, e.getMessage());
-            logger.error("unknown exception {} {} {}", e.getMessage(), e);
+            logger.debug("unknown exception {} {}", e, e.getMessage());
+            logger.error("unknown exception {}", e.getMessage(), e);
 
             e.printStackTrace();
         }
@@ -87,6 +91,6 @@ public class InSocketManager extends Thread {
             e.printStackTrace();
         }
 
-        System.out.println("finished running isock: " + myID);
+        logger.debug("finished running isock: {}", myID);
     }
 }

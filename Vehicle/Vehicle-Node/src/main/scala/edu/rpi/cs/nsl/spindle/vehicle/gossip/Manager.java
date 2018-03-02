@@ -1,5 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.Epoch;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.EpochRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.RunScheduler;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;
@@ -60,7 +61,7 @@ public class Manager implements Runnable {
         m_networkLayer = networkLayer;
 
         m_requestStop = new AtomicBoolean(false);
-        m_runScheduler = new RunScheduler(15);
+        m_runScheduler = new RunScheduler(10);
         m_epochRouter = new EpochRouter(networkLayer);
 
         m_isFirstRun = true;
@@ -145,9 +146,8 @@ public class Manager implements Runnable {
     public void StartNewRound() {
         // get the protocol results before killing them
         logger.debug("FINAL RESULT: {}", GetResults());
-        if (m_isFirstRun == false) {
-            return;
-        }
+
+        m_epochRouter.StartBuffering();
 
         // start buffering the epoch router
         //m_epochRouter.StartBuffering();
@@ -185,7 +185,7 @@ public class Manager implements Runnable {
             // build the threads but don't start them until everything is wired up
             Thread protocolThread = new Thread(protocol);
 
-            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 800);
+            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 200);
             Thread schedulerThread = new Thread(scheduler);
 
             logger.debug("storing");
@@ -208,16 +208,16 @@ public class Manager implements Runnable {
         // connect the query router to the epoch router
         // have query router observe network router
         // finally connect epoch router to the query router
-        m_queryRouter.SetNetwork(m_networkLayer);
-        m_networkLayer.AddObserver(m_queryRouter);
-        //m_queryRouter.SetNetwork(m_epochRouter);
-        //m_epochRouter.SetObserver(m_queryRouter);
+        //m_queryRouter.SetNetwork(m_networkLayer);
+        //m_networkLayer.AddObserver(m_queryRouter);
+        m_queryRouter.SetNetwork(m_epochRouter);
+        m_epochRouter.SetObserver(m_queryRouter);
 
         // this will send all the messages up to the query router
-        //m_epochRouter.SetEpoch(new Epoch(currentInstant));
+        m_epochRouter.SetEpoch(new Epoch(currentInstant));
 
         if (m_isFirstRun) {
-            //m_networkLayer.AddObserver(m_epochRouter);
+            m_networkLayer.AddObserver(m_epochRouter);
             m_isFirstRun = false;
         }
 
