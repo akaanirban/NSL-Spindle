@@ -4,12 +4,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 /**
- * get next instant that occurs at specific period (in seconds
+ * get next instant that occurs at specific period (in seconds)
  */
-public class RunScheduler {
+public class IntervalHelper {
     protected long m_period;
 
-    public RunScheduler(int period) {
+    public IntervalHelper(int period) {
         this.m_period = period;
     }
 

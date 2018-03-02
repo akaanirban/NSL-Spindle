@@ -6,8 +6,6 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.EpochTaggedMessage;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.QueryTaggedMessage;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryTagger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,8 +52,8 @@ public class EpochRouterTest {
 
         router.SetEpoch(startEpoch);
 
-        when(messageData1.getUUID()).thenReturn(UUID.randomUUID());
-        when(messageData2.getUUID()).thenReturn(UUID.randomUUID());
+        when(messageData1.GetUUID()).thenReturn(UUID.randomUUID());
+        when(messageData2.GetUUID()).thenReturn(UUID.randomUUID());
 
         goodMessage = new EpochTaggedMessage(messageData1, startEpoch);
         futureMessage = new EpochTaggedMessage(messageData2, futureEpoch);

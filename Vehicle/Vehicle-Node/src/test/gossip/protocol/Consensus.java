@@ -55,8 +55,8 @@ public class Consensus {
     @Before
     public void doFirst() {
         MockitoAnnotations.initMocks(this);
-        when(leadMsgData.getUUID()).thenReturn(uuid1);
-        when(responseMsgData.getUUID()).thenReturn(uuid1);
+        when(leadMsgData.GetUUID()).thenReturn(uuid1);
+        when(responseMsgData.GetUUID()).thenReturn(uuid1);
         when(noGossipResponse.GetLeadUUID()).thenReturn(uuid1);
 
         leadMsg = new ConsensusLeadGossipMessage(leadMsgData);
@@ -92,7 +92,7 @@ public class Consensus {
         when(gossip.GetGossipMessage()).thenReturn(responseMsgData);
         when(logicalNetwork.ChooseRandomTarget()).thenReturn(otherId);
 
-        protocol.doIteration();
+        protocol.DoIteration();
     }
 
     @Test
@@ -101,13 +101,13 @@ public class Consensus {
         verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
-        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(leadMsg.GetUUID(), MessageStatus.GOOD);
+        protocol.DoIteration();
 
         // now get response message
         // TODO: is this really what we want? Or do we want to parse something out of it...
         protocol.OnNetworkActivity(otherId, responseMsg);
-        protocol.doIteration();
+        protocol.DoIteration();
 
         verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(responseMsgData));
         verify(gossip, times(1)).Commit();
@@ -122,12 +122,12 @@ public class Consensus {
         verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
-        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(leadMsg.GetUUID(), MessageStatus.GOOD);
+        protocol.DoIteration();
 
         // m_target doesn't want to gossip
         protocol.OnNetworkActivity(otherId, noGossipResponse);
-        protocol.doIteration();
+        protocol.DoIteration();
 
         // check that abort was called
         verify(gossip, times(1)).Abort();
@@ -142,12 +142,12 @@ public class Consensus {
         verify(sender, times(1)).Send(eq(otherId), argThat(glmm()));
 
         // indicate good status and send
-        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(leadMsg.GetUUID(), MessageStatus.GOOD);
+        protocol.DoIteration();
 
         // now receive a message for other to follow
         protocol.OnNetworkActivity(otherId, leadMsg);
-        protocol.doIteration();
+        protocol.DoIteration();
 
         verify(sender).Send(eq(otherId), isA(ConsensusNoGossipResponse.class));
 
@@ -163,12 +163,12 @@ public class Consensus {
         doSendLeadMessage();
 
         // get to the message wait
-        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.GOOD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(leadMsg.GetUUID(), MessageStatus.GOOD);
+        protocol.DoIteration();
 
         // now send third
         protocol.OnNetworkActivity(otherId2, leadMsg);
-        protocol.doIteration();
+        protocol.DoIteration();
 
         InOrder inOrder = inOrder(sender);
         inOrder.verify(sender).Send(eq(otherId), argThat(glmm()));
@@ -180,8 +180,8 @@ public class Consensus {
         doSendLeadMessage();
 
         // try to lead but get failure message
-        protocol.OnMessageStatus(leadMsg.getUUID(), MessageStatus.BAD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(leadMsg.GetUUID(), MessageStatus.BAD);
+        protocol.DoIteration();
 
         // now should be able to follow
         protocol.OnNetworkActivity(otherId, leadMsg);
@@ -192,10 +192,10 @@ public class Consensus {
         // receive a follow message and work fine
         when(gossip.GetGossipMessage()).thenReturn(responseMsgData);
         protocol.OnNetworkActivity(otherId, leadMsg);
-        protocol.doIteration();
+        protocol.DoIteration();
 
-        protocol.OnMessageStatus(responseMsg.getUUID(), MessageStatus.GOOD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(responseMsg.GetUUID(), MessageStatus.GOOD);
+        protocol.DoIteration();
 
         // now should ask for a response message and send it
         verify(gossip, times(1)).HandleUpdateMessage(eq(otherId), eq(leadMsgData));
@@ -211,10 +211,10 @@ public class Consensus {
         when(gossip.GetGossipMessage()).thenReturn(responseMsgData);
 
         protocol.OnNetworkActivity(otherId, leadMsg);
-        protocol.doIteration();
+        protocol.DoIteration();
 
-        protocol.OnMessageStatus(responseMsg.getUUID(), MessageStatus.BAD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(responseMsg.GetUUID(), MessageStatus.BAD);
+        protocol.DoIteration();
 
 
         // now should ask for a response message and send it

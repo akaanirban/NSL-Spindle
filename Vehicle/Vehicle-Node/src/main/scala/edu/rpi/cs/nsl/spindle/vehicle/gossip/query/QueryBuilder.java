@@ -7,12 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Knows how to build a gossip and protocol about a certain query
+ * Use this class to configure how protocols and their respective gossip gets built
  */
 public class QueryBuilder {
     Logger logger = LoggerFactory.getLogger(this.getClass());
 
     protected String m_id;
+
     public QueryBuilder(String id) {
         this.m_id = id;
     }
@@ -20,15 +21,16 @@ public class QueryBuilder {
     /**
      * builds the protocol and gossip for this
      * does not set the network connection or wire up the networking
-     * @param query
+     *
+     * @param query the query to build
      */
     public IGossipProtocol BuildGossipProtocolFor(Query query) {
         ConsensusProtocol protocol = new ConsensusProtocol(m_id);
         double value = Double.parseDouble(m_id);
 
         double weight = 1.0;
-        if(query.m_operation.equalsIgnoreCase("sum")) {
-            if(value == 0.0) {
+        if (query.m_operation.equalsIgnoreCase("sum")) {
+            if (value == 0.0) {
                 weight = 1.0;
             }
             else {

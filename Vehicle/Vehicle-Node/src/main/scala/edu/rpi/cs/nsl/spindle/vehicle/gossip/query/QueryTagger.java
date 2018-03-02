@@ -4,6 +4,9 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.QueryTaggedMessage;
 
+/**
+ * QueryTagger tags any messages it receives with its query then passes them on.
+ */
 public class QueryTagger implements INetworkSender {
 
     protected Query m_query;
@@ -17,6 +20,6 @@ public class QueryTagger implements INetworkSender {
     @Override
     public void Send(String target, IGossipMessageData message) {
         QueryTaggedMessage outputMessage = new QueryTaggedMessage(message, m_query);
-        m_sender.Send(target,outputMessage);
+        m_sender.Send(target, outputMessage);
     }
 }

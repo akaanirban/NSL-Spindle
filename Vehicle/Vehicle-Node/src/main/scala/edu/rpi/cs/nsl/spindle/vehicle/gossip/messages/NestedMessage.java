@@ -4,22 +4,25 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 
 import java.util.UUID;
 
+/**
+ * Nested message is a message that contains another message. It reuses that other message's uuid.
+ */
 public class NestedMessage implements IGossipMessageData {
     protected UUID m_uuid;
     protected IGossipMessageData m_message;
 
     public NestedMessage(IGossipMessageData message) {
         this.m_message = message;
-        this.m_uuid = message.getUUID();
+        this.m_uuid = message.GetUUID();
     }
 
     @Override
-    public Object getData() {
+    public Object GetData() {
         return m_message;
     }
 
     @Override
-    public UUID getUUID() {
+    public UUID GetUUID() {
         return m_uuid;
     }
 

@@ -12,6 +12,23 @@ import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
+/**
+ * Protocol representing the "consensus gossip" protocol:
+ * g_i(t+1) = f(g_i(t), g_j(t))
+ * g_j(t+1) = f(g_i(t), g_j(t))
+ * <p>
+ * Tries to establish a "gossip session" by sending a lead message to target.
+ * A "gossip session" is tracked with the UUID of the lead message.
+ * <p>
+ * If the lead message was sent properly, will parse messages:
+ * message from any node other than "target":  send nogossip
+ * from target follow: update gossip and commit
+ * from target nogossip: abort
+ * from target lead: send nogossip
+ * <p>
+ * If the protocol is not leading and receives a lead message, it will send a follow message.
+ * If the follow message send is good, then it will commit.
+ */
 public class ConsensusProtocol extends BaseProtocol {
     protected String m_id;
 
@@ -41,27 +58,34 @@ public class ConsensusProtocol extends BaseProtocol {
 
     @Override
     public void LeadGossip() {
-        logger.debug("requesting lead gossip, mid: {} tar: {} leading: {} lwr: {} lws: {} follow: {}",
-                m_id, m_target, isLeading, isLeadingWaitingForResponse, isLeadingWaitingForStatus, isFollowing);
+        logger.debug("requesting lead gossip, mid: {} tar: {} leading: {} lwr: {} lws: {} follow: {}", m_id, m_target, isLeading, isLeadingWaitingForResponse, isLeadingWaitingForStatus, isFollowing);
         m_wantsLeadGossip.lazySet(true);
     }
 
     @Override
-    public void doIteration() {
+    public void DoIteration() {
         if (isFollowing) {
-            processFollowing();
-        } else if (isLeading && isLeadingWaitingForStatus) {
-            processLeadingWaitStatus();
-        } else if (isLeading && isLeadingWaitingForResponse) {
+            ProcessFollowing();
+        }
+        else if (isLeading && isLeadingWaitingForStatus) {
+            ProcessLeadingWaitStatus();
+        }
+        else if (isLeading && isLeadingWaitingForResponse) {
             ProcessLeadingWaitResponse();
-        } else {
+        }
+        else {
             // will handle starting the leadership
-            processNotGossiping();
+            ProcessNotGossiping();
         }
     }
 
+    /**
+     * wait for our specific status message in the queue
+     *
+     * @param whichStatus
+     * @return MessageStatus.WAITING if didn't see it, otherwise returns the status
+     */
     protected MessageStatus CheckForMessageStatus(UUID whichStatus) {
-        // wait for our specific status message in the queue
 
         if (IsStatusQueueEmpty()) {
             return MessageStatus.WAITING;
@@ -73,29 +97,29 @@ public class ConsensusProtocol extends BaseProtocol {
             MessageStatus status = (MessageStatus) statusQueueData.GetMessage();
             logger.debug("got status {} for message {}", status, statusQueueData.GetMessageId());
             return status;
-        } else {
-            logger.debug("discarding status {} for message {}",
-                    statusQueueData.GetMessage(), statusQueueData.GetMessageId());
+        }
+        else {
+            logger.debug("discarding status {} for message {}", statusQueueData.GetMessage(), statusQueueData.GetMessageId());
             return MessageStatus.WAITING;
         }
     }
 
-    protected void processFollowing() {
-
+    protected void ProcessFollowing() {
         // check if our message status is in the queue
         MessageStatus status = CheckForMessageStatus(m_waitingStatusId);
         if (status == MessageStatus.GOOD) {
             m_gossip.Commit();
             logger.debug("following: good status, committing");
             isFollowing = false;
-        } else if (status == MessageStatus.BAD) {
+        }
+        else if (status == MessageStatus.BAD) {
             m_gossip.Abort();
             logger.debug("following: bad status, aborting");
             isFollowing = false;
         }
     }
 
-    protected void processLeadingWaitStatus() {
+    protected void ProcessLeadingWaitStatus() {
         MessageStatus status = CheckForMessageStatus(m_waitingStatusId);
         if (status == MessageStatus.GOOD) {
             logger.debug("leading: good status, waiting for response");
@@ -103,7 +127,8 @@ public class ConsensusProtocol extends BaseProtocol {
             // message sent, now need to wait for response
             isLeadingWaitingForStatus = false;
             isLeadingWaitingForResponse = true;
-        } else if (status == MessageStatus.BAD) {
+        }
+        else if (status == MessageStatus.BAD) {
             m_gossip.Abort();
 
             logger.debug("leading: bad status, aborting");
@@ -125,11 +150,12 @@ public class ConsensusProtocol extends BaseProtocol {
             // don't gossip with people other than our partner
             if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
                 ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;
-                ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.getUUID());
+                ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.GetUUID());
                 m_networkSender.Send(messageQueueData.Sender, response);
 
                 logger.debug("sending nogossip message to {}, waiting for {}", messageQueueData.Sender, m_target);
-            } else {
+            }
+            else {
                 logger.debug("leading: discarding message {} from {}", messageQueueData.Message, messageQueueData.Sender);
             }
 
@@ -149,27 +175,28 @@ public class ConsensusProtocol extends BaseProtocol {
 
             logger.debug("leading: received message {} from {}, committing!", message, messageQueueData.Sender);
 
-            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.getData());
+            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.GetData());
             m_gossip.Commit();
 
             // done gossiping
             isLeading = false;
             isLeadingWaitingForResponse = false;
 
-        } else if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
+        }
+        else if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
             // got a lead message from our partner. Send a nogossip message in response. They should do the same.
             // can't treat this like receiving a follow message because we want to be strict about "gossip session".
-            logger.debug("leading: received leader message {} from {} while trying to gossip, sending nogossip",
-                    messageQueueData.Message, messageQueueData.Sender);
+            logger.debug("leading: received leader message {} from {} while trying to gossip, sending nogossip", messageQueueData.Message, messageQueueData.Sender);
 
             // get the nogossip message
             ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;
 
             // send no gossip message
-            ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.getUUID());
+            ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.GetUUID());
             m_networkSender.Send(messageQueueData.Sender, response);
 
-        } else if (messageQueueData.Message instanceof ConsensusNoGossipResponse) {
+        }
+        else if (messageQueueData.Message instanceof ConsensusNoGossipResponse) {
             // if we get a nogossip about this "gossip session" then we should break
             ConsensusNoGossipResponse message = (ConsensusNoGossipResponse) messageQueueData.Message;
             if (!message.GetLeadUUID().equals(m_leaderMsgUUID)) {
@@ -186,13 +213,14 @@ public class ConsensusProtocol extends BaseProtocol {
 
             logger.debug("leading: got nogossip message {} from {}", message, messageQueueData.Sender);
 
-        } else {
+        }
+        else {
             // if its any other kind of message we should be able to discard it...
             logger.debug("leading: discarding message {} from {}", messageQueueData.Message, messageQueueData.Sender);
         }
     }
 
-    protected void processNotGossiping() {
+    protected void ProcessNotGossiping() {
         if (IsMessageQueueEmpty()) {
             // unlock because definitely not continuing
             if (m_wantsLeadGossip.get()) {
@@ -216,8 +244,8 @@ public class ConsensusProtocol extends BaseProtocol {
                 m_target = target;
 
                 // which message we want to wait for
-                m_waitingStatusId = message.getUUID();
-                m_leaderMsgUUID = message.getUUID();
+                m_waitingStatusId = message.GetUUID();
+                m_leaderMsgUUID = message.GetUUID();
 
                 isLeading = true;
                 isLeadingWaitingForStatus = true;
@@ -233,9 +261,9 @@ public class ConsensusProtocol extends BaseProtocol {
         if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
             // good to follow, grab response and return
             ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;
-            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.getData());
+            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.GetData());
 
-            m_leaderMsgUUID = message.getUUID();
+            m_leaderMsgUUID = message.GetUUID();
 
             // build the response
             IGossipMessageData responseData = m_gossip.GetGossipMessage();
@@ -247,10 +275,11 @@ public class ConsensusProtocol extends BaseProtocol {
             // say we are gossiping
             isFollowing = true;
             m_target = messageQueueData.Sender;
-            m_waitingStatusId = response.getUUID();
+            m_waitingStatusId = response.GetUUID();
 
             logger.debug("sending message {} to {}", responseData, m_target);
-        } else {
+        }
+        else {
             // if its any other kind of message we should be able to discard it...
             logger.debug("discarding message {} from {}", messageQueueData.Message, messageQueueData.Sender);
         }
@@ -267,7 +296,7 @@ public class ConsensusProtocol extends BaseProtocol {
                 break;
             }
 
-            doIteration();
+            DoIteration();
         }
     }
 }

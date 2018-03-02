@@ -75,12 +75,14 @@ public class QueryRouter implements INetworkObserver, INetworkSender {
             if (m_queryObservers.containsKey(query)) {
                 IGossipProtocol which = m_queryObservers.get(query);
                 m_lock.unlock();
-                which.OnNetworkActivity(sender, message.getData());
-            } else {
+                which.OnNetworkActivity(sender, message.GetData());
+            }
+            else {
                 logger.error("ERROR: don't have query {} for message {}", query, message);
                 m_lock.unlock();
             }
-        } else {
+        }
+        else {
             logger.error("unexpected message {} from {}", raw, sender);
         }
     }
@@ -114,15 +116,17 @@ public class QueryRouter implements INetworkObserver, INetworkSender {
             if (!m_queryObservers.containsKey(message.GetQuery())) {
                 logger.error("ERROR: trying to send message {} with unknown query {}", message, message.GetQuery());
                 m_lock.unlock();
-            } else {
+            }
+            else {
                 logger.debug("inserting {}", message);
-                m_messageMap.put(message.getUUID(), message.GetQuery());
+                m_messageMap.put(message.GetUUID(), message.GetQuery());
                 m_lock.unlock();
 
                 m_networkSender.Send(target, raw);
                 logger.debug("done with send {}", message);
             }
-        } else {
+        }
+        else {
             logger.error("ERROR: untagged message {}", raw);
         }
     }

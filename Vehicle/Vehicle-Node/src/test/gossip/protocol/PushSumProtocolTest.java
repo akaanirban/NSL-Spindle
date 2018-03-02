@@ -49,7 +49,7 @@ public class PushSumProtocolTest {
     @Test
     public void testOnReceiveMessage() {
         protocol.OnNetworkActivity("1", sendMessage);
-        protocol.doIteration();
+        protocol.DoIteration();
 
         verify(gossip).HandleUpdateMessage(eq("1"), eq(sendMessage));
         verify(gossip).Commit();
@@ -61,7 +61,7 @@ public class PushSumProtocolTest {
         when(logicalNetwork.ChooseRandomTarget()).thenReturn(target);
 
         protocol.LeadGossip();
-        protocol.doIteration();
+        protocol.DoIteration();
         verify(logicalNetwork, times(1)).ChooseRandomTarget();
 
     }
@@ -73,7 +73,7 @@ public class PushSumProtocolTest {
         when(logicalNetwork.ChooseRandomTarget()).thenReturn(target);
 
         protocol.LeadGossip();
-        protocol.doIteration();
+        protocol.DoIteration();
         verify(gossip, times(1)).GetLeadGossipMessage();
         verify(logicalNetwork, times(1)).ChooseRandomTarget();
         verify(sender, times(1)).Send(eq(target), eq(sendMessage));
@@ -86,10 +86,10 @@ public class PushSumProtocolTest {
         when(logicalNetwork.ChooseRandomTarget()).thenReturn(target);
 
         protocol.LeadGossip();
-        protocol.doIteration();
+        protocol.DoIteration();
 
-        protocol.OnMessageStatus(sendMessage.getUUID(), MessageStatus.GOOD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(sendMessage.GetUUID(), MessageStatus.GOOD);
+        protocol.DoIteration();
 
         verify(gossip, times(1)).Commit();
         verify(gossip, times(1)).GetLeadGossipMessage();
@@ -104,10 +104,10 @@ public class PushSumProtocolTest {
         when(logicalNetwork.ChooseRandomTarget()).thenReturn(target);
 
         protocol.LeadGossip();
-        protocol.doIteration();
+        protocol.DoIteration();
 
-        protocol.OnMessageStatus(sendMessage.getUUID(), MessageStatus.BAD);
-        protocol.doIteration();
+        protocol.OnMessageStatus(sendMessage.GetUUID(), MessageStatus.BAD);
+        protocol.DoIteration();
 
         verify(gossip, times(1)).Abort();
         verify(gossip, times(1)).GetLeadGossipMessage();

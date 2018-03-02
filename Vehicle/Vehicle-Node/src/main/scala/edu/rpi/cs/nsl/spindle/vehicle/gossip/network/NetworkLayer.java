@@ -72,7 +72,7 @@ public class NetworkLayer extends Thread implements INetworkSender, INetworkObse
                 logger.debug("failed to open socket to {} for message {}", target, message);
                 sendLock.unlock();
 
-                NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
+                NotifyStatusObservers(message.GetUUID(), MessageStatus.BAD);
                 // send message back up
                 return;
             }

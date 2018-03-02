@@ -4,9 +4,10 @@ import java.io.Serializable;
 import java.util.UUID;
 
 /**
- * Contains the raw message data
+ * A Message has an arbitrary data object and a UUID.
  */
 public interface IGossipMessageData extends Serializable {
-    Object getData();
-    UUID getUUID();
+    Object GetData();
+
+    UUID GetUUID();
 }
