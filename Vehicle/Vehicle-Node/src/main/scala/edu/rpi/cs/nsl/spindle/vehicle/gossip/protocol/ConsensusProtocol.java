@@ -63,7 +63,7 @@ public class ConsensusProtocol extends BaseProtocol {
     }
 
     @Override
-    public void doIteration() {
+    public void DoIteration() {
         if (isFollowing) {
             ProcessFollowing();
         }
@@ -150,7 +150,7 @@ public class ConsensusProtocol extends BaseProtocol {
             // don't gossip with people other than our partner
             if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
                 ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;
-                ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.getUUID());
+                ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.GetUUID());
                 m_networkSender.Send(messageQueueData.Sender, response);
 
                 logger.debug("sending nogossip message to {}, waiting for {}", messageQueueData.Sender, m_target);
@@ -175,7 +175,7 @@ public class ConsensusProtocol extends BaseProtocol {
 
             logger.debug("leading: received message {} from {}, committing!", message, messageQueueData.Sender);
 
-            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.getData());
+            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.GetData());
             m_gossip.Commit();
 
             // done gossiping
@@ -192,7 +192,7 @@ public class ConsensusProtocol extends BaseProtocol {
             ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;
 
             // send no gossip message
-            ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.getUUID());
+            ConsensusNoGossipResponse response = new ConsensusNoGossipResponse(message.GetUUID());
             m_networkSender.Send(messageQueueData.Sender, response);
 
         }
@@ -244,8 +244,8 @@ public class ConsensusProtocol extends BaseProtocol {
                 m_target = target;
 
                 // which message we want to wait for
-                m_waitingStatusId = message.getUUID();
-                m_leaderMsgUUID = message.getUUID();
+                m_waitingStatusId = message.GetUUID();
+                m_leaderMsgUUID = message.GetUUID();
 
                 isLeading = true;
                 isLeadingWaitingForStatus = true;
@@ -261,9 +261,9 @@ public class ConsensusProtocol extends BaseProtocol {
         if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
             // good to follow, grab response and return
             ConsensusLeadGossipMessage message = (ConsensusLeadGossipMessage) messageQueueData.Message;
-            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.getData());
+            m_gossip.HandleUpdateMessage(messageQueueData.Sender, message.GetData());
 
-            m_leaderMsgUUID = message.getUUID();
+            m_leaderMsgUUID = message.GetUUID();
 
             // build the response
             IGossipMessageData responseData = m_gossip.GetGossipMessage();
@@ -275,7 +275,7 @@ public class ConsensusProtocol extends BaseProtocol {
             // say we are gossiping
             isFollowing = true;
             m_target = messageQueueData.Sender;
-            m_waitingStatusId = response.getUUID();
+            m_waitingStatusId = response.GetUUID();
 
             logger.debug("sending message {} to {}", responseData, m_target);
         }
@@ -296,7 +296,7 @@ public class ConsensusProtocol extends BaseProtocol {
                 break;
             }
 
-            doIteration();
+            DoIteration();
         }
     }
 }

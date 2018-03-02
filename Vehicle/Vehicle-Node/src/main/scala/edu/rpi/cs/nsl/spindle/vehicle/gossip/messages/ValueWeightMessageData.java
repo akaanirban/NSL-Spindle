@@ -1,9 +1,5 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.messages;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
-
-import java.util.UUID;
-
 public class ValueWeightMessageData extends BaseMessage {
 
     private double m_value;
@@ -15,7 +11,7 @@ public class ValueWeightMessageData extends BaseMessage {
     }
 
     @Override
-    public Object getData() {
+    public Object GetData() {
         return this;
     }
 

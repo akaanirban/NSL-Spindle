@@ -4,12 +4,23 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 
 import java.util.UUID;
 
+/**
+ * The network observer, along with the INetworkSender, helps build layers of the code.
+ */
 public interface INetworkObserver {
-	public void OnNetworkActivity(String sender, Object message);
-	
-	/**
-	 *  @param messageId
-	 * @param status
-	 */
-	public void OnMessageStatus(UUID messageId, MessageStatus status);
+    /**
+     * Something this is observing received a message.
+     *
+     * @param sender
+     * @param message
+     */
+    void OnNetworkActivity(String sender, Object message);
+
+    /**
+     * Something this is observing received a message status.
+     *
+     * @param messageId
+     * @param status
+     */
+    void OnMessageStatus(UUID messageId, MessageStatus status);
 }

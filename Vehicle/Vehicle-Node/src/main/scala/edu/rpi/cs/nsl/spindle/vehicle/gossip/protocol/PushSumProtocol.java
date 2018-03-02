@@ -11,6 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Protocol representing the "push-sum gossip" protocol:
+ * g_i(t+1) = f(g_i(t), g_j(t) ...)
+ * <p>
+ * When it receives a message, it updates its current gossip state.
+ * <p>
+ * If want to lead, send a message to some target other than itself.
+ */
 public class PushSumProtocol extends BaseProtocol {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
     private String m_id;
@@ -34,12 +42,12 @@ public class PushSumProtocol extends BaseProtocol {
                 break;
             }
 
-            doIteration();
+            DoIteration();
         }
     }
 
     @Override
-    public void doIteration() {
+    public void DoIteration() {
         // try to get messages out of the queue
         // if there are no messages to process, then check if we want to gossip
         if (m_isWaitingStatus) {
@@ -99,7 +107,7 @@ public class PushSumProtocol extends BaseProtocol {
             m_networkSender.Send(targets.get(0), toSend);
 
             m_isWaitingStatus = true;
-            m_waitingOnUUID = toSend.getUUID();
+            m_waitingOnUUID = toSend.GetUUID();
         }
     }
 

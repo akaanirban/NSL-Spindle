@@ -37,13 +37,13 @@ public class Consensus implements IGossip {
         double weight = m_weight;
 
         ValueWeightMessageData messageData = new ValueWeightMessageData(value, weight);
-        if(isLeading || isGossiping) {
+        if (isLeading || isGossiping) {
             logger.debug("ERROR: already gossiping!");
         }
 
         isLeading = true;
         isGossiping = true;
-        m_leadUUID = messageData.getUUID();
+        m_leadUUID = messageData.GetUUID();
 
         return messageData;
     }
@@ -54,15 +54,15 @@ public class Consensus implements IGossip {
         double weight = m_weight;
 
         ValueWeightMessageData messageData = new ValueWeightMessageData(value, weight);
-        if(isLeading) {
+        if (isLeading) {
             logger.debug("ERROR: already leading!");
         }
-        if(!isGossiping) {
+        if (!isGossiping) {
             logger.debug("ERROR: should be gossiping!");
         }
 
         isGossiping = true;
-        m_followUUID = messageData.getUUID();
+        m_followUUID = messageData.GetUUID();
 
         return messageData;
     }
@@ -75,17 +75,17 @@ public class Consensus implements IGossip {
             m_otherValue = castMessage.getValue();
             m_otherWeight = castMessage.getWeight();
 
-            if(!isGossiping) {
+            if (!isGossiping) {
                 // not gossiping, therefore shouldn't be leading!
-                if(isLeading) {
+                if (isLeading) {
                     logger.debug("ERROR: should not be leading!");
                 }
-                m_leadUUID = castMessage.getUUID();
+                m_leadUUID = castMessage.GetUUID();
             }
             else {
                 // gossiping, so should be leading!
-                m_followUUID = castMessage.getUUID();
-                if(!isLeading) {
+                m_followUUID = castMessage.GetUUID();
+                if (!isLeading) {
                     logger.debug("ERROR: should be leading!");
                 }
             }
@@ -103,7 +103,7 @@ public class Consensus implements IGossip {
         m_otherValue = m_value;
         m_otherWeight = m_weight;
 
-        if(!isGossiping){
+        if (!isGossiping) {
             logger.debug("ERROR: in abort should be gossiping");
         }
         isLeading = false;
@@ -122,9 +122,10 @@ public class Consensus implements IGossip {
 
         isLeading = false;
 
-        if(!isGossiping){
+        if (!isGossiping) {
             logger.debug("ERROR: in commit should be gossiping");
-        }        isLeading = false;
+        }
+        isLeading = false;
         isGossiping = false;
 
         logger.debug("commit {} {}", m_leadUUID, m_followUUID);
@@ -136,7 +137,7 @@ public class Consensus implements IGossip {
     @Override
     public Object GetValue() {
         double value = 0.0;
-        if(m_weight > 0.0) {
+        if (m_weight > 0.0) {
             value = m_value / m_weight;
         }
 

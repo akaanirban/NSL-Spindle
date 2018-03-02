@@ -98,11 +98,11 @@ public class OutSocketManager extends Thread implements INetworkSender {
                     message, target, e, e.toString());
 
             lock.unlock();
-            NotifyStatusObservers(message.getUUID(), MessageStatus.BAD);
+            NotifyStatusObservers(message.GetUUID(), MessageStatus.BAD);
             return;
         }
         lock.unlock();
-        NotifyStatusObservers(message.getUUID(), MessageStatus.GOOD);
+        NotifyStatusObservers(message.GetUUID(), MessageStatus.GOOD);
         logger.debug("good send of {} to {}", message, target);
     }
 }

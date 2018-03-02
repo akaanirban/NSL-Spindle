@@ -64,8 +64,8 @@ public class TestQueryRouter {
         query2 = new Query("avg", "speed");
         query3 = new Query("bad", "bad");
 
-        when(messageData1.getUUID()).thenReturn(uuid1);
-        when(messageData2.getUUID()).thenReturn(uuid2);
+        when(messageData1.GetUUID()).thenReturn(uuid1);
+        when(messageData2.GetUUID()).thenReturn(uuid2);
 
         message1 = new ConsensusLeadGossipMessage(messageData1);
         message2 = new ConsensusLeadGossipMessage(messageData2);
@@ -86,8 +86,8 @@ public class TestQueryRouter {
 
     @After
     public void after() {
-        verify(observer1,times(1)).SetNetwork(isA(QueryTagger.class));
-        verify(observer2,times(1)).SetNetwork(isA(QueryTagger.class));
+        verify(observer1, times(1)).SetNetwork(isA(QueryTagger.class));
+        verify(observer2, times(1)).SetNetwork(isA(QueryTagger.class));
         verifyNoMoreInteractions(sender, observer1, observer2);
     }
 

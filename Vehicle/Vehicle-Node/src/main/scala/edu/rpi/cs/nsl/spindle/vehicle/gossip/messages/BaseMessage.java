@@ -4,15 +4,19 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 
 import java.util.UUID;
 
+/**
+ * Provides uuid, toString method.
+ */
 public abstract class BaseMessage implements IGossipMessageData {
 
     protected UUID m_uuid;
+
     public BaseMessage() {
         m_uuid = UUID.randomUUID();
     }
 
     @Override
-    public UUID getUUID() {
+    public UUID GetUUID() {
         return m_uuid;
     }
 

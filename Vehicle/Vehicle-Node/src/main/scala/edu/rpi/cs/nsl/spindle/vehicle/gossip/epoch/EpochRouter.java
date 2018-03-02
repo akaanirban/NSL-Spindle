@@ -94,7 +94,7 @@ public class EpochRouter implements INetworkObserver, INetworkSender {
             if (m_currentEpoch.IsSamePeriod(epoch)) {
                 // can send up the message
                 m_lock.unlock();
-                m_observer.OnNetworkActivity(sender, taggedMessage.getData());
+                m_observer.OnNetworkActivity(sender, taggedMessage.GetData());
             }
             else if (m_currentEpoch.IsBefore(epoch)) {
                 // message from the future!
