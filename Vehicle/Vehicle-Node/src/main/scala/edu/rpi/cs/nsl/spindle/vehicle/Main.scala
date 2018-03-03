@@ -319,10 +319,6 @@ object Main {
   }
 
   def main(argv: Array[String]): Unit ={
-    val gossipRunner = new GossipRunner()
-    val thisId = System.getenv("NODE_ID")
-    val numNodes = System.getenv("NUM_NODES")
-    gossipRunner.StartManagedGossipTwoQueriesWithEpoch(thisId, numNodes);
     startZkLocal
     startKafkaLocal
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal

@@ -1,6 +1,8 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka.executors
 
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.GossipRunner
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.results.GossipResultParser
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.TopicLookupService
 import org.slf4j.LoggerFactory
 
@@ -8,6 +10,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
+import scala.collection.JavaConverters._;
 
 /**
   * Perform ReduceByKey on Kafka messages
@@ -19,13 +22,24 @@ import scala.reflect.runtime.universe.TypeTag
   * @tparam K
   * @tparam V
   */
-class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
+class GossipReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
                                                           queryUid: String,
                                                           sourceTopics: Set[GlobalTopic],
                                                           sinkTopics: Set[GlobalTopic],
                                                           reduceFunc: (V,V) => V)(implicit ec: ExecutionContext)
-  extends Executor[K,V,K,V](uid, sourceTopics, sinkTopics) {
+  extends KVReducer[K,V](uid, queryUid, sourceTopics, sinkTopics, reduceFunc) {
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private val thisId = System.getenv("NODE_ID")
+  private val numNodes = System.getenv("NUM_NODES")
+  logger.debug("going to start gossip!")
+  GossipRunner.TryStart(thisId, numNodes)
+  logger.debug("trying to get result")
+  private val gossipResult = GossipRunner.GetInstance().GetResult()
+  logger.debug("done getting result")
+  private val gossipResultParser = new GossipResultParser[K, V](gossipResult)
+  logger.debug("done getting result parser")
+
 
   // Producer inputs and outputs should be tagged
   override def getConsumerQueryUid: Option[String] = Some(queryUid)
@@ -38,14 +52,21 @@ class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
     * @return output messages
     */
   override protected def doTransforms(messages: Iterable[(K, V)]): Iterable[(K, V)] = {
-    logger.debug("doing bad transform!")
-    messages
-      .groupBy(_._1)
-      .mapValues(_.map(_._2))
-      .mapValues{values =>
-        values.reduce(reduceFunc)
-      }
-      .toSeq
+//    messages
+//      .groupBy(_._1)
+//      .mapValues(_.map(_._2))
+//      .mapValues{values =>
+//        values.reduce(reduceFunc)
+//      }
+//      .toSeq
+    logger.debug("doing right transform")
+    val result = gossipResultParser.GetResult(queryUid)
+    logger.debug("done getting result from parser")
+    val scalamap = result.asScala
+    logger.debug("done converting to scala obj")
+    val scalaIter = scalamap
+    logger.debug("done doing scala itr")
+    scalaIter
   }
 
   override def run(sleepInterval: Duration = Duration(Configuration.Streams.reduceWindowSizeMs, MILLISECONDS)): Unit = {
@@ -57,7 +78,7 @@ class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
 /**
   * Factory for Kafka KV Reducer Executors
   */
-object KVReducer {
+object GossipReducer {
   /**
     * Create a KV Reducer for Vehicle Data
     * @param reducerId
@@ -75,6 +96,6 @@ object KVReducer {
     // Reducer reads from clusterhead input
     val sourceTopics = Set(TopicLookupService.getClusterInput).map(GlobalTopic.mkLocalTopic)
     val sinkTopics = Set(TopicLookupService.getReducerOutput).map(GlobalTopic.mkLocalTopic)
-    new KVReducer[K,V](uid=reducerId, queryUid=queryUid, sourceTopics, sinkTopics, reduceFunc)
+    new GossipReducer[K,V](uid=reducerId, queryUid=queryUid, sourceTopics, sinkTopics, reduceFunc)
   }
 }

@@ -10,6 +10,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.NetworkLayer;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.Query;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryBuilder;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryRouter;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.results.GossipResult;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,8 +47,9 @@ public class Manager implements Runnable {
     protected EpochRouter m_epochRouter;
 
     protected boolean m_isFirstRun;
+    protected GossipResult m_gossipResult;
 
-    public Manager(QueryBuilder builder, ConnectionMap connectionMap, NetworkLayer networkLayer) {
+    public Manager(QueryBuilder builder, ConnectionMap connectionMap, NetworkLayer networkLayer, GossipResult gossipResult) {
         m_protocols = new TreeMap<>();
         m_protocolThreads = new TreeMap<>();
 
@@ -65,6 +67,8 @@ public class Manager implements Runnable {
         m_epochRouter = new EpochRouter(networkLayer);
 
         m_isFirstRun = true;
+
+        m_gossipResult = gossipResult;
     }
 
     /**
@@ -163,9 +167,6 @@ public class Manager implements Runnable {
     }
 
     public void StartNewRound() {
-        // print the protocol results before killing them
-        logger.debug("FINAL RESULT: {}", GetResults());
-
         // wire everything up, the order needs to be:
         // 1) set network as epoch sender (happens in constructor)
         // 2) start buffering the epoch router
@@ -186,6 +187,12 @@ public class Manager implements Runnable {
         // Only start threads once everything is hooked up. Any buffered messages should be connected.
 
         m_epochRouter.StartBuffering();
+
+        // print the protocol results before killing them
+        Map<Query, Object> result = GetResults();
+        logger.debug("FINAL RESULT: {}", result);
+        m_gossipResult.SetResult(result);
+
 
         // start buffering the epoch router
         Instant currentInstant = m_runScheduler.GetCurrentInterval();
