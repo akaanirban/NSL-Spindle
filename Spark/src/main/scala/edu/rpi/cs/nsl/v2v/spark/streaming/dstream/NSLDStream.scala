@@ -75,7 +75,7 @@ class NSLDStreamWrapper[T: TypeTag: ClassTag](private[dstream] val generator: NS
     new NSLDStreamWrapper(generator, opLog ++ Seq(operation)).toDStream
   }*/
 
-  private[dstream] def getStream[K: TypeTag, V: TypeTag]: (DStream[(Array[Byte],Array[Byte])], String) = {
+  def getStream[K: TypeTag, V: TypeTag]: (DStream[(Array[Byte],Array[Byte])], String) = {
     val (stream, queryId) = generator.mkStream(opLog)
     val mappedStream = stream
       .filter(_ != null)

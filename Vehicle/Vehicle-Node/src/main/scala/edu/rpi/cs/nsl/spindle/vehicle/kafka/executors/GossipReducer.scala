@@ -65,7 +65,7 @@ class GossipReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
     val scalamap = result.asScala
     logger.debug("done converting to scala obj")
     val scalaIter = scalamap
-    logger.debug("done doing scala itr")
+    logger.debug("done doing scala itr, sending: {}", scalamap)
     scalaIter
   }
 

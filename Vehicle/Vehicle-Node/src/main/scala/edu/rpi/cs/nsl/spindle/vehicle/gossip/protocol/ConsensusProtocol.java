@@ -297,6 +297,12 @@ public class ConsensusProtocol extends BaseProtocol {
             }
 
             DoIteration();
+
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                logger.error("ERROR, failed to sleep properly", e);
+            }
         }
     }
 }
