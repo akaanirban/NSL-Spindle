@@ -38,14 +38,17 @@ class KVReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
     * @return output messages
     */
   override protected def doTransforms(messages: Iterable[(K, V)]): Iterable[(K, V)] = {
-    logger.debug("doing bad transform!")
-    messages
+    logger.debug("doing bad transform! data is {}", messages)
+    val result = messages
       .groupBy(_._1)
       .mapValues(_.map(_._2))
       .mapValues{values =>
         values.reduce(reduceFunc)
       }
       .toSeq
+
+    logger.debug("done transform, sending {}", result)
+    result
   }
 
   override def run(sleepInterval: Duration = Duration(Configuration.Streams.reduceWindowSizeMs, MILLISECONDS)): Unit = {

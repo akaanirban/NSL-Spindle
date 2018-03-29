@@ -59,14 +59,38 @@ class GossipReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
 //        values.reduce(reduceFunc)
 //      }
 //      .toSeq
-    logger.debug("doing right transform")
-    val result = gossipResultParser.GetResult(queryUid)
-    logger.debug("done getting result from parser")
-    val scalamap = result.asScala
-    logger.debug("done converting to scala obj")
-    val scalaIter = scalamap
-    logger.debug("done doing scala itr, sending: {}", scalamap)
-    scalaIter
+//    logger.debug("doing right transform, data is: {}", messages)
+//    val result = gossipResultParser.GetResult(queryUid)
+//    logger.debug("done getting result from parser")
+//    val scalamap = result.asScala
+//    logger.debug("done converting to scala obj")
+//    val scalaIter = scalamap
+//    logger.debug("done doing scala itr, sending: {}", scalamap)
+//    scalaIter
+    val result = messages
+      .groupBy(_._1)
+      .mapValues(_.map(_._2))
+      .mapValues{values =>
+        values.reduce(reduceFunc)
+      }
+      .toSeq
+
+//    val oneVarReduce = (v:V) => { reduceFunc(v, null.asInstanceOf[V]) }
+//    val applyReduce = (i:(K, V)) => {(i._1, oneVarReduce(i._2))}
+//    val fr = result map {applyReduce(_)}
+
+    val fr = result
+    // will now have list with either 1 or 0 items
+    //result.groupBy(_._1).mapValues(_.map(_._2)).mapValues(values => applyReduce(values))
+    //val fr = result.map(applyReduce) //map(applyReduce)
+
+
+    logger.debug("doing bad transform! data is {}", messages)
+    // call the dummy reduce func...
+    //val result = Iterable(reduceFunc(null.asInstanceOf[V], null.asInstanceOf[V]))
+
+    logger.debug("done transform, sending {}", fr)
+    fr.toSeq
   }
 
   override def run(sleepInterval: Duration = Duration(Configuration.Streams.reduceWindowSizeMs, MILLISECONDS)): Unit = {

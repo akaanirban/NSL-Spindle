@@ -36,17 +36,24 @@ object Main {
   def main(args: Array[String]): Unit = {
     val TOPIC = "spindle-vehicle-middleware-input"
     val sc = new SparkConf().setAppName("SparkSpindleTest").setMaster("local[*]")
-    val ssc = new StreamingContext(sc, Seconds(1))
+    val ssc = new StreamingContext(sc, Seconds(15))
     //val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("hadrian.kronmiller.net:2181", "hadrian.kronmiller.net:9092", TOPIC), new MockQueryUidGenerator)
     //  .map(v => (null, (v.mph, 1.toLong)))
     //  .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
     //  .print()
 		//val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
-		val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
-      .map(v => (null, (1.0, 1.toDouble)))
-      .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
-      .print()
-    /*
+    //  .map(v => (null, 2.toDouble))
+
+//    val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
+//      .map(v => (null, (v.mph, 1.toLong)))
+//      .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
+//      .print()
+//		val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
+//      .map(v => (null, 1.toDouble))
+//      .reduceByKey{case (a,b) => (a + b)}
+//      .print()
+
+
 		val (rawStream, name) = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator).getStream[String, (Double, Long)]
     val queryId = "globalSpeedAvg"
     print("name is:")
@@ -58,13 +65,13 @@ object Main {
       ObjectSerializer.checkQueryIdMatch(queryId, kSer,vSer)
     }
     val deserializedStream = filteredStream.map{case(serKey,serVal) =>
-      val keyTyped = ObjectSerializer.deserialize[TypedValue[Double]](serKey)
-      val valTyped = ObjectSerializer.deserialize[TypedValue[Double]](serVal)
+      val keyTyped = ObjectSerializer.deserialize[TypedValue[String]](serKey)
+      val valTyped = ObjectSerializer.deserialize[TypedValue[(Double,Double)]](serVal)
       (keyTyped.value, valTyped.value)
     }
 
     deserializedStream.print()
-    */
+
 
     ssc.start()
     ssc.awaitTermination()

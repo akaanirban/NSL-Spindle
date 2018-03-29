@@ -3,7 +3,10 @@ package edu.rpi.cs.nsl.spindle.vehicle.queries.testQueries
 import edu.rpi.cs.nsl.spindle.datatypes.Vehicle
 import edu.rpi.cs.nsl.spindle.datatypes.VehicleTypes._
 import edu.rpi.cs.nsl.spindle.datatypes.operations.{MapOperation, OperationIds, ReduceByKeyOperation}
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.GossipRunner
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.results.GossipResultParser
 import edu.rpi.cs.nsl.spindle.vehicle.queries.Query
+import org.slf4j.LoggerFactory
 
 /**
   * Created by wrkronmiller on 4/11/17.
@@ -25,6 +28,21 @@ object TestQueryLoader {
 
 object TestReducers {
   def sumSpeedAndCount(a: (MPH, Long), b: (MPH, Long)): (MPH, Long) = {
+
+
+//    val logger = LoggerFactory.getLogger(this.getClass)
+//    logger.debug("reducing!")
+//    val gossipResult = GossipRunner.GetInstance().GetResult()
+//    val gossipResultParser = new GossipResultParser[MPH, Long](gossipResult)
+//    val results = gossipResultParser.GetResultWithDefault()
+//
+//    val speed = results.getOrDefault("speed", 1.0).asInstanceOf[Double]
+//    val count = results.getOrDefault("count", 1.0).asInstanceOf[Double]
+//
+//    logger.debug("done reducing, result is: {} {}", speed, count)
+//
+//    (speed, Math.round(count))
+
     (a._1 + b._1, a._2 + b._2)
   }
   //TODO: break into regions

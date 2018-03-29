@@ -48,7 +48,45 @@ public class GossipResultParser<K, V> {
             logger.error("failed to build kv pair for query {}:", queryID, e);
         }
 
+        result.clear();
         logger.debug("built {} for query {}", result, queryID);
+
+        return result;
+    }
+
+    public Map<String, Double> GetResultWithDefault() {
+        Map<Query, Object> rawMap = m_gossipResult.GetResult();
+        Map<String, Double> result = new TreeMap<>();
+
+        // check that there is a map
+        if (rawMap == null) {
+            logger.debug("uh oh, raw map is null!");
+            return result;
+        }
+
+        Query speedQuery = new Query("avg", "ids");
+        Query countQuery = new Query("sum", "ids");
+
+        Object spd = rawMap.getOrDefault(speedQuery, 0.0);
+        Object cnt = rawMap.getOrDefault(countQuery, 0.0);
+
+        try {
+            Double speedD = (Double) spd;
+            Double countD = (Double) cnt;
+            result.put("speed", speedD);
+            result.put("count", countD);
+
+        } catch (Exception e) {
+            logger.error("failed to cast", e);
+        }
+
+        // check that our queries are in the map
+        if (!(rawMap.containsKey(speedQuery) && rawMap.containsKey(countQuery))) {
+            logger.debug("rawmap {} doesn't contain one query, returning empty", rawMap);
+            return result;
+        }
+
+        logger.debug("built {} for query {}", result, "spd cnt");
 
         return result;
     }
