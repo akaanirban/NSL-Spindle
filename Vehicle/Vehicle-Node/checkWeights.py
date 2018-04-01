@@ -1,5 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pprint
 import re
 import shutil
 
@@ -39,7 +41,6 @@ def pruneResults(results, numNodes):
     toRemove = []
     for epoch in results:
         if len(results[epoch]) != numNodes:
-            print "bad", epoch
             toRemove.append(epoch)
 
     print "removed:", len(toRemove), "of", len(results)
@@ -56,28 +57,29 @@ def extract(results):
     return all
 
 
-def expected(values, expected):
+def calcEV(numFiles):
+    return np.average(np.arange(numFiles))
+
+
+def expected(values, numFiles):
     values = np.asarray(values)
     numGood = 0
+    expected = calcEV(numFiles)
 
+    diffs = []
     for value in values:
-        if abs(value - expected) < 0.0000001:
-            numGood += 1
-        else:
-            # print "bad, expected", expected, "got:", value
-            pass
+        diffs.append(abs(value - expected) * 100.0 / expected)
 
-    print "median:\t", np.median(values)
-    print "average:\t", np.average(values)
-    print "variance:\t", np.var(values)
-    print "percentGood:\t", numGood * 100.0 / len(values)
+    return [np.median(values), np.average(values), np.var(values), np.average(diffs), len(values) * 100.0 / numFiles]
 
 
-def analyzeOverall(results, numFiles):
-    values = extract(results)
+def analyzeEpochs(results, numFiles):
+    # find out what the spread is *before* prune
+    output = {}
+    for epoch in results:
+        output[epoch] = expected(results[epoch], numFiles)
 
-    expectedValue = np.average(np.arange(numFiles))
-    expected(values, expectedValue)
+    return output
 
 
 def writeToFile(root, type, data):
@@ -87,14 +89,12 @@ def writeToFile(root, type, data):
     fd.close()
 
 
-def main():
-    root = "LogOutput/"
+def parseOnlyFullEpochs(root):
     results = {}
     files = os.listdir(root)
     numFiles = len(files)
     for file in files:
         path = root + file + "/output.log"
-        print file
         fd = open(path)
 
         result = getValuesFromFile(fd)
@@ -102,14 +102,87 @@ def main():
 
         fd.close()
 
+    # prune all that don't have expected number of members in their epoch
+    # pruneResults(results, numFiles)
+
+    # now just go and parse the clusterhead file
+    clusterhead = {}
+    files = os.listdir(root)
+    for file in files:
+        if "CLUSTERHEAD" not in file:
+            continue
+        path = root + file + "/output.log"
+        fd = open(path)
+
+        result = getValuesFromFile(fd)
+        updateResults(clusterhead, result)
+
+        fd.close()
+
+    # finally output just the clusterhead epochs will all members
+    output = {}
+    for epoch in clusterhead:
+        if epoch in results:
+            output[epoch] = clusterhead[epoch]
+
+    return output, results
+
+
+def getSortedError(results, which):
+    arr = []
+    for epoch in results:
+        arr.append((epoch, results[epoch][which]))
+
+    return sortTups(arr)
+
+
+def sortTups(arr):
+    sarr = sorted(arr, key=lambda x: x[0])
+    # print sarr
+    # now get just the values
+    output = []
+    for tup in sarr:
+        output.append(tup[1])
+
+    return output
+
+
+def main():
+    root = "LogOutput/"
+    files = os.listdir(root)
+    numFiles = len(files)
+
+    results, fullResults = parseOnlyFullEpochs(root)
+
+    # set up the output
     opath = "results/1w80m/" + str(numFiles) + "/"
     if os.path.exists(opath):
         shutil.rmtree(opath)
     os.makedirs(opath)
 
-    writeToFile(opath, "raw", results)
-    pruneResults(results, numFiles)
-    analyzeOverall(results, numFiles)
+    pp = pprint.PrettyPrinter(indent=2)
+    # print "going to pretty print"
+    cData = analyzeEpochs(results, numFiles)
+    fullData = analyzeEpochs(fullResults, numFiles)
+    sortedEData = getSortedError(cData, 3)
+    percentParticipating = getSortedError(fullData, 4)
+    x = np.arange(len(sortedEData))
+
+    fullParticipationIdx = percentParticipating.index(100.0)
+
+    plt.scatter(x, sortedEData, c='g', label="error")
+    plt.scatter(x, percentParticipating, c='r', label="participating")
+    plt.legend()
+    plt.show()
+
+    print "data:, first idx:", fullParticipationIdx
+    print np.average(sortedEData[fullParticipationIdx:])
+    print np.var(sortedEData[fullParticipationIdx:])
+    writeToFile(opath, "chead", results)
+    writeToFile(opath, "full", fullResults)
+
+    # pruneResults(results, numFiles)
+    # analyzeOverall(results, numFiles)
 
     # now check how many are different
 

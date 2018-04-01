@@ -300,7 +300,7 @@ public class Manager implements Runnable {
     }
 
     protected void SleepHalfSecond() {
-        long msToSleep = 250;
+        long msToSleep = 50;
         try {
             Thread.sleep(msToSleep);
         } catch (InterruptedException e) {
