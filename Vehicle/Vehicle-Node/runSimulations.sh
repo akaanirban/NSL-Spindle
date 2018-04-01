@@ -23,7 +23,7 @@ echo
 # NOTE: modify this variable when running the scrip
 # you can find this address by running ifconfig
 #####################################################
-MIDDLEWARE_IP=192.168.133.157
+MIDDLEWARE_IP=192.168.133.158
 numberOfNodes=$1
 
 #ports are published to bind with the host for the cluster head

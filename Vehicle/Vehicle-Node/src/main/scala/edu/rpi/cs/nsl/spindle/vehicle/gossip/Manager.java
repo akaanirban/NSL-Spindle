@@ -1,5 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.Epoch;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.EpochRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.IntervalHelper;
@@ -25,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Manager implements Runnable {
     Logger logger = LoggerFactory.getLogger(this.getClass());
+    protected Config conf = ConfigFactory.load();
 
 
     protected Map<Query, IGossipProtocol> m_protocols;
@@ -49,6 +52,8 @@ public class Manager implements Runnable {
     protected boolean m_isFirstRun;
     protected GossipResult m_gossipResult;
 
+    protected long m_meanWait;
+
     public Manager(QueryBuilder builder, ConnectionMap connectionMap, NetworkLayer networkLayer, GossipResult gossipResult) {
         m_protocols = new TreeMap<>();
         m_protocolThreads = new TreeMap<>();
@@ -63,8 +68,14 @@ public class Manager implements Runnable {
         m_networkLayer = networkLayer;
 
         m_requestStop = new AtomicBoolean(false);
-        m_runScheduler = new IntervalHelper(5);
+
+        int interval = conf.getInt("spindle.vehicle.gossip.window");
+        logger.debug("using gossip interval {}", interval);
+        m_runScheduler = new IntervalHelper(interval);
         m_epochRouter = new EpochRouter(networkLayer);
+
+        m_meanWait = conf.getLong("spindle.vehicle.gossip.sleep-mean");
+        logger.debug("using gossip mean wait {}", m_meanWait);
 
         m_isFirstRun = true;
 
@@ -190,12 +201,13 @@ public class Manager implements Runnable {
 
         // print the protocol results before killing them
         Map<Query, Object> result = GetResults();
-        logger.debug("FINAL RESULT: {}", result);
+        Instant currentInstant = m_runScheduler.GetCurrentInterval();
+        logger.debug("trying to log with new level");
+        logger.error("FINAL RESULT: {} EPOCH: {}", result, currentInstant);
         m_gossipResult.SetResult(result);
 
 
         // start buffering the epoch router
-        Instant currentInstant = m_runScheduler.GetCurrentInterval();
         logger.debug("trying to start new round on epoch {}", currentInstant);
 
         // stop everything
@@ -218,7 +230,7 @@ public class Manager implements Runnable {
             // build the threads but don't start them until everything is wired up
             Thread protocolThread = new Thread(protocol);
 
-            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 80);
+            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, m_meanWait);
             Thread schedulerThread = new Thread(scheduler);
 
             logger.debug("storing");
@@ -288,7 +300,7 @@ public class Manager implements Runnable {
     }
 
     protected void SleepHalfSecond() {
-        long msToSleep = 500;
+        long msToSleep = 250;
         try {
             Thread.sleep(msToSleep);
         } catch (InterruptedException e) {

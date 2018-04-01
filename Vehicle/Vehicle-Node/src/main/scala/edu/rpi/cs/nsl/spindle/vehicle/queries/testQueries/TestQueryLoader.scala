@@ -30,20 +30,20 @@ object TestReducers {
   def sumSpeedAndCount(a: (MPH, Long), b: (MPH, Long)): (MPH, Long) = {
 
 
-//    val logger = LoggerFactory.getLogger(this.getClass)
-//    logger.debug("reducing!")
-//    val gossipResult = GossipRunner.GetInstance().GetResult()
-//    val gossipResultParser = new GossipResultParser[MPH, Long](gossipResult)
-//    val results = gossipResultParser.GetResultWithDefault()
-//
-//    val speed = results.getOrDefault("speed", 1.0).asInstanceOf[Double]
-//    val count = results.getOrDefault("count", 1.0).asInstanceOf[Double]
-//
-//    logger.debug("done reducing, result is: {} {}", speed, count)
-//
-//    (speed, Math.round(count))
+    val logger = LoggerFactory.getLogger(this.getClass)
+    logger.debug("reducing!")
+    val gossipResult = GossipRunner.GetInstance().GetResult()
+    val gossipResultParser = new GossipResultParser[MPH, Long](gossipResult)
+    val results = gossipResultParser.GetResultWithDefault()
 
-    (a._1 + b._1, a._2 + b._2)
+    val speed = results.getOrDefault("speed", 1.0).asInstanceOf[Double]
+    val count = results.getOrDefault("count", 1.0).asInstanceOf[Double]
+
+    logger.debug("done reducing, result is: {} {}", speed, count)
+
+    (speed, Math.round(count))
+
+//    (a._1 + b._1, a._2 + b._2)
   }
   //TODO: break into regions
   def getPosAndAccel(a: (MPH, Acceleration), b: (MPH, Acceleration)) = ???
