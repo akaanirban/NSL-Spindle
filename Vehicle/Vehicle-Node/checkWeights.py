@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pprint
@@ -8,7 +7,7 @@ import shutil
 finalRE = re.compile("FINAL RESULT:")
 avgRe = re.compile("(?<=avg, item=ids]=)([0-9^\.]+)")
 sumRe = re.compile("(?<=sum, item=ids]=)([0-9^\.]+)")
-epochRe = re.compile("((?<=01T)[0-6][0-9]:[0-6][0-9]:[0-6][0-9])")
+epochRe = re.compile("((?<=0[0-9]T)[0-6][0-9]:[0-6][0-9]:[0-6][0-9])")
 
 
 def getValuesFromFile(fd):
@@ -21,7 +20,7 @@ def getValuesFromFile(fd):
             epoch = epochRe.findall(line)[0]
             avg = avgRe.findall(line)
             sum = sumRe.findall(line)
-            assert epoch not in results
+            # assert epoch not in results
             if not avg:
                 continue
             results[epoch] = float(avg[0])
@@ -155,7 +154,7 @@ def main():
     results, fullResults = parseOnlyFullEpochs(root)
 
     # set up the output
-    opath = "results/1w80m/" + str(numFiles) + "/"
+    opath = "results/flat2w200m/" + str(numFiles) + "/"
     if os.path.exists(opath):
         shutil.rmtree(opath)
     os.makedirs(opath)
@@ -168,16 +167,22 @@ def main():
     percentParticipating = getSortedError(fullData, 4)
     x = np.arange(len(sortedEData))
 
-    fullParticipationIdx = percentParticipating.index(100.0)
-
-    plt.scatter(x, sortedEData, c='g', label="error")
-    plt.scatter(x, percentParticipating, c='r', label="participating")
-    plt.legend()
-    plt.show()
+    fullParticipationIdx = percentParticipating.index(100.0) + 10
+    # fullParticipationIdx = 10
+    # plt.scatter(x, sortedEData, c='g', label="error")
+    # plt.scatter(x, percentParticipating, c='r', label="participating")
+    # plt.legend()
+    # plt.show()
 
     print "data:, first idx:", fullParticipationIdx
-    print np.average(sortedEData[fullParticipationIdx:])
-    print np.var(sortedEData[fullParticipationIdx:])
+    numToDo = 50
+    print "median:", np.median(sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo])
+    print np.average(sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo]), "\t", np.var(
+        sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo])
+    if fullParticipationIdx + numToDo < len(sortedEData):
+        print "good"
+    else:
+        print "bad"
     writeToFile(opath, "chead", results)
     writeToFile(opath, "full", fullResults)
 

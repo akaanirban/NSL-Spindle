@@ -31,8 +31,8 @@ public class QueryBuilder {
      */
     public IGossipProtocol BuildGossipProtocolFor(Query query) {
         logger.debug("going to build query");
-        //boolean useConsensus = m_conf.getBoolean("spindle.vehicle.use-consensus");
-        boolean useConsensus = true;
+        boolean useConsensus = m_conf.getBoolean("spindle.vehicle.gossip.is-consensus");
+        //boolean useConsensus = true;
         logger.debug("using gossip consensus protocol:", useConsensus);
 
         if (useConsensus) {

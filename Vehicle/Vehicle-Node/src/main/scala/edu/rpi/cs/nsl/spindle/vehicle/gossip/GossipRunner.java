@@ -1,5 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.ConnectionMap;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.NetworkLayer;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.Query;
@@ -10,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 public class GossipRunner {
     Logger logger = LoggerFactory.getLogger(this.getClass());
+    protected Config m_conf = ConfigFactory.load();
 
     private static volatile GossipRunner singletonInstance = null;
 
@@ -42,14 +45,34 @@ public class GossipRunner {
     }
 
     protected void BuildConnectionMap() {
+        logger.debug("going to build connection map");
+        boolean useFlat = m_conf.getBoolean("spindle.vehicle.gossip.use-flat");
+        logger.debug("using flat: {}", useFlat);
+
         m_connectionMap = new ConnectionMap();
-        // star network hard coded
         String baseIP = "172.17.0.";
         int ipStart = 2;
-        for (int i = 0; i < m_numberOfNodes; ++i) {
-            String ipToAdd = baseIP + (ipStart + i);
-            logger.debug("trying to add node with string: {}", ipToAdd);
-            m_connectionMap.AddNode("" + i, ipToAdd, 8085);
+
+        if (useFlat) {
+            int idVal = Integer.parseInt(m_ID);
+            logger.debug("id valu is: {}", idVal);
+
+            for (int i = 0; i < m_numberOfNodes; ++i) {
+                String ipToAdd = baseIP + (ipStart + i);
+                if (i == idVal - 1 || i == idVal || i == idVal + 1) {
+                    logger.debug("flat graph adding node with string {} val {}", ipToAdd, i);
+                    m_connectionMap.AddNode("" + i, ipToAdd, 8085);
+                    logger.debug("going to next one");
+                }
+            }
+        }
+        else {
+            // star network hard coded
+            for (int i = 0; i < m_numberOfNodes; ++i) {
+                String ipToAdd = baseIP + (ipStart + i);
+                logger.debug("trying to add node with string: {}", ipToAdd);
+                m_connectionMap.AddNode("" + i, ipToAdd, 8085);
+            }
         }
     }
 
@@ -59,9 +82,11 @@ public class GossipRunner {
 
     protected void Start() {
         BuildConnectionMap();
-
+        logger.debug("going to build the network layer");
         m_networkLayer = new NetworkLayer(m_ID, m_connectionMap.GetPortFromID(m_ID), m_connectionMap);
+        logger.debug("done building going to start");
         m_networkLayer.start();
+        logger.debug("starting network layer");
 
         // sleep after starting
         try {
