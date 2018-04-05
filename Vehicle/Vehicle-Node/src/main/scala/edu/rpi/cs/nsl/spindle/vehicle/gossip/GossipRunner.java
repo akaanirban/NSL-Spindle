@@ -47,13 +47,40 @@ public class GossipRunner {
     protected void BuildConnectionMap() {
         logger.debug("going to build connection map");
         boolean useFlat = m_conf.getBoolean("spindle.vehicle.gossip.use-flat");
+        boolean useNeighbors = m_conf.getBoolean("spindle.vehicle.gossip.use-neighbors");
         logger.debug("using flat: {}", useFlat);
 
         m_connectionMap = new ConnectionMap();
         String baseIP = "172.17.0.";
         int ipStart = 2;
 
-        if (useFlat) {
+        if (useNeighbors) {
+            String path = "spindle.vehicle.neighbors.".concat(m_ID);
+            logger.debug("going to get the path:", path);
+            String neighbors = m_conf.getString(path);
+            logger.debug("got neighbors: {}", neighbors);
+
+            String[] neighborNodes = neighbors.trim().split("\\s+");
+
+            for (String neighbor : neighborNodes) {
+                logger.debug("going to parse: {}", neighbor);
+
+                int idVal = Integer.parseInt(neighbor);
+                String ipToAdd = baseIP + (ipStart + idVal);
+
+                logger.debug("going to add {}", idVal);
+                m_connectionMap.AddNode(neighbor, ipToAdd, 8085);
+                logger.debug("done adding {} {}", neighbor, ipToAdd);
+            }
+
+            int idVal = Integer.parseInt(m_ID);
+            String ipToAdd = baseIP + (ipStart + idVal);
+
+            logger.debug("going to add {}", idVal);
+            m_connectionMap.AddNode(m_ID, ipToAdd, 8085);
+            logger.debug("done adding {} {}", m_ID, ipToAdd);
+        }
+        else if (useFlat) {
             int idVal = Integer.parseInt(m_ID);
             logger.debug("id valu is: {}", idVal);
 

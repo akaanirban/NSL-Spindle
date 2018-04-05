@@ -1,3 +1,5 @@
+import ast
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pprint
@@ -69,7 +71,8 @@ def expected(values, numFiles):
     for value in values:
         diffs.append(abs(value - expected) * 100.0 / expected)
 
-    return [np.median(values), np.average(values), np.var(values), np.average(diffs), len(values) * 100.0 / numFiles]
+    return [np.median(values), np.average(values), np.var(values), np.average(diffs), len(values) * 100.0 / numFiles,
+            max(diffs), np.median(diffs)]
 
 
 def analyzeEpochs(results, numFiles):
@@ -154,7 +157,7 @@ def main():
     results, fullResults = parseOnlyFullEpochs(root)
 
     # set up the output
-    opath = "results/flat2w200m/" + str(numFiles) + "/"
+    opath = "results/PSflat2w200m/" + str(numFiles) + "/"
     if os.path.exists(opath):
         shutil.rmtree(opath)
     os.makedirs(opath)
@@ -163,18 +166,20 @@ def main():
     # print "going to pretty print"
     cData = analyzeEpochs(results, numFiles)
     fullData = analyzeEpochs(fullResults, numFiles)
-    sortedEData = getSortedError(cData, 3)
+    # sortedEData = getSortedError(cData, 3)
+    sortedEData = getSortedError(fullData, 5)
     percentParticipating = getSortedError(fullData, 4)
     x = np.arange(len(sortedEData))
 
+    fullParticipationIdx = 10
     fullParticipationIdx = percentParticipating.index(100.0) + 10
-    # fullParticipationIdx = 10
-    # plt.scatter(x, sortedEData, c='g', label="error")
-    # plt.scatter(x, percentParticipating, c='r', label="participating")
-    # plt.legend()
+
+    plt.scatter(x, sortedEData, c='g', label="error")
+    plt.scatter(x, percentParticipating, c='r', label="participating")
+    plt.legend()
     # plt.show()
 
-    print "data:, first idx:", fullParticipationIdx
+    print "data:, first idx:", fullParticipationIdx, "remainign:", len(sortedEData) - fullParticipationIdx
     numToDo = 50
     print "median:", np.median(sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo])
     print np.average(sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo]), "\t", np.var(
@@ -192,5 +197,47 @@ def main():
     # now check how many are different
 
 
+def getResultsFromFolder(root, files):
+    # parse a folder, get teh results
+    sortedFiles = sorted([int(x) for x in files])
+    for file in sortedFiles:
+        # print
+        # print file
+        numNodes = int(file)
+        fd = open(root + str(file) + "/full.txt")
+        rawStr = fd.read()
+        fullResults = ast.literal_eval(rawStr)
+
+        # now do the analysis
+        fullData = analyzeEpochs(fullResults, numNodes)
+        sortedEData = getSortedError(fullData, 5)
+        percentParticipating = getSortedError(fullData, 4)
+        x = np.arange(len(sortedEData))
+
+        fullParticipationIdx = 10
+        fullParticipationIdx = percentParticipating.index(100.0) + 10
+
+        plt.scatter(x, sortedEData, c='g', label="error")
+        plt.scatter(x, percentParticipating, c='r', label="participating")
+        plt.legend()
+        # plt.show()
+
+        # print "data:, first idx:", fullParticipationIdx, "remainign:", len(sortedEData) - fullParticipationIdx
+        numToDo = 50
+        # print "median:", np.median(sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo])
+        print np.average(sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo]), "\t", np.var(
+            sortedEData[fullParticipationIdx:fullParticipationIdx + numToDo])
+        if fullParticipationIdx + numToDo > len(sortedEData):
+            print "BAD:", fullParticipationIdx + numToDo, len(sortedEData)
+            assert False
+
+
+def useExisting():
+    root = "results/2w200m/"
+    files = os.listdir(root)
+    getResultsFromFolder(root, files)
+
+
 if __name__ == "__main__":
+    # useExisting()
     main()
