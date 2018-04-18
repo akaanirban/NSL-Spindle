@@ -300,14 +300,6 @@ object Main {
   }
 
   def main(argv: Array[String]): Unit ={
-//    val thisId = System.getenv("NODE_ID")
-//    val numNodes = System.getenv("NUM_NODES")
-//    GossipRunner.TryStart(thisId, numNodes)
-//    while(true){
-//      logger.debug("going to sleep!")
-//      Thread.sleep(100)
-//      logger.debug("sleeping!")
-//    }
     startZkLocal
     startKafkaLocal
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal
