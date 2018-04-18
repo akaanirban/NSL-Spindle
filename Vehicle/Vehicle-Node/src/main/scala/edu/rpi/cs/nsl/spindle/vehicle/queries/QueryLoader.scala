@@ -5,7 +5,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.events.TemporalDaemon
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
-import edu.rpi.cs.nsl.spindle.vehicle.queries.testQueries.TestQueryLoader
+import edu.rpi.cs.nsl.spindle.vehicle.queries.testQueries.{TestQueryLoader, GossipQueryLoader}
 import org.I0Itec.zkclient.ZkClient
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -74,6 +74,7 @@ object QueryLoader {
       case None =>  new ZookeeperQueryLoader()
       case Some(testQueryStrings) => {
         val testQueries = TestQueryLoader.stringsToQueries(testQueryStrings)
+//        val testQueries = GossipQueryLoader.stringsToQueries(testQueryStrings)
         new MockQueryLoader(testQueries)
       }
     }
