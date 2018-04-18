@@ -211,7 +211,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val queryChangeFuture: Future[Option[Queries]] = queryFuture.flatMap(changeQueries)
     val relayChangeFuture: Future[Unit] = queryChangeFuture.flatMap(_ => clusterheadRelayManager.updateRelay)
     val sensorProduceFuture: Future[Unit] = relayChangeFuture.flatMap(_ => sensorProducer.executeInterval(timestamp))
-    Future.successful(Unit)
+    sensorProduceFuture
   }
 
   /**
