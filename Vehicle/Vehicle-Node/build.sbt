@@ -23,7 +23,7 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0"
 lazy val sharedLib = RootProject(file("../../Shared"))
 
 val main = Project(id = "NSL-Spark", base = file("."))
-    .dependsOn(sharedLib)
+  .dependsOn(sharedLib)
 // Enable scala experimental compiler flags
 scalacOptions ++= Seq("-Xexperimental", "-feature", "-deprecation", "-language:postfixOps")
 

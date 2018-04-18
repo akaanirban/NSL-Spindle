@@ -54,23 +54,23 @@ object Main {
 //      .print()
 
 
-//		val (rawStream, name) = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator).getStream[String, (Double, Long)]
-//    val queryId = "globalSpeedAvg"
-//    print("name is:")
-//    print(name)
-//
-//    val filteredStream = rawStream.filter{case (k, _) => isCanary(k) == false}
-//      // Make sure data types are correct
-//      .filter{case (kSer,vSer) =>
-//      ObjectSerializer.checkQueryIdMatch(queryId, kSer,vSer)
-//    }
-//    val deserializedStream = filteredStream.map{case(serKey,serVal) =>
-//      val keyTyped = ObjectSerializer.deserialize[TypedValue[String]](serKey)
-//      val valTyped = ObjectSerializer.deserialize[TypedValue[(Double,Double)]](serVal)
-//      (keyTyped.value, valTyped.value)
-//    }
-//
-//    deserializedStream.print()
+		val (rawStream, name) = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator).getStream[String, (Double, Long)]
+    val queryId = "globalSpeedAvg"
+    print("name is:")
+    print(name)
+
+    val filteredStream = rawStream.filter{case (k, _) => isCanary(k) == false}
+      // Make sure data types are correct
+      .filter{case (kSer,vSer) =>
+      ObjectSerializer.checkQueryIdMatch(queryId, kSer,vSer)
+    }
+    val deserializedStream = filteredStream.map{case(serKey,serVal) =>
+      val keyTyped = ObjectSerializer.deserialize[TypedValue[String]](serKey)
+      val valTyped = ObjectSerializer.deserialize[TypedValue[(Double,Double)]](serVal)
+      (keyTyped.value, valTyped.value)
+    }
+
+    deserializedStream.print()
 
 
     ssc.start()
