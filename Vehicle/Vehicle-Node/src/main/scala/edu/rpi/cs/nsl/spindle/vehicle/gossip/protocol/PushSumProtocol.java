@@ -42,6 +42,12 @@ public class PushSumProtocol extends BaseProtocol {
                 break;
             }
 
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                logger.error("ERROR, failed to sleep properly", e);
+            }
+
             DoIteration();
         }
     }

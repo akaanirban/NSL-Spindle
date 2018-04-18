@@ -3,6 +3,7 @@ package edu.rpi.cs.nsl.spindle.vehicle.events
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.connections.KafkaConnection
 import edu.rpi.cs.nsl.spindle.vehicle.data_sources.pubsub.SendResult
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.GossipRunner
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{GlobalTopic, KafkaConnectionInfo}
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.{KafkaConfig, ProducerKafka, TopicLookupService}
 import org.slf4j.LoggerFactory
@@ -21,6 +22,11 @@ class GossipEvent[K:TypeTag: ClassTag, V:TypeTag: ClassTag]
 extends TemporalDaemon[Unit] {
   private val logger = LoggerFactory.getLogger(this.getClass)
   protected val uid = "GossipEvent"
+
+//  val thisId = System.getenv("NODE_ID")
+//  val numNodes = System.getenv("NUM_NODES")
+//  val gossipRunner = new GossipRunner(thisId, numNodes)
+//  val gossipResult = gossipRunner.Start()
 
   private implicit class GlobalTopicSet(globalTopicSet: Set[GlobalTopic]) {
     def getBrokerMap: Map[KafkaConnectionInfo, Set[String]] = {
@@ -55,6 +61,8 @@ extends TemporalDaemon[Unit] {
 
 
   protected def getMessage(): (K, V) = {
+    //gossipResult.GetResult()
+
     produceFunc
   }
 

@@ -1,5 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.Epoch;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.EpochRouter;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch.IntervalHelper;
@@ -10,6 +12,7 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.network.NetworkLayer;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.Query;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryBuilder;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.query.QueryRouter;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.results.GossipResult;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.ProtocolScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Manager implements Runnable {
     Logger logger = LoggerFactory.getLogger(this.getClass());
+    protected Config conf = ConfigFactory.load();
 
 
     protected Map<Query, IGossipProtocol> m_protocols;
@@ -46,8 +50,11 @@ public class Manager implements Runnable {
     protected EpochRouter m_epochRouter;
 
     protected boolean m_isFirstRun;
+    protected GossipResult m_gossipResult;
 
-    public Manager(QueryBuilder builder, ConnectionMap connectionMap, NetworkLayer networkLayer) {
+    protected long m_meanWait;
+
+    public Manager(QueryBuilder builder, ConnectionMap connectionMap, NetworkLayer networkLayer, GossipResult gossipResult) {
         m_protocols = new TreeMap<>();
         m_protocolThreads = new TreeMap<>();
 
@@ -61,10 +68,18 @@ public class Manager implements Runnable {
         m_networkLayer = networkLayer;
 
         m_requestStop = new AtomicBoolean(false);
-        m_runScheduler = new IntervalHelper(5);
+
+        int interval = conf.getInt("spindle.vehicle.gossip.window");
+        logger.debug("using gossip interval {}", interval);
+        m_runScheduler = new IntervalHelper(interval);
         m_epochRouter = new EpochRouter(networkLayer);
 
+        m_meanWait = conf.getLong("spindle.vehicle.gossip.sleep-mean");
+        logger.debug("using gossip mean wait {}", m_meanWait);
+
         m_isFirstRun = true;
+
+        m_gossipResult = gossipResult;
     }
 
     /**
@@ -163,9 +178,6 @@ public class Manager implements Runnable {
     }
 
     public void StartNewRound() {
-        // print the protocol results before killing them
-        logger.debug("FINAL RESULT: {}", GetResults());
-
         // wire everything up, the order needs to be:
         // 1) set network as epoch sender (happens in constructor)
         // 2) start buffering the epoch router
@@ -187,8 +199,15 @@ public class Manager implements Runnable {
 
         m_epochRouter.StartBuffering();
 
-        // start buffering the epoch router
+        // print the protocol results before killing them
+        Map<Query, Object> result = GetResults();
         Instant currentInstant = m_runScheduler.GetCurrentInterval();
+        logger.debug("trying to log with new level");
+        logger.error("FINAL RESULT: {} EPOCH: {}", result, currentInstant);
+        m_gossipResult.SetResult(result);
+
+
+        // start buffering the epoch router
         logger.debug("trying to start new round on epoch {}", currentInstant);
 
         // stop everything
@@ -211,7 +230,7 @@ public class Manager implements Runnable {
             // build the threads but don't start them until everything is wired up
             Thread protocolThread = new Thread(protocol);
 
-            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, 80);
+            ProtocolScheduler scheduler = new ProtocolScheduler(protocol, m_meanWait);
             Thread schedulerThread = new Thread(scheduler);
 
             logger.debug("storing");
@@ -281,7 +300,7 @@ public class Manager implements Runnable {
     }
 
     protected void SleepHalfSecond() {
-        long msToSleep = 500;
+        long msToSleep = 50;
         try {
             Thread.sleep(msToSleep);
         } catch (InterruptedException e) {

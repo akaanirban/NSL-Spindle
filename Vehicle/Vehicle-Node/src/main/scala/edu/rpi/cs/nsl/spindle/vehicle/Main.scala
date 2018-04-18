@@ -213,6 +213,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
     val queryChangeFuture: Future[Option[Queries]] = queryFuture.flatMap(changeQueries)
     val relayChangeFuture: Future[Unit] = queryChangeFuture.flatMap(_ => clusterheadRelayManager.updateRelay)
     val sensorProduceFuture: Future[Unit] = relayChangeFuture.flatMap(_ => sensorProducer.executeInterval(timestamp))
+    /*
     val gossipFuture = gossipEvent.executeInterval(timestamp)
     val result = for {
       r1 <- sensorProduceFuture
@@ -229,7 +230,7 @@ class EventHandler(kafkaLocal: KafkaConnection, kafkaCloud: KafkaConnection) {
         Future.successful(Unit)
       }
     }
-
+    */
     Future.successful(Unit)
   }
 
@@ -319,10 +320,14 @@ object Main {
   }
 
   def main(argv: Array[String]): Unit ={
-    val gossipRunner = new GossipRunner()
     val thisId = System.getenv("NODE_ID")
     val numNodes = System.getenv("NUM_NODES")
-    gossipRunner.StartManagedGossipTwoQueriesWithEpoch(thisId, numNodes);
+    GossipRunner.TryStart(thisId, numNodes)
+    while(true){
+      logger.debug("going to sleep!")
+      Thread.sleep(100)
+      logger.debug("sleeping!")
+    }
     startZkLocal
     startKafkaLocal
       val (zkLocal, kafkaLocal) = StartupManager.waitLocal
