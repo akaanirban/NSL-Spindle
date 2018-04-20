@@ -11,11 +11,11 @@ import org.slf4j.LoggerFactory
 /**
   * Created by wrkronmiller on 4/11/17.
   */
-object TestQueryLoader {
-  val testQueries: Map[String, Query[_, _]] = {
+object GossipQueryLoader {
+  val gossipQueries: Map[String, Query[_, _]] = {
     val globalSpeedAvg: Query[_, _] = Query("globalSpeedAvg",
-      MapOperation[(_, Vehicle), (_, (MPH, Long))](f=TestMappers.getSpeedAndCount, uid="getSpeedAndCount"),
-      ReduceByKeyOperation[(MPH, Long)](TestReducers.sumSpeedAndCount, OperationIds.sum, uid="sumSpeedAndCount"))
+      MapOperation[(_, Vehicle), (_, (MPH, Long))](f=GossipMappers.getSpeedAndCount, uid="getSpeedAndCount"),
+      ReduceByKeyOperation[(MPH, Long)](GossipReducers.sumSpeedAndCount, OperationIds.sum, uid="sumSpeedAndCount"))
     // Create map from query ID to query object
     Seq(globalSpeedAvg)
       .map(entry => (entry.id -> entry))
@@ -23,18 +23,31 @@ object TestQueryLoader {
   }
 
   // Get a query by its string name using testQueries map (used in QueryLoader.scala)
-  def stringsToQueries(strings: List[String]): List[Query[_,_]] = strings.map(testQueries(_))
+  def stringsToQueries(strings: List[String]): List[Query[_,_]] = strings.map(gossipQueries(_))
 }
 
-object TestReducers {
+object GossipReducers {
   def sumSpeedAndCount(a: (MPH, Long), b: (MPH, Long)): (MPH, Long) = {
-    (a._1 + b._1, a._2 + b._2)
+
+
+    val logger = LoggerFactory.getLogger(this.getClass)
+    logger.debug("reducing!")
+    val gossipResult = GossipRunner.GetInstance().GetResult()
+    val gossipResultParser = new GossipResultParser[MPH, Long](gossipResult)
+    val results = gossipResultParser.GetResultWithDefault()
+
+    val speed = results.getOrDefault("speed", 1.0).asInstanceOf[Double]
+    val count = results.getOrDefault("count", 1.0).asInstanceOf[Double]
+
+    logger.debug("done reducing, result is: {} {}", speed, count)
+
+    (speed, Math.round(count))
   }
   //TODO: break into regions
   def getPosAndAccel(a: (MPH, Acceleration), b: (MPH, Acceleration)) = ???
 }
 
-object TestMappers {
+object GossipMappers {
   def getSpeedAndCount(kv: (Any, Vehicle)): (String, (MPH, Long)) = {
     val (k,v) = kv
     ("speedAndCount", (v.mph, 1))
