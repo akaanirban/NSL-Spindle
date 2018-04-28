@@ -73,8 +73,8 @@ object QueryLoader {
     Configuration.Queries.testQueries match {
       case None =>  new ZookeeperQueryLoader()
       case Some(testQueryStrings) => {
-        val testQueries = TestQueryLoader.stringsToQueries(testQueryStrings)
-//        val testQueries = GossipQueryLoader.stringsToQueries(testQueryStrings)
+//        val testQueries = TestQueryLoader.stringsToQueries(testQueryStrings)
+        val testQueries = GossipQueryLoader.stringsToQueries(testQueryStrings)
         new MockQueryLoader(testQueries)
       }
     }

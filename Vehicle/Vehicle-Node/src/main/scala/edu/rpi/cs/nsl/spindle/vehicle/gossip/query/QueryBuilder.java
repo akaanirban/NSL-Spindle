@@ -54,6 +54,9 @@ public class QueryBuilder {
             else {
                 weight = 0.0;
             }
+
+            // the value is one everywhere
+            value = 1.0;
         }
 
         logger.debug("{} building consensus query {} with weight {}", m_id, query, weight);
