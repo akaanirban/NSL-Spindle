@@ -44,7 +44,19 @@ object Main {
 		//val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
     //  .map(v => (null, 2.toDouble))
 
-    val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
+    //val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
+    //val ip = "127.0.0.1"
+    var ip = "172.19.0.2"
+    print("going to check")
+    args.foreach {println}
+    if (args.length != 0) {
+      ip = args(0)
+      println("asdf")
+      println("using the env var: $ip")
+    }
+    val firstIp = s"$ip:2181"
+    val secondIp = s"$ip:9092"
+    val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig(firstIp, secondIp, TOPIC), new MockQueryUidGenerator)
       .map(v => (null, (v.mph, 1.toLong)))
       .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
       .print()

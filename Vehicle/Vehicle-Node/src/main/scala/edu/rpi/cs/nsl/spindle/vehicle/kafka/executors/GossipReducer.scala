@@ -32,6 +32,7 @@ class GossipReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
 
   private val thisId = System.getenv("NODE_ID")
   private val numNodes = System.getenv("NUM_NODES")
+  private val clusterheadBrokerStr = System.getenv("")
   logger.debug("going to start gossip!")
   GossipRunner.TryStart(thisId, numNodes)
   logger.debug("trying to get result")

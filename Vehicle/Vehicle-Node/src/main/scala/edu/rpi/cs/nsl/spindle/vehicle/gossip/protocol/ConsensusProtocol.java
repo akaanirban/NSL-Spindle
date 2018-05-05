@@ -58,7 +58,7 @@ public class ConsensusProtocol extends BaseProtocol {
 
     @Override
     public void LeadGossip() {
-        logger.debug("requesting lead gossip, mid: {} tar: {} leading: {} lwr: {} lws: {} follow: {}", m_id, m_target, isLeading, isLeadingWaitingForResponse, isLeadingWaitingForStatus, isFollowing);
+        logger.debug("requesting lead gossip, mid: {} tar: {} msgId: {} leading: {} lwr: {} lws: {} follow: {}", m_id, m_target, m_leaderMsgUUID, isLeading, isLeadingWaitingForResponse, isLeadingWaitingForStatus, isFollowing);
         m_wantsLeadGossip.lazySet(true);
     }
 

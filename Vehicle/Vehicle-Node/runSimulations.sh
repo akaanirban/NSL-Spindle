@@ -3,6 +3,7 @@
 if [ $# -eq 0 ]; then
     echo "No arguments provided"
     echo "Run it as : ./runSimulations.sh \$numberOfNodes || where \$numberOfNodes is the number of nodes you want"
+    echo "Optional second command for the desired number of clusters"
     exit 1
 fi
 
@@ -29,22 +30,29 @@ fi
 # NOTE: modify this variable when running the scrip
 # you can find this address by running ifconfig
 #####################################################
-MIDDLEWARE_IP=192.168.133.161
+#MIDDLEWARE_IP=192.168.133.162
+#MIDDLEWARE_IP=172.17.0.2
+MIDDLEWARE_IP=MIDDLEWARE-KAFKA
 numberOfNodes=$1
+
 for (( clusters=0; clusters<$NUM_CLUSTERS; clusters++ ))
 do
     # Write code to start up Cluster
     echo
     echo "Starting the cluster head"
     echo
+    TESTNAME=SPINDLE-CLUSTER${clusters}-CLUSTERHEAD
+    echo $TESTNAME
     #ports are published to bind with the host for the cluster head
     docker run -it --rm -d \
+            --net=SPINDLE-BRIDGE\
             -e MIDDLEWARE_HOSTNAME=$MIDDLEWARE_IP\
             -e NODE_ID=0\
             -e NUM_NODES=$numberOfNodes\
-            --name SPINDLE-CLUSTERHEAD$clusters\
+            -e WHICH_CLUSTER=$clusters\
+            --name ${TESTNAME}\
             nslrpi/spindle-node
-    ClusterHeadIP=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' SPINDLE-CLUSTERHEAD$clusters`
+    ClusterHeadIP=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${TESTNAME}`
 
 
     #Set the middleware hostname, cluster head broker and zookeeper config for nodes
@@ -66,11 +74,13 @@ do
         echo "Starting Node $i"
         echo
         docker run -it --rm -d \
+                    --net=SPINDLE-BRIDGE\
+                    -e WHICH_CLUSTER=$clusters\
                     -e MIDDLEWARE_HOSTNAME=$MIDDLEWARE_IP\
                     -e CLUSTERHEAD_BROKER=$ClusterHeadIP:9093\
-            -e NUM_NODES=$numberOfNodes\
+                    -e NUM_NODES=$numberOfNodes\
                     -e CLUSTERHEAD_ZK_STRING=$ClusterHeadIP:2182\
-            -e NODE_ID=$i\
+                    -e NODE_ID=$i\
                     --name $nodeName$i\
                     nslrpi/spindle-node
     done
