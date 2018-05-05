@@ -51,56 +51,26 @@ public class GossipRunner {
         logger.debug("using flat: {}", useFlat);
 
         m_connectionMap = new ConnectionMap();
-        String baseIP = "172.17.0.";
-        int ipStart = 2;
 
-        if (useNeighbors) {
-            String path = "spindle.vehicle.neighbors.".concat(m_ID);
-            logger.debug("going to get the path:", path);
-            String neighbors = m_conf.getString(path);
-            logger.debug("got neighbors: {}", neighbors);
+        String clusterID = m_conf.getString("spindle.vehicle.cluster.which-cluster");
+        logger.debug("the cluster string is: {}", clusterID);
+        String baseName = "SPINDLE-CLUSTER" + clusterID + "-";
 
-            String[] neighborNodes = neighbors.trim().split("\\s+");
-
-            for (String neighbor : neighborNodes) {
-                logger.debug("going to parse: {}", neighbor);
-
-                int idVal = Integer.parseInt(neighbor);
-                String ipToAdd = baseIP + (ipStart + idVal);
-
-                logger.debug("going to add {}", idVal);
-                m_connectionMap.AddNode(neighbor, ipToAdd, 8085);
-                logger.debug("done adding {} {}", neighbor, ipToAdd);
+        // fully connected network hardcoded
+        for (int i = 0; i < m_numberOfNodes; ++i) {
+            String nameToAdd = "NODE" + i;
+            if (i == 0) {
+                nameToAdd = "CLUSTERHEAD";
             }
+            String ipToAdd = baseName + nameToAdd;
+            logger.debug("adding node with address: {}", ipToAdd);
+            m_connectionMap.AddNode("" + i, ipToAdd, 8085);
+//            String ipToAdd = baseIP + (ipStart + i);
+//            logger.debug("trying to add node with string: {}", ipToAdd);
+//            m_connectionMap.AddNode("" + i, ipToAdd, 8085);
 
-            int idVal = Integer.parseInt(m_ID);
-            String ipToAdd = baseIP + (ipStart + idVal);
-
-            logger.debug("going to add {}", idVal);
-            m_connectionMap.AddNode(m_ID, ipToAdd, 8085);
-            logger.debug("done adding {} {}", m_ID, ipToAdd);
         }
-        else if (useFlat) {
-            int idVal = Integer.parseInt(m_ID);
-            logger.debug("id valu is: {}", idVal);
-
-            for (int i = 0; i < m_numberOfNodes; ++i) {
-                String ipToAdd = baseIP + (ipStart + i);
-                if (i == idVal - 1 || i == idVal || i == idVal + 1) {
-                    logger.debug("flat graph adding node with string {} val {}", ipToAdd, i);
-                    m_connectionMap.AddNode("" + i, ipToAdd, 8085);
-                    logger.debug("going to next one");
-                }
-            }
-        }
-        else {
-            // star network hard coded
-            for (int i = 0; i < m_numberOfNodes; ++i) {
-                String ipToAdd = baseIP + (ipStart + i);
-                logger.debug("trying to add node with string: {}", ipToAdd);
-                m_connectionMap.AddNode("" + i, ipToAdd, 8085);
-            }
-        }
+        logger.debug("DONE building connection map!");
     }
 
     public GossipResult GetResult() {
