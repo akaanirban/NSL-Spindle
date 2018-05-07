@@ -1,0 +1,3 @@
+#!/bin/bash
+MIDDLEWARE_IP=${MIDDLEWARE_IP_OPTIONAL:=MIDDLWARE-KAFKA}
+java -jar /opt/TestSpark.jar ${MIDDLEWARE_IP}

@@ -52,7 +52,7 @@ do
             -e WHICH_CLUSTER=$clusters\
             --name ${TESTNAME}\
             nslrpi/spindle-node
-    ClusterHeadIP=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${TESTNAME}`
+    ClusterHeadIP=${TESTNAME}
 
 
     #Set the middleware hostname, cluster head broker and zookeeper config for nodes
