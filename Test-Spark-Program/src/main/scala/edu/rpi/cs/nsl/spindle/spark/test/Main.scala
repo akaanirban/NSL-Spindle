@@ -46,7 +46,7 @@ object Main {
 
     //val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
     //val ip = "127.0.0.1"
-    var ip = "172.19.0.2"
+    var ip = "MIDDLEWARE-KAFKA"
     print("going to check")
     args.foreach {println}
     if (args.length != 0) {
@@ -54,6 +54,7 @@ object Main {
       println("asdf")
       println("using the env var: $ip")
     }
+//    ip = "172.19.0.2"
     val firstIp = s"$ip:2181"
     val secondIp = s"$ip:9092"
     val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig(firstIp, secondIp, TOPIC), new MockQueryUidGenerator)
