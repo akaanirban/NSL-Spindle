@@ -11,8 +11,8 @@ fi
 
 CONTAINER_NAME=MIDDLEWARE-KAFKA
 # clean up
-docker network rm SPINDLE-BRIDGE
 docker kill $CONTAINER_NAME
+docker network rm SPINDLE-BRIDGE
 
 # create a bridge network
 docker network create SPINDLE-BRIDGE

@@ -18,8 +18,6 @@ import edu.rpi.cs.nsl.spindle.vehicle.{ReflectionUtils, TypedValue}
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-
-
 class MockQueryUidGenerator extends QueryUidGenerator {
   override def getQueryUid: String = "globalSpeedAvg"
 }
@@ -37,51 +35,20 @@ object Main {
     val TOPIC = "spindle-vehicle-middleware-input"
     val sc = new SparkConf().setAppName("SparkSpindleTest").setMaster("local[*]")
     val ssc = new StreamingContext(sc, Seconds(15))
-    //val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("hadrian.kronmiller.net:2181", "hadrian.kronmiller.net:9092", TOPIC), new MockQueryUidGenerator)
-    //  .map(v => (null, (v.mph, 1.toLong)))
-    //  .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
-    //  .print()
-		//val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
-    //  .map(v => (null, 2.toDouble))
 
-    //val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator)
-    //val ip = "127.0.0.1"
     var ip = "MIDDLEWARE-KAFKA"
-    print("going to check")
-    args.foreach {println}
     if (args.length != 0) {
       ip = args(0)
-      println("asdf")
-      println("using the env var: $ip")
     }
-//    ip = "172.19.0.2"
+
+    println(s"using middleware IP: $ip")
     val firstIp = s"$ip:2181"
     val secondIp = s"$ip:9092"
+
     val stream = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig(firstIp, secondIp, TOPIC), new MockQueryUidGenerator)
       .map(v => (null, (v.mph, 1.toLong)))
       .reduceByKey{case (a,b) => (a._1 + b._1, a._2 + b._2)}
       .print()
-
-
-
-//		val (rawStream, name) = NSLUtils.createVStream(ssc, NSLUtils.StreamConfig("127.0.0.1:2181", "127.0.0.1:9092", TOPIC), new MockQueryUidGenerator).getStream[String, (Double, Long)]
-//    val queryId = "globalSpeedAvg"
-//    print("name is:")
-//    print(name)
-//
-//    val filteredStream = rawStream.filter{case (k, _) => isCanary(k) == false}
-//      // Make sure data types are correct
-//      .filter{case (kSer,vSer) =>
-//      ObjectSerializer.checkQueryIdMatch(queryId, kSer,vSer)
-//    }
-//    val deserializedStream = filteredStream.map{case(serKey,serVal) =>
-//      val keyTyped = ObjectSerializer.deserialize[TypedValue[String]](serKey)
-//      val valTyped = ObjectSerializer.deserialize[TypedValue[(Double,Double)]](serVal)
-//      (keyTyped.value, valTyped.value)
-//    }
-//
-//    deserializedStream.print()
-
 
     ssc.start()
     ssc.awaitTermination()
