@@ -1,8 +1,8 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.StatusQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +60,7 @@ public class PushSumProtocol extends BaseProtocol {
             logger.debug("processing waiting status");
             ProcessWaitingStatus();
         }
-        else if (IsMessageQueueEmpty() == false) {
+        else if (IsMessageQueueEmptyThreadsafe() == false) {
             ProcessMessages();
         }
         else if (m_wantsLeadGossip.get() == true) {
@@ -69,11 +69,11 @@ public class PushSumProtocol extends BaseProtocol {
     }
 
     protected void ProcessWaitingStatus() {
-        if (IsStatusQueueEmpty()) {
+        if (IsStatusQueueEmptyThreadsafe()) {
             return;
         }
 
-        StatusQueueData statusQueueData = PopStatusQueue();
+        StatusQueueData statusQueueData = PopStatusQueueThreadsafe();
         if (statusQueueData.GetMessageId().equals(m_waitingOnUUID)) {
             if (statusQueueData.GetMessage() == MessageStatus.GOOD) {
                 m_gossip.Commit();
@@ -95,7 +95,7 @@ public class PushSumProtocol extends BaseProtocol {
 
     protected void ProcessMessages() {
         logger.debug("pulling message from queue");
-        MessageQueueData messageQueueData = PopMessageQueue();
+        MessageQueueData messageQueueData = PopMessageQueueThreadsafe();
         m_gossip.HandleUpdateMessage(messageQueueData.Sender, messageQueueData.Message);
 
         // can always commit if we got it

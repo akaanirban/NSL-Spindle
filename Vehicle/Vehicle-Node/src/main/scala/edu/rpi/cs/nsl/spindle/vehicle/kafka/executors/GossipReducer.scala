@@ -30,15 +30,21 @@ class GossipReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
   extends KVReducer[K,V](uid, queryUid, sourceTopics, sinkTopics, reduceFunc) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
+  // set up the gossip
+  // since this is a singleton, multiple setup attempts are fine
   private val thisId = System.getenv("NODE_ID")
   private val numNodes = System.getenv("NUM_NODES")
   private val clusterheadBrokerStr = System.getenv("")
+
   logger.debug("going to start gossip!")
   GossipRunner.TryStart(thisId, numNodes)
+
   logger.debug("trying to get result")
   private val gossipResult = GossipRunner.GetInstance().GetResult()
+
   logger.debug("done getting result")
   private val gossipResultParser = new GossipResultParser[K, V](gossipResult)
+
   logger.debug("done getting result parser")
 
 
@@ -53,22 +59,7 @@ class GossipReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
     * @return output messages
     */
   override protected def doTransforms(messages: Iterable[(K, V)]): Iterable[(K, V)] = {
-//    messages
-//      .groupBy(_._1)
-//      .mapValues(_.map(_._2))
-//      .mapValues{values =>
-//        values.reduce(reduceFunc)
-//      }
-//      .toSeq
-//    logger.debug("doing right transform, data is: {}", messages)
-//    val result = gossipResultParser.GetResult(queryUid)
-//    logger.debug("done getting result from parser")
-//    val scalamap = result.asScala
-//    logger.debug("done converting to scala obj")
-//    val scalaIter = scalamap
-//    logger.debug("done doing scala itr, sending: {}", scalamap)
-//    scalaIter
-    logger.debug("doing good transform! data is {}", messages)
+    logger.debug("transforming with gossip reducer, data is {}", messages)
     val result = messages
       .groupBy(_._1)
       .mapValues(_.map(_._2))
@@ -80,15 +71,6 @@ class GossipReducer[K:TypeTag: ClassTag, V:TypeTag: ClassTag](uid: String,
     val oneVarReduce = (v:V) => { reduceFunc(v, null.asInstanceOf[V]) }
     val applyReduce = (i:(K, V)) => {(i._1, oneVarReduce(i._2))}
     val fr = result map {applyReduce(_)}
-
-    // will now have list with either 1 or 0 items
-    //result.groupBy(_._1).mapValues(_.map(_._2)).mapValues(values => applyReduce(values))
-    //val fr = result.map(applyReduce) //map(applyReduce)
-
-
-
-    // call the dummy reduce func...
-    //val result = Iterable(reduceFunc(null.asInstanceOf[V], null.asInstanceOf[V]))
 
     logger.debug("done transform, sending {}", fr)
     fr

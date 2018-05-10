@@ -1,9 +1,13 @@
-package edu.rpi.cs.nsl.spindle.vehicle.gossip.messages;
+package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.consensus.messages;
 
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.NestedMessage;
 
 import java.util.UUID;
 
+/**
+ * Used by the consensus protocol to indicate that we will use a follow response
+ */
 public class ConsensusFollowResponse extends NestedMessage {
 
     public ConsensusFollowResponse(IGossipMessageData message, UUID whichLead) {

@@ -1,11 +1,12 @@
 package edu.rpi.cs.nsl.spindle.vehicle.queries
 
+import com.typesafe.config.ConfigFactory
 import edu.rpi.cs.nsl.spindle.ZKHelper
 import edu.rpi.cs.nsl.spindle.vehicle.Configuration
 import edu.rpi.cs.nsl.spindle.vehicle.Types.Timestamp
 import edu.rpi.cs.nsl.spindle.vehicle.events.TemporalDaemon
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.utils.ObjectSerializer
-import edu.rpi.cs.nsl.spindle.vehicle.queries.testQueries.{TestQueryLoader, GossipQueryLoader}
+import edu.rpi.cs.nsl.spindle.vehicle.queries.testQueries.{GossipQueryLoader, TestQueryLoader}
 import org.I0Itec.zkclient.ZkClient
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -73,9 +74,18 @@ object QueryLoader {
     Configuration.Queries.testQueries match {
       case None =>  new ZookeeperQueryLoader()
       case Some(testQueryStrings) => {
-//        val testQueries = TestQueryLoader.stringsToQueries(testQueryStrings)
-        val testQueries = GossipQueryLoader.stringsToQueries(testQueryStrings)
-        new MockQueryLoader(testQueries)
+
+        var mConf = ConfigFactory.load()
+        val useGossip = mConf.getBoolean("spindle.vehicle.use-gossip")
+        if(useGossip) {
+          val testQueries = GossipQueryLoader.stringsToQueries(testQueryStrings)
+          new MockQueryLoader(testQueries)
+        }
+        else {
+          val testQueries = TestQueryLoader.stringsToQueries(testQueryStrings)
+          new MockQueryLoader(testQueries)
+        }
+
       }
     }
   }

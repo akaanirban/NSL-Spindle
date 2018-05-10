@@ -1,11 +1,12 @@
-package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol;
+package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.consensus;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusFollowResponse;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusLeadGossipMessage;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.ConsensusNoGossipResponse;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.BaseProtocol;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.consensus.messages.ConsensusFollowResponse;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.consensus.messages.ConsensusLeadGossipMessage;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.consensus.messages.ConsensusNoGossipResponse;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.StatusQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,11 +88,11 @@ public class ConsensusProtocol extends BaseProtocol {
      */
     protected MessageStatus CheckForMessageStatus(UUID whichStatus) {
 
-        if (IsStatusQueueEmpty()) {
+        if (IsStatusQueueEmptyThreadsafe()) {
             return MessageStatus.WAITING;
         }
 
-        StatusQueueData statusQueueData = PopStatusQueue();
+        StatusQueueData statusQueueData = PopStatusQueueThreadsafe();
 
         if (statusQueueData.GetMessageId().equals(whichStatus)) {
             MessageStatus status = (MessageStatus) statusQueueData.GetMessage();
@@ -139,12 +140,12 @@ public class ConsensusProtocol extends BaseProtocol {
 
     protected void ProcessLeadingWaitResponse() {
         // leading, process messages as they come in
-        if (IsMessageQueueEmpty()) {
+        if (IsMessageQueueEmptyThreadsafe()) {
             return;
         }
 
         // else pull messages off the queue
-        MessageQueueData messageQueueData = PopMessageQueue();
+        MessageQueueData messageQueueData = PopMessageQueueThreadsafe();
 
         if (!messageQueueData.Sender.equalsIgnoreCase(m_target)) {
             // don't gossip with people other than our partner
@@ -221,7 +222,7 @@ public class ConsensusProtocol extends BaseProtocol {
     }
 
     protected void ProcessNotGossiping() {
-        if (IsMessageQueueEmpty()) {
+        if (IsMessageQueueEmptyThreadsafe()) {
             // unlock because definitely not continuing
             if (m_wantsLeadGossip.get()) {
                 m_wantsLeadGossip.set(false);
@@ -256,7 +257,7 @@ public class ConsensusProtocol extends BaseProtocol {
         }
 
         // else pull messages off the queue
-        MessageQueueData messageQueueData = PopMessageQueue();
+        MessageQueueData messageQueueData = PopMessageQueueThreadsafe();
 
         if (messageQueueData.Message instanceof ConsensusLeadGossipMessage) {
             // good to follow, grab response and return

@@ -6,6 +6,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
+/**
+ * This class is used to tell the gossip protocols that something wants them to lead.
+ */
 public class ProtocolScheduler extends Thread {
     protected IGossipProtocol m_protocol;
     protected long windowSize;
@@ -26,19 +29,17 @@ public class ProtocolScheduler extends Thread {
             long sleepTime = getPoisson(windowSize);
             logger.debug("sleeping {}", sleepTime);
             sleep(sleepTime);
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        
-        while(running) {
+
+        while (running) {
             try {
                 m_protocol.LeadGossip();
                 long sleepTime = getPoisson(windowSize);
                 logger.debug("sleeping {}", sleepTime);
                 sleep(sleepTime);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }

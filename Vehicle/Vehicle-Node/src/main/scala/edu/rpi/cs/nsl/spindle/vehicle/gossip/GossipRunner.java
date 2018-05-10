@@ -10,6 +10,10 @@ import edu.rpi.cs.nsl.spindle.vehicle.gossip.results.GossipResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Singleton for setting up the gossip. This builds the queries and neighbors. Change this to change how gossip gets
+ * set up.
+ */
 public class GossipRunner {
     Logger logger = LoggerFactory.getLogger(this.getClass());
     protected Config m_conf = ConfigFactory.load();
@@ -46,13 +50,10 @@ public class GossipRunner {
 
     protected void BuildConnectionMap() {
         logger.debug("going to build connection map");
-        boolean useFlat = m_conf.getBoolean("spindle.vehicle.gossip.use-flat");
-        boolean useNeighbors = m_conf.getBoolean("spindle.vehicle.gossip.use-neighbors");
-        logger.debug("using flat: {}", useFlat);
-
         m_connectionMap = new ConnectionMap();
 
         String clusterID = m_conf.getString("spindle.vehicle.cluster.which-cluster");
+        Integer portNumber = m_conf.getInt("spindle.vehicle.gossip.port");
         logger.debug("the cluster string is: {}", clusterID);
         String baseName = "SPINDLE-CLUSTER" + clusterID + "-";
 
@@ -64,11 +65,7 @@ public class GossipRunner {
             }
             String ipToAdd = baseName + nameToAdd;
             logger.debug("adding node with address: {}", ipToAdd);
-            m_connectionMap.AddNode("" + i, ipToAdd, 8085);
-//            String ipToAdd = baseIP + (ipStart + i);
-//            logger.debug("trying to add node with string: {}", ipToAdd);
-//            m_connectionMap.AddNode("" + i, ipToAdd, 8085);
-
+            m_connectionMap.AddNode("" + i, ipToAdd, portNumber);
         }
         logger.debug("DONE building connection map!");
     }
@@ -77,6 +74,10 @@ public class GossipRunner {
         return m_gossipResult;
     }
 
+    /**
+     * builds the dependencies for gossip
+     * NOTE: this is where the queries are built
+     */
     protected void Start() {
         BuildConnectionMap();
         logger.debug("going to build the network layer");

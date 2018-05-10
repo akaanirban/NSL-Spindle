@@ -1,6 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 
 import java.util.UUID;
 

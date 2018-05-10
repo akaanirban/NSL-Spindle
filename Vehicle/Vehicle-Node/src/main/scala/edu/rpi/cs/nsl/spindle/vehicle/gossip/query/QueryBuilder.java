@@ -5,8 +5,8 @@ import com.typesafe.config.ConfigFactory;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip.Consensus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.gossip.PushSum;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.ConsensusProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.PushSumProtocol;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.consensus.ConsensusProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
