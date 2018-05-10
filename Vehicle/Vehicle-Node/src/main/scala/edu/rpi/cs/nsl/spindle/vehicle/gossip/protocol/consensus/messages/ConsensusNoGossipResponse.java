@@ -1,8 +1,12 @@
-package edu.rpi.cs.nsl.spindle.vehicle.gossip.messages;
+package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol.consensus.messages;
+
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.BaseMessage;
 
 import java.util.UUID;
 
-// when a node doesn't want to gossip
+/**
+ * indicates that there is some conflict and the receiver should abort the gossip
+ */
 public class ConsensusNoGossipResponse extends BaseMessage {
     public ConsensusNoGossipResponse(UUID whichLead) {
         m_whichLead = whichLead;

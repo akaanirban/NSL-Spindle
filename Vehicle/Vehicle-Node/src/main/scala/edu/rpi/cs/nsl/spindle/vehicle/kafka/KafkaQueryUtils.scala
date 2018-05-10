@@ -1,5 +1,6 @@
 package edu.rpi.cs.nsl.spindle.vehicle.kafka
 
+import com.typesafe.config.ConfigFactory
 import edu.rpi.cs.nsl.spindle.datatypes.Vehicle
 import edu.rpi.cs.nsl.spindle.vehicle.kafka.executors.{GossipReducer, KVReducer, Mapper}
 import edu.rpi.cs.nsl.spindle.vehicle.queries.Query
@@ -20,9 +21,18 @@ object KafkaQueryUtils {
       */
     def mkExecutors(implicit ec: ExecutionContext): (Mapper[Any, Vehicle, MapKey, MapValue], KVReducer[MapKey, MapValue]) = {
       val mapExecutor = Mapper.mkSensorMapper[MapKey, MapValue](mapperId = mapOperation.uid, queryUid = query.id, mapOperation.f, (mapKey, mapVal) => mapOperation.filter((mapKey, mapVal)))
-//      val reduceExecutor = KVReducer.mkVehicleReducer[MapKey, MapValue](reducerId = reduceOperation.uid, queryUid = id, mapperId = mapOperation.uid, reduceOperation.f)
-      val reduceExecutor = GossipReducer.mkVehicleReducer[MapKey, MapValue](reducerId = reduceOperation.uid, queryUid = id, mapperId = mapOperation.uid, reduceOperation.f)
-      (mapExecutor, reduceExecutor)
+
+      var mConf = ConfigFactory.load()
+      val useGossip = mConf.getBoolean("spindle.vehicle.use-gossip")
+
+      if(useGossip) {
+        val reduceExecutor = GossipReducer.mkVehicleReducer[MapKey, MapValue](reducerId = reduceOperation.uid, queryUid = id, mapperId = mapOperation.uid, reduceOperation.f)
+        (mapExecutor, reduceExecutor)
+      }
+      else {
+        val reduceExecutor = KVReducer.mkVehicleReducer[MapKey, MapValue](reducerId = reduceOperation.uid, queryUid = id, mapperId = mapOperation.uid, reduceOperation.f)
+        (mapExecutor, reduceExecutor)
+      }
     }
   }
 }

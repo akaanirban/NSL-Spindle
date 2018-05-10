@@ -1,7 +1,7 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

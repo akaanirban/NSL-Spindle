@@ -1,19 +1,23 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * This is used to pool messages. The network always reads messages and tries to push them up the layers. However, when
+ * the epoch expires the new gossip protocol need to be built. While they are being built and the messages are
+ * transfering over, the NetworkMessageBuffer queues them.
+ */
 public class NetworkMessageBuffer implements INetworkObserver {
     Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -37,7 +41,7 @@ public class NetworkMessageBuffer implements INetworkObserver {
         // now lock and move all messages into observer's queue
 
         logger.debug("adding messages to queue, there are: {}", m_messageBuffer.size());
-        for(MessageQueueData item : m_messageBuffer) {
+        for (MessageQueueData item : m_messageBuffer) {
             m_observer.OnNetworkActivity(item.Sender, item.Message);
         }
 
@@ -47,7 +51,7 @@ public class NetworkMessageBuffer implements INetworkObserver {
 
     @Override
     public void OnNetworkActivity(String sender, Object message) {
-        if(m_hasObserver.get()) {
+        if (m_hasObserver.get()) {
             m_observer.OnNetworkActivity(sender, message);
             logger.debug("got message, have observer, sending up");
         }
@@ -61,7 +65,7 @@ public class NetworkMessageBuffer implements INetworkObserver {
 
     @Override
     public void OnMessageStatus(UUID messageId, MessageStatus status) {
-        if(m_hasObserver.get()) {
+        if (m_hasObserver.get()) {
             m_observer.OnMessageStatus(messageId, status);
         }
         else {

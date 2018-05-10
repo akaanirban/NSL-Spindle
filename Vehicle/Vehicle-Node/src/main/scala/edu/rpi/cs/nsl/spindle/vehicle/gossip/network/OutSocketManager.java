@@ -1,10 +1,9 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.network;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.StartUpMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,8 +93,7 @@ public class OutSocketManager extends Thread implements INetworkSender {
 
         } catch (Exception e) {
             e.printStackTrace();
-            logger.error("bad send of {} to {}, got exception {} with message {}",
-                    message, target, e, e.toString());
+            logger.error("bad send of {} to {}, got exception {} with message {}", message, target, e, e.toString());
 
             lock.unlock();
             NotifyStatusObservers(message.GetUUID(), MessageStatus.BAD);

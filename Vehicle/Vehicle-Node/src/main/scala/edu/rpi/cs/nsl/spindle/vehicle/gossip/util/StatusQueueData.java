@@ -2,6 +2,9 @@ package edu.rpi.cs.nsl.spindle.vehicle.gossip.util;
 
 import java.util.UUID;
 
+/**
+ * typed pair for a message queue that is implemented as a list
+ */
 public class StatusQueueData {
     protected UUID MessageId;
     protected Object Message;

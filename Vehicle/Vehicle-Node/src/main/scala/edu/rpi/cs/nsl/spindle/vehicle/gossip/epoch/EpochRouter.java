@@ -1,11 +1,11 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.epoch;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipMessageData;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkObserver;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.messages.EpochTaggedMessage;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

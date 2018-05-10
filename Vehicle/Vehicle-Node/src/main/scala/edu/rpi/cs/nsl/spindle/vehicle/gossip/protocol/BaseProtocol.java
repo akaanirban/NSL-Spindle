@@ -1,11 +1,11 @@
 package edu.rpi.cs.nsl.spindle.vehicle.gossip.protocol;
 
-import edu.rpi.cs.nsl.spindle.vehicle.gossip.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossip;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.IGossipProtocol;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.ILogicalNetwork;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.interfaces.INetworkSender;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageQueueData;
+import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.MessageStatus;
 import edu.rpi.cs.nsl.spindle.vehicle.gossip.util.StatusQueueData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +33,10 @@ public abstract class BaseProtocol implements IGossipProtocol {
     protected List<MessageQueueData> m_messageQueue;
     protected List<StatusQueueData> m_statusQueue;
 
+    /**
+     * this should not be accessed by the child classes. If you do want to access it be very careful because it can
+     * cause a deadlock if the lower levels are not careful.
+     */
     protected Lock m_messageQueueLock;
 
     public BaseProtocol() {
@@ -42,7 +46,6 @@ public abstract class BaseProtocol implements IGossipProtocol {
         m_messageQueue = new LinkedList<>();
         m_statusQueue = new LinkedList<>();
 
-        // TODO: double check that we are OK to use this mechanism
         m_messageQueueLock = new ReentrantLock();
     }
 
@@ -93,7 +96,7 @@ public abstract class BaseProtocol implements IGossipProtocol {
         m_wantsStop.lazySet(true);
     }
 
-    protected boolean IsMessageQueueEmpty() {
+    protected boolean IsMessageQueueEmptyThreadsafe() {
         m_messageQueueLock.lock();
         boolean isEmpty = m_messageQueue.isEmpty();
         m_messageQueueLock.unlock();
@@ -101,7 +104,7 @@ public abstract class BaseProtocol implements IGossipProtocol {
         return isEmpty;
     }
 
-    protected boolean IsStatusQueueEmpty() {
+    protected boolean IsStatusQueueEmptyThreadsafe() {
         m_messageQueueLock.lock();
         boolean isEmpty = m_statusQueue.isEmpty();
         m_messageQueueLock.unlock();
@@ -109,7 +112,7 @@ public abstract class BaseProtocol implements IGossipProtocol {
         return isEmpty;
     }
 
-    protected MessageQueueData PopMessageQueue() {
+    protected MessageQueueData PopMessageQueueThreadsafe() {
         m_messageQueueLock.lock();
         MessageQueueData messageQueueData = m_messageQueue.remove(0);
         m_messageQueueLock.unlock();
@@ -117,7 +120,7 @@ public abstract class BaseProtocol implements IGossipProtocol {
         return messageQueueData;
     }
 
-    protected StatusQueueData PopStatusQueue() {
+    protected StatusQueueData PopStatusQueueThreadsafe() {
         m_messageQueueLock.lock();
         StatusQueueData statusQueueData = m_statusQueue.remove(0);
         m_messageQueueLock.unlock();

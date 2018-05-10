@@ -8,6 +8,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
+/**
+ * data object for consensus gossip
+ * note that this contains some noisy debug info
+ */
 public class Consensus implements IGossip {
     Logger logger = LoggerFactory.getLogger(this.getClass());
 
